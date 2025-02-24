@@ -1,26 +1,37 @@
-# app.py
 from flask import Flask, request, jsonify, render_template
 import requests
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
+from datetime import datetime, timedelta
+import logging
+from mistralai import Mistral
+import anthropic
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+session = requests.Session()  # Reusable HTTP session for connection pooling
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# API endpoints for different providers
+# Update PATH environment variable
+additional_path = "/home/em/.local/bin"
+os.environ["PATH"] = f"{additional_path}:{os.environ.get('PATH', '')}"
+
+# API configuration
 API_ENDPOINTS = {
     "openai": "https://api.openai.com/v1/chat/completions",
-    "groq": "https://api.groq.com/v1/chat/completions",
-    "mistral": "https://api.mistral.com/v1/chat/completions",
-    "deepseek": "https://api.deepseek.com/v1/chat/completions",
-    "anthropic": "https://api.anthropic.com/v1/chat/completions"
+    "groq": "https://api.groq.com/openai/v1/chat/completions",
+    "mistral": "https://api.mistral.ai/api/chat/completions",  # Corrected endpoint
+    "deepseek": "https://api.deepseek.ai/v1/chat/completions",
+    "anthropic": "https://api.anthropic.com/v1/messages"  # Corrected endpoint
 }
 
-# API keys for different providers
 API_KEYS = {
     "openai": os.getenv("OPENAI_API_KEY"),
     "groq": os.getenv("GROQ_API_KEY"),
@@ -29,66 +40,47 @@ API_KEYS = {
     "anthropic": os.getenv("ANTHROPIC_API_KEY")
 }
 
-# Add model endpoints
 MODEL_ENDPOINTS = {
     "openai": "https://api.openai.com/v1/models",
-    "groq": "https://api.groq.com/v1/models",
+    "groq": None,
     "mistral": "https://api.mistral.ai/v1/models",
-    "anthropic": "https://api.anthropic.com/v1/models",
-    "deepseek": "https://api.deepseek.com/v1/models"
+    "anthropic": None,
+    "deepseek": None
 }
 
-# System message
-SYSTEM_MESSAGE = (
-    "You are an expert developer skilled in multiple programming languages, including Python, HTML, CSS, JavaScript, Rust, TypeScript, Java, C++, and more. "
-    "Your primary tasks are to write complete, functional code based on user descriptions and requirements, review and debug code, optimize performance, and provide clear explanations. "
-    "Follow these guidelines:\n\n"
-    "1. **Code Quality**:\n\n"
-    "- Write clean, readable, and efficient code.\n\n"
-    "- Follow language-specific best practices and style guidelines.\n\n"
-    "- Include comments and docstrings for clarity.\n\n"
-    "2. **Functional Code**:\n\n"
-    "- Provide complete, functional code snippets or scripts.\n\n"
-    "- Ensure code is ready to run and meets the user's requirements.\n\n"
-    "- Include necessary imports and setup.\n\n"
-    "3. **Error Handling**:\n\n"
-    "- Implement robust error handling.\n\n"
-    "- Use appropriate mechanisms (e.g., try-catch) to handle exceptions.\n\n"
-    "- Validate inputs to prevent runtime errors.\n\n"
-    "4. **Review and Debug**:\n\n"
-    "- Review user-provided code for errors and inefficiencies.\n\n"
-    "- Identify and correct bugs, syntax errors, and logical issues.\n\n"
-    "- Provide detailed explanations of the issues found and the steps taken to resolve them.\n\n"
-    "5. **Optimize Performance**:\n\n"
-    "- Identify performance bottlenecks and inefficiencies.\n\n"
-    "- Suggest and implement optimizations to improve execution speed and resource usage.\n\n"
-    "- Explain the optimization techniques used.\n\n"
-    "6. **Documentation**:\n\n"
-    "- Provide clear explanations and step-by-step instructions.\n\n"
-    "- Offer additional resources if needed.\n\n"
-    "7. **Safety and Compliance**:\n\n"
-    "- Avoid harmful, unethical, or illegal code.\n\n"
-    "- Refrain from discussions related to hacking or malware.\n\n"
-    "- Ensure compliance with legal standards.\n\n"
-    "8. **User Assistance**:\n\n"
-    "- Focus on solving the user's specific problem directly.\n\n"
-    "- Ask clarifying questions if more context is needed.\n\n"
-    "- Tailor responses to the user's expertise level.\n\n"
-    "9. **Learning and Improvement**:\n\n"
-    "- Use search capabilities to find solutions if needed.\n\n"
-    "- Stay updated with the latest language developments.\n\n"
-    "10. **Conciseness**:\n\n"
-    "- Be concise while providing necessary details.\n\n"
-    "- Avoid redundancy and focus on delivering value.\n\n"
-    "11. **Professionalism**:\n\n"
-    "- Maintain a respectful and patient tone.\n\n"
-    "- Be understanding, especially with beginners.\n\n"
-    "Your role is to assist users by writing, reviewing, debugging, optimizing, and explaining code across multiple programming languages. Always prioritize clarity, safety, and efficiency in your responses."
-)
+SYSTEM_MESSAGE = "Your system message here..."  # Keep your original message
+
+# Simple cache for model lists
+model_cache = {}
 
 @app.route('/')
 def home():
     return render_template('index.html')
+
+def build_headers(provider, api_key):
+    headers = {'Content-Type': 'application/json'}
+    if provider == 'anthropic':
+        headers.update({
+            'anthropic-version': '2024-01-01',
+            'x-api-key': api_key
+        })
+    elif provider in ['groq', 'mistral']:
+        headers['Authorization'] = f'Bearer {api_key}'
+    else:
+        headers['Authorization'] = f'Bearer {api_key}'
+    return headers
+
+def build_payload(provider, model, user_message):
+    payload = {
+        'model': model,
+        'messages': [
+            {'role': 'system', 'content': SYSTEM_MESSAGE},
+            {'role': 'user', 'content': user_message}
+        ]
+    }
+    if provider == 'groq':
+        payload['temperature'] = 0.7
+    return payload
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -97,82 +89,178 @@ def chat():
     model = data.get('model')
     user_message = data.get('message')
 
-    if not provider or not model or not user_message:
+    if not all([provider, model, user_message]):
         return jsonify({'error': 'Missing required parameters'}), 400
 
-    if provider not in API_ENDPOINTS or provider not in API_KEYS:
+    if provider not in API_ENDPOINTS:
         return jsonify({'error': 'Invalid provider'}), 400
 
-    api_url = API_ENDPOINTS[provider]
-    api_key = API_KEYS[provider]
-
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json'
-    }
-
-    payload = {
-        'model': model,
-        'messages': [
-            {'role': 'system', 'content': SYSTEM_MESSAGE},
-            {'role': 'user', 'content': user_message}
-        ]
-    }
+    api_key = API_KEYS.get(provider)
+    if not api_key:
+        return jsonify({'error': f'{provider} API key not configured'}), 401
 
     try:
-        response = requests.post(api_url, headers=headers, json=payload)
-        response.raise_for_status()
-        ai_response = response.json().get('choices')[0].get('message').get('content')
+        if provider == 'mistral':
+            client = Mistral(api_key=api_key)
+            chat_response = client.chat.complete(
+                model=model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": user_message,
+                    },
+                ]
+            )
+            ai_response = chat_response.choices[0].message.content
+        elif provider == 'anthropic':
+            client = anthropic.Anthropic()
+            message = client.messages.create(
+                model=model,
+                max_tokens=1000,
+                temperature=0,
+                system="You are a world-class poet. Respond only with short poems.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": user_message
+                            }
+                        ]
+                    }
+                ]
+            )
+            # Extract the text content from the TextBlock object
+            ai_response = message.content[0].text
+        else:
+            headers = build_headers(provider, api_key)
+            payload = build_payload(provider, model, user_message)
+            logger.info(f"Request to {provider} with payload: {payload}")
+            response = session.post(
+                API_ENDPOINTS[provider],
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            response.raise_for_status()
+
+            if provider == 'anthropic':
+                ai_response = response.json().get('content', [{}])[0].get('text', '')
+            else:
+                ai_response = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+
+        logger.info(f"Response from {provider}: {ai_response}")
         return jsonify({'response': ai_response})
+
     except requests.RequestException as e:
-        return jsonify({'error': str(e)}), 500
+        error_msg = f"API request failed: {str(e)}"
+        if response := getattr(e, 'response', None):
+            error_msg += f"\nStatus: {response.status_code}\nResponse: {response.text[:200]}"
+        logger.error(error_msg)
+        return jsonify({'error': error_msg}), 500
+
+def get_cached_models(provider):
+    cache_entry = model_cache.get(provider)
+    if cache_entry and datetime.now() < cache_entry['expires']:
+        return cache_entry['data']
+    return None
 
 @app.route('/get_models/<provider>')
 def get_models(provider):
     if provider not in MODEL_ENDPOINTS:
         return jsonify([])
 
+    # Return cached models if available
+    if cached := get_cached_models(provider):
+        return jsonify(cached)
+
+    # Handle providers with static model lists
+    static_models = {
+        'groq': [
+            'distil-whisper-large-v3-en',
+            'gemma2-9b-it',
+            'llama-3.3-70b-versatile',
+            'llama-3.1-8b-instant',
+            'llama-guard-3-8b',
+            'llama3-70b-8192',
+            'llama3-8b-8192',
+            'mixtral-8x7b-32768',
+            'whisper-large-v3',
+            'whisper-large-v3-turbo'
+        ],
+        'anthropic': [
+            'claude-3-5-sonnet-20241022',
+            'claude-3-5-haiku-20241022',
+            'claude-3-opus-20240229',
+            'claude-3-sonnet-20240229',
+            'claude-3-haiku-20240307'
+        ],
+        'mistral': [
+            'codestral-latest',
+            'mistral-large-latest',
+            'pixtral-large-latest',
+            'mistral-moderation-latest',
+            'ministral-3b-latest',
+            'ministral-8b-latest',
+            'open-mistral-nemo',
+            'mistral-small-latest',
+            'mistral-saba-latest'
+        ],
+        'deepseek': [
+            'deepseek-chat',
+            'deepseek-reasoner'
+        ]
+    }
+
+    if provider in static_models:
+        model_cache[provider] = {
+            'data': static_models[provider],
+            'expires': datetime.now() + timedelta(hours=24)
+        }
+        return jsonify(static_models[provider])
+
+    # Dynamic model fetching for OpenAI/Mistral
     api_key = API_KEYS.get(provider)
     if not api_key:
         return jsonify({'error': 'API key not configured'}), 401
 
-    headers = {'Authorization': f'Bearer {api_key}'}
-
     try:
-        response = requests.get(MODEL_ENDPOINTS[provider], headers=headers)
+        response = session.get(
+            MODEL_ENDPOINTS[provider],
+            headers={'Authorization': f'Bearer {api_key}'},
+            timeout=5
+        )
         response.raise_for_status()
 
-        # Handle provider-specific response formats
         if provider == 'openai':
-            models = response.json()['data']
-            return jsonify([model['id'] for model in models])
-
+            models = [m['id'] for m in response.json()['data']
+                     if any(x in m['id'].lower() for x in ['gpt-4', 'gpt-3.5'])]
+            models = sorted(models)
         elif provider == 'mistral':
-            models = response.json()['data']
-            return jsonify([model['id'] for model in models])
+            models = [m['id'] for m in response.json()['data']]
 
-        elif provider == 'groq':
-            models = response.json()['models']
-            return jsonify([model['name'] for model in models])
-
-        elif provider == 'anthropic':
-            models = response.json()['models']
-            return jsonify([model['id'] for model in models])
-
-        elif provider == 'deepseek':
-            models = response.json()['data']
-            return jsonify([model['id'] for model in models])
+        # Cache results for 24 hours
+        model_cache[provider] = {
+            'data': models,
+            'expires': datetime.now() + timedelta(hours=24)
+        }
+        return jsonify(models)
 
     except requests.RequestException as e:
-        # Fallback to default models if API call fails
-        default_models = {
-            'openai': ['gpt-4-turbo-preview', 'gpt-4', 'gpt-3.5-turbo'],
-            'groq': ['mixtral-8x7b-32768', 'llama2-70b-4096'],
-            'mistral': ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest'],
-            'anthropic': ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-2.1'],
-            'deepseek': ['deepseek-coder', 'deepseek-chat']
+        logger.error(f"Model fetch error: {str(e)}")
+        # Fallback to recent known models
+        fallback_models = {
+            'openai': [
+                'gpt-4-turbo-preview',
+                'gpt-4-0125-preview',
+                'gpt-4',
+                'gpt-3.5-turbo-0125',
+                'gpt-3.5-turbo'
+            ],
+            'mistral': static_models['mistral']
         }
-        return jsonify(default_models.get(provider, []))
+        return jsonify(fallback_models.get(provider, []))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true')

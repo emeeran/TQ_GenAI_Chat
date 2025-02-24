@@ -1,21 +1,29 @@
-const MODELS = {
-    openai: ['gpt-3.5-turbo', 'gpt-4'],
-    groq: ['groq-model-1', 'groq-model-2'],
-    mistral: ['mistral-model-1', 'mistral-model-2'],
-    deepseek: ['deepseek-model-1', 'deepseek-model-2'],
-    anthropic: ['anthropic-model-1', 'anthropic-model-2']
-};
-
-function updateModels() {
+async function updateModels() {
     const provider = document.getElementById('provider').value;
     const modelSelect = document.getElementById('model');
-    modelSelect.innerHTML = '';
-    MODELS[provider].forEach(model => {
-        const option = document.createElement('option');
-        option.value = model;
-        option.textContent = model;
-        modelSelect.appendChild(option);
-    });
+    modelSelect.innerHTML = '<option value="">Loading models...</option>';
+    modelSelect.disabled = true;
+
+    try {
+        const response = await fetch(`/get_models/${provider}`);
+        const models = await response.json();
+
+        modelSelect.innerHTML = '<option value="">Select Model</option>';
+        if (Array.isArray(models)) {
+            models.sort().forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+            modelSelect.disabled = false;
+        } else {
+            modelSelect.innerHTML = '<option value="">No models available</option>';
+        }
+    } catch (error) {
+        console.error('Error fetching models:', error);
+        modelSelect.innerHTML = '<option value="">Error loading models</option>';
+    }
 }
 
 function appendMessage(message, isUser = false) {
