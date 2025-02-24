@@ -30,9 +30,28 @@ function appendMessage(message, isUser = false) {
     const chatBox = document.getElementById('chat-box');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
-    messageDiv.textContent = message;
+
+    if (isUser) {
+        messageDiv.textContent = message;
+    } else {
+        // Handle formatted response
+        const content = typeof message === 'object' ? message : { text: message };
+        if (content.html) {
+            messageDiv.innerHTML = content.html;
+        } else {
+            messageDiv.textContent = content.text || message;
+        }
+    }
+
     chatBox.appendChild(messageDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Apply syntax highlighting to code blocks
+    if (!isUser) {
+        messageDiv.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+    }
 }
 
 async function sendMessage() {

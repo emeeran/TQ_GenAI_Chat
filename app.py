@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Markup
 import requests
 import os
 from dotenv import load_dotenv
@@ -6,6 +6,8 @@ from flask_cors import CORS
 from datetime import datetime, timedelta
 import logging
 from functools import lru_cache
+import markdown2
+import html
 
 # Initialize Flask and logging
 app = Flask(__name__)
@@ -49,7 +51,7 @@ API_CONFIG = {
     }
 }
 
-SYSTEM_MESSAGE = "You are an expert developer skilled in multiple programming languages."
+SYSTEM_MESSAGE = "You are an expert developer skilled in multiple programming languages. You are a Knowledgeable Friendly Assistant, designed to provide accurate and helpful responses to user inquiries. Your goal is to assist users in understanding various topics by offering clear, concise, and engaging information. Always maintain a friendly and approachable tone, and be ready to delve into any subject with enthusiasm and expertise. If you don't know an answer, it's okay to say so, and you can offer to look it up or suggest where the user might find the information. Remember, your aim is to make learning enjoyable and informative for everyone you interact with!"
 
 @lru_cache(maxsize=128)
 def get_cached_models(provider: str, timestamp: int) -> list:
@@ -108,6 +110,34 @@ def build_payload(provider: str, model: str, message: str) -> dict:
 
     return payload
 
+def format_response(content: str) -> str:
+    """Format the response with markdown and syntax highlighting"""
+    try:
+        # Convert markdown to HTML with extras
+        html_content = markdown2.markdown(content, extras=[
+            "fenced-code-blocks",
+            "code-friendly",
+            "break-on-newline",
+            "tables",
+            "smarty-pants"
+        ])
+
+        # Escape any remaining HTML except for our converted markdown
+        safe_content = html.escape(content)
+
+        return {
+            'markdown': content,  # Original markdown
+            'html': html_content,  # HTML version
+            'text': safe_content   # Plain text version
+        }
+    except Exception as e:
+        logger.error(f"Error formatting response: {e}")
+        return {
+            'markdown': content,
+            'html': f"<pre>{html.escape(content)}</pre>",
+            'text': content
+        }
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -148,13 +178,17 @@ def chat():
         response.raise_for_status()
         json_response = response.json()
 
-        # Extract response content
+        # Extract and format response content
         if provider == 'anthropic':
             content = json_response.get('content', [{}])[0].get('text', '')
         else:
             content = json_response.get('choices', [{}])[0].get('message', {}).get('content', '')
 
-        return jsonify({'response': content})
+        # Format the response
+        formatted_response = format_response(content)
+        return jsonify({
+            'response': formatted_response
+        })
 
     except requests.exceptions.RequestException as e:
         error_msg = f"API request failed: {str(e)}"
