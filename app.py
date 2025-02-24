@@ -5,284 +5,156 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import logging
-from mistralai import Mistral
-import anthropic
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+# Initialize Flask and logging
 app = Flask(__name__)
 CORS(app)
-session = requests.Session()  # Reusable HTTP session for connection pooling
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
-# Update PATH environment variable
-additional_path = "/home/em/.local/bin"
-os.environ["PATH"] = f"{additional_path}:{os.environ.get('PATH', '')}"
+# Reusable session and thread pool
+session = requests.Session()
+executor = ThreadPoolExecutor(max_workers=10)
 
 # API configuration
-API_ENDPOINTS = {
-    "openai": "https://api.openai.com/v1/chat/completions",
-    "groq": "https://api.groq.com/openai/v1/chat/completions",
-    "mistral": "https://api.mistral.ai/api/chat/completions",
-    "deepseek": "https://api.deepseek.ai/v1/chat/completions",
-    "anthropic": "https://api.anthropic.com/v1/messages",
-    "xai": "https://api.x.ai/v1/chat/completions"  # Added X AI endpoint
+API_CONFIG = {
+    "openai": {
+        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "models_endpoint": "https://api.openai.com/v1/models",
+        "key": os.getenv("OPENAI_API_KEY"),
+        "dynamic_models": True
+    },
+    "groq": {
+        "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+        "key": os.getenv("GROQ_API_KEY"),
+        "models": ['mixtral-8x7b-32768', 'llama2-70b-4096', 'gemma-7b-it']
+    },
+    "mistral": {
+        "endpoint": "https://api.mistral.ai/api/chat/completions",
+        "key": os.getenv("MISTRAL_API_KEY"),
+        "models": ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest']
+    },
+    "anthropic": {
+        "endpoint": "https://api.anthropic.com/v1/messages",
+        "key": os.getenv("ANTHROPIC_API_KEY"),
+        "models": ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307']
+    },
+    "xai": {
+        "endpoint": "https://api.x.ai/v1/chat/completions",
+        "key": os.getenv("XAI_API_KEY"),
+        "models": ['grok-2-vision-latest', 'grok-2-latest', 'grok-vision-beta']
+    }
 }
 
-API_KEYS = {
-    "openai": os.getenv("OPENAI_API_KEY"),
-    "groq": os.getenv("GROQ_API_KEY"),
-    "mistral": os.getenv("MISTRAL_API_KEY"),
-    "deepseek": os.getenv("DEEPSEEK_API_KEY"),
-    "anthropic": os.getenv("ANTHROPIC_API_KEY"),
-    "xai": os.getenv("XAI_API_KEY")  # Updated to match .env file
-}
+SYSTEM_MESSAGE = "You are an expert developer skilled in multiple programming languages."
 
-MODEL_ENDPOINTS = {
-    "openai": "https://api.openai.com/v1/models",
-    "groq": None,
-    "mistral": "https://api.mistral.ai/v1/models",
-    "anthropic": None,
-    "deepseek": None,
-    "xai": None  # X AI does not have a model listing endpoint
-}
+@lru_cache(maxsize=128)
+def get_cached_models(provider: str, timestamp: int) -> list:
+    """Cache models with TTL"""
+    config = API_CONFIG.get(provider, {})
+    if not config.get('dynamic_models'):
+        return config.get('models', [])
 
-SYSTEM_MESSAGE = "Your system message here..."  # Keep your original message
+    try:
+        response = session.get(
+            config['models_endpoint'],
+            headers={'Authorization': f'Bearer {config["key"]}'},
+            timeout=5
+        )
+        response.raise_for_status()
+        if provider == 'openai':
+            return [m['id'] for m in response.json()['data']
+                   if any(x in m['id'].lower() for x in ['gpt-4', 'gpt-3.5'])]
+    except Exception as e:
+        logger.error(f"Model fetch error for {provider}: {e}")
+        return config.get('models', [])
 
-# Simple cache for model lists
-model_cache = {}
+def build_headers(provider: str) -> dict:
+    """Build request headers"""
+    config = API_CONFIG.get(provider, {})
+    headers = {'Content-Type': 'application/json'}
+
+    if provider == 'anthropic':
+        headers.update({
+            'anthropic-version': '2024-01-01',
+            'x-api-key': config['key']
+        })
+    else:
+        headers['Authorization'] = f'Bearer {config["key"]}'
+
+    return headers
+
+def build_payload(provider: str, model: str, message: str) -> dict:
+    """Build request payload"""
+    payload = {
+        'model': model,
+        'messages': [
+            {'role': 'system', 'content': SYSTEM_MESSAGE},
+            {'role': 'user', 'content': message}
+        ]
+    }
+
+    if provider == 'groq':
+        payload['temperature'] = 0.7
+
+    return payload
 
 @app.route('/')
 def home():
     return render_template('index.html')
 
-def build_headers(provider, api_key):
-    headers = {'Content-Type': 'application/json'}
-    if provider == 'anthropic':
-        headers.update({
-            'anthropic-version': '2024-01-01',
-            'x-api-key': api_key
-        })
-    elif provider in ['groq', 'mistral']:
-        headers['Authorization'] = f'Bearer {api_key}'
-    elif provider == 'xai':
-        headers['Authorization'] = f'Bearer {api_key}'
-    else:
-        headers['Authorization'] = f'Bearer {api_key}'
-    return headers
+@app.route('/get_models/<provider>')
+def get_models(provider):
+    if provider not in API_CONFIG:
+        return jsonify([])
 
-def build_payload(provider, model, user_message):
-    payload = {
-        'model': model,
-        'messages': [
-            {'role': 'system', 'content': SYSTEM_MESSAGE},
-            {'role': 'user', 'content': user_message}
-        ]
-    }
-    if provider == 'groq':
-        payload['temperature'] = 0.7
-    return payload
+    # Get cached models with 1-hour TTL
+    timestamp = int(datetime.now().timestamp() / 3600)
+    return jsonify(get_cached_models(provider, timestamp))
 
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
     provider = data.get('provider')
     model = data.get('model')
-    user_message = data.get('message')
+    message = data.get('message')
 
-    if not all([provider, model, user_message]):
+    if not all([provider, model, message]):
         return jsonify({'error': 'Missing required parameters'}), 400
 
-    if provider not in API_ENDPOINTS:
-        return jsonify({'error': 'Invalid provider'}), 400
-
-    api_key = API_KEYS.get(provider)
-    if not api_key:
-        return jsonify({'error': f'{provider} API key not configured'}), 401
+    config = API_CONFIG.get(provider)
+    if not config or not config.get('key'):
+        return jsonify({'error': f'Invalid provider or missing API key'}), 401
 
     try:
-        if provider == 'mistral':
-            client = Mistral(api_key=api_key)
-            chat_response = client.chat.complete(
-                model=model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": user_message,
-                    },
-                ]
-            )
-            ai_response = chat_response.choices[0].message.content
-        elif provider == 'anthropic':
-            client = anthropic.Anthropic()
-            message = client.messages.create(
-                model=model,
-                max_tokens=1000,
-                temperature=0,
-                system="You are a world-class poet. Respond only with short poems.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": user_message
-                            }
-                        ]
-                    }
-                ]
-            )
-            ai_response = message.content[0].text
-        elif provider == 'xai':
-            headers = build_headers(provider, api_key)
-            payload = build_payload(provider, model, user_message)
-            logger.info(f"Request to {provider} with payload: {payload}")
-            response = session.post(
-                API_ENDPOINTS[provider],
-                headers=headers,
-                json=payload,
-                timeout=10
-            )
-            response.raise_for_status()
-            ai_response = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
-        else:
-            headers = build_headers(provider, api_key)
-            payload = build_payload(provider, model, user_message)
-            logger.info(f"Request to {provider} with payload: {payload}")
-            response = session.post(
-                API_ENDPOINTS[provider],
-                headers=headers,
-                json=payload,
-                timeout=10
-            )
-            response.raise_for_status()
+        headers = build_headers(provider)
+        payload = build_payload(provider, model, message)
 
-            if provider == 'anthropic':
-                ai_response = response.json().get('content', [{}])[0].get('text', '')
-            else:
-                ai_response = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
-
-        logger.info(f"Response from {provider}: {ai_response}")
-        return jsonify({'response': ai_response})
-
-    except requests.RequestException as e:
-        error_msg = f"API request failed: {str(e)}"
-        if response := getattr(e, 'response', None):
-            error_msg += f"\nStatus: {response.status_code}\nResponse: {response.text[:200]}"
-        logger.error(error_msg)
-        return jsonify({'error': error_msg}), 500
-
-def get_cached_models(provider):
-    cache_entry = model_cache.get(provider)
-    if cache_entry and datetime.now() < cache_entry['expires']:
-        return cache_entry['data']
-    return None
-
-@app.route('/get_models/<provider>')
-def get_models(provider):
-    if provider not in MODEL_ENDPOINTS:
-        return jsonify([])
-
-    # Return cached models if available
-    if cached := get_cached_models(provider):
-        return jsonify(cached)
-
-    # Handle providers with static model lists
-    static_models = {
-        'groq': [
-            'distil-whisper-large-v3-en',
-            'gemma2-9b-it',
-            'llama-3.3-70b-versatile',
-            'llama-3.1-8b-instant',
-            'llama-guard-3-8b',
-            'llama3-70b-8192',
-            'llama3-8b-8192',
-            'mixtral-8x7b-32768',
-            'whisper-large-v3',
-            'whisper-large-v3-turbo'
-        ],
-        'anthropic': [
-            'claude-3-5-sonnet-20241022',
-            'claude-3-5-haiku-20241022',
-            'claude-3-opus-20240229',
-            'claude-3-sonnet-20240229',
-            'claude-3-haiku-20240307'
-        ],
-        'mistral': [
-            'codestral-latest',
-            'mistral-large-latest',
-            'pixtral-large-latest',
-            'mistral-moderation-latest',
-            'ministral-3b-latest',
-            'ministral-8b-latest',
-            'open-mistral-nemo',
-            'mistral-small-latest',
-            'mistral-saba-latest'
-        ],
-        'deepseek': [
-            'deepseek-chat',
-            'deepseek-reasoner'
-        ],
-        'xai': [
-            'grok-2-vision-latest',
-            'grok-2-latest',
-            'grok-vision-beta',
-            'grok-beta'
-        ]
-    }
-
-    if provider in static_models:
-        model_cache[provider] = {
-            'data': static_models[provider],
-            'expires': datetime.now() + timedelta(hours=24)
-        }
-        return jsonify(static_models[provider])
-
-    # Dynamic model fetching for OpenAI/Mistral
-    api_key = API_KEYS.get(provider)
-    if not api_key:
-        return jsonify({'error': 'API key not configured'}), 401
-
-    try:
-        response = session.get(
-            MODEL_ENDPOINTS[provider],
-            headers={'Authorization': f'Bearer {api_key}'},
-            timeout=5
+        response = session.post(
+            config['endpoint'],
+            headers=headers,
+            json=payload,
+            timeout=10
         )
         response.raise_for_status()
 
-        if provider == 'openai':
-            models = [m['id'] for m in response.json()['data']
-                     if any(x in m['id'].lower() for x in ['gpt-4', 'gpt-3.5'])]
-            models = sorted(models)
-        elif provider == 'mistral':
-            models = [m['id'] for m in response.json()['data']]
+        # Extract response content
+        if provider == 'anthropic':
+            content = response.json().get('content', [{}])[0].get('text', '')
+        else:
+            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
 
-        # Cache results for 24 hours
-        model_cache[provider] = {
-            'data': models,
-            'expires': datetime.now() + timedelta(hours=24)
-        }
-        return jsonify(models)
+        return jsonify({'response': content})
 
-    except requests.RequestException as e:
-        logger.error(f"Model fetch error: {str(e)}")
-        # Fallback to recent known models
-        fallback_models = {
-            'openai': [
-                'gpt-4-turbo-preview',
-                'gpt-4-0125-preview',
-                'gpt-4',
-                'gpt-3.5-turbo-0125',
-                'gpt-3.5-turbo'
-            ],
-            'mistral': static_models['mistral']
-        }
-        return jsonify(fallback_models.get(provider, []))
+    except Exception as e:
+        error_msg = f"API request failed: {str(e)}"
+        logger.error(error_msg)
+        return jsonify({'error': error_msg}), 500
 
 if __name__ == '__main__':
-    app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true')
+    app.run(debug=False, threaded=True)
