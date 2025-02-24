@@ -27,9 +27,10 @@ os.environ["PATH"] = f"{additional_path}:{os.environ.get('PATH', '')}"
 API_ENDPOINTS = {
     "openai": "https://api.openai.com/v1/chat/completions",
     "groq": "https://api.groq.com/openai/v1/chat/completions",
-    "mistral": "https://api.mistral.ai/api/chat/completions",  # Corrected endpoint
+    "mistral": "https://api.mistral.ai/api/chat/completions",
     "deepseek": "https://api.deepseek.ai/v1/chat/completions",
-    "anthropic": "https://api.anthropic.com/v1/messages"  # Corrected endpoint
+    "anthropic": "https://api.anthropic.com/v1/messages",
+    "xai": "https://api.x.ai/v1/chat/completions"  # Added X AI endpoint
 }
 
 API_KEYS = {
@@ -37,7 +38,8 @@ API_KEYS = {
     "groq": os.getenv("GROQ_API_KEY"),
     "mistral": os.getenv("MISTRAL_API_KEY"),
     "deepseek": os.getenv("DEEPSEEK_API_KEY"),
-    "anthropic": os.getenv("ANTHROPIC_API_KEY")
+    "anthropic": os.getenv("ANTHROPIC_API_KEY"),
+    "xai": os.getenv("XAI_API_KEY")  # Updated to match .env file
 }
 
 MODEL_ENDPOINTS = {
@@ -45,7 +47,8 @@ MODEL_ENDPOINTS = {
     "groq": None,
     "mistral": "https://api.mistral.ai/v1/models",
     "anthropic": None,
-    "deepseek": None
+    "deepseek": None,
+    "xai": None  # X AI does not have a model listing endpoint
 }
 
 SYSTEM_MESSAGE = "Your system message here..."  # Keep your original message
@@ -65,6 +68,8 @@ def build_headers(provider, api_key):
             'x-api-key': api_key
         })
     elif provider in ['groq', 'mistral']:
+        headers['Authorization'] = f'Bearer {api_key}'
+    elif provider == 'xai':
         headers['Authorization'] = f'Bearer {api_key}'
     else:
         headers['Authorization'] = f'Bearer {api_key}'
@@ -131,8 +136,19 @@ def chat():
                     }
                 ]
             )
-            # Extract the text content from the TextBlock object
             ai_response = message.content[0].text
+        elif provider == 'xai':
+            headers = build_headers(provider, api_key)
+            payload = build_payload(provider, model, user_message)
+            logger.info(f"Request to {provider} with payload: {payload}")
+            response = session.post(
+                API_ENDPOINTS[provider],
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            response.raise_for_status()
+            ai_response = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
         else:
             headers = build_headers(provider, api_key)
             payload = build_payload(provider, model, user_message)
@@ -210,6 +226,12 @@ def get_models(provider):
         'deepseek': [
             'deepseek-chat',
             'deepseek-reasoner'
+        ],
+        'xai': [
+            'grok-2-vision-latest',
+            'grok-2-latest',
+            'grok-vision-beta',
+            'grok-beta'
         ]
     }
 
