@@ -6,7 +6,6 @@ from flask_cors import CORS
 from datetime import datetime, timedelta
 import logging
 from functools import lru_cache
-from concurrent.futures import ThreadPoolExecutor
 
 # Initialize Flask and logging
 app = Flask(__name__)
@@ -17,9 +16,8 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Reusable session and thread pool
+# Reusable session for connection pooling
 session = requests.Session()
-executor = ThreadPoolExecutor(max_workers=10)
 
 # API configuration
 API_CONFIG = {
@@ -35,7 +33,7 @@ API_CONFIG = {
         "models": ['mixtral-8x7b-32768', 'llama2-70b-4096', 'gemma-7b-it']
     },
     "mistral": {
-        "endpoint": "https://api.mistral.ai/api/chat/completions",
+        "endpoint": "https://api.mistral.ai/v1/chat/completions",
         "key": os.getenv("MISTRAL_API_KEY"),
         "models": ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest']
     },
@@ -90,14 +88,20 @@ def build_headers(provider: str) -> dict:
     return headers
 
 def build_payload(provider: str, model: str, message: str) -> dict:
-    """Build request payload"""
-    payload = {
-        'model': model,
-        'messages': [
+    """Build request payload with provider-specific structure"""
+    payload = {'model': model}
+
+    if provider == 'anthropic':
+        payload.update({
+            'system': SYSTEM_MESSAGE,
+            'messages': [{'role': 'user', 'content': message}],
+            'max_tokens': 4096
+        })
+    else:
+        payload['messages'] = [
             {'role': 'system', 'content': SYSTEM_MESSAGE},
             {'role': 'user', 'content': message}
         ]
-    }
 
     if provider == 'groq':
         payload['temperature'] = 0.7
@@ -114,7 +118,7 @@ def get_models(provider):
         return jsonify([])
 
     # Get cached models with 1-hour TTL
-    timestamp = int(datetime.now().timestamp() / 3600)
+    timestamp = int(datetime.now().timestamp() // 3600)
     return jsonify(get_cached_models(provider, timestamp))
 
 @app.route('/chat', methods=['POST'])
@@ -142,19 +146,23 @@ def chat():
             timeout=10
         )
         response.raise_for_status()
+        json_response = response.json()
 
         # Extract response content
         if provider == 'anthropic':
-            content = response.json().get('content', [{}])[0].get('text', '')
+            content = json_response.get('content', [{}])[0].get('text', '')
         else:
-            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+            content = json_response.get('choices', [{}])[0].get('message', {}).get('content', '')
 
         return jsonify({'response': content})
 
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         error_msg = f"API request failed: {str(e)}"
-        logger.error(error_msg)
+        logger.error(f"{error_msg}. Response: {e.response.text[:200] if e.response else 'No response'}")
         return jsonify({'error': error_msg}), 500
+    except Exception as e:
+        logger.exception("Unexpected error processing request")
+        return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=False, threaded=True)
+    app.run(debug=False)
