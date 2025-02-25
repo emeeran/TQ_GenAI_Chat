@@ -92,11 +92,12 @@ body {
     padding: 15px;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
 }
 
 .action-buttons .btn {
-    padding: 12px;
-    margin-bottom: 12px;
+    padding: 8px 16px;
+    margin-bottom: 10px;
     transition: all 0.3s ease;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     height: 48px;
@@ -149,12 +150,18 @@ body {
 .speak-message {
     float: right;
     margin-left: 10px;
-    opacity: 0.6;
-    transition: opacity 0.3s ease;
+    opacity: 0.8;
+    transition: all 0.3s ease;
 }
 
 .speak-message:hover {
     opacity: 1;
+    transform: scale(1.1);
+}
+
+.speak-message.speaking {
+    color: #dc3545;
+    animation: pulse 1.5s infinite;
 }
 
 #record-button {
@@ -181,4 +188,69 @@ body {
     100% {
         transform: scale(1);
     }
+}
+
+/* Voice Settings Styles */
+.voice-settings {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.form-range {
+    width: 100%;
+    margin-top: 5px;
+}
+
+#voice-select {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.voice-control-value {
+    display: inline-block;
+    min-width: 40px;
+    text-align: right;
+    color: #6c757d;
+}
+
+/* Settings Groups */
+.settings-group {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding-bottom: 10px;
+}
+
+.settings-header i {
+    transition: transform 0.3s ease;
+}
+
+.settings-header:hover {
+    opacity: 0.8;
+}
+
+.settings-content {
+    max-height: 500px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.settings-content.collapsed {
+    max-height: 0;
+}
+
+.settings-header i.rotated {
+    transform: rotate(180deg);
 }

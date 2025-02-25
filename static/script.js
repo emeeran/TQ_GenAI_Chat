@@ -459,6 +459,11 @@ let isRecording = false;
 const speechSynthesis = window.speechSynthesis;
 let isSpeaking = false;
 
+// Update speech synthesis variables
+let selectedVoice = null;
+let voiceRate = 1.0;
+let voicePitch = 1.0;
+
 async function initializeAudio() {
     try {
         // Check if audio transcription is available
@@ -531,8 +536,95 @@ async function transcribeAudio(audioBlob) {
     }
 }
 
+function updateVoiceList() {
+    const voiceSelect = document.getElementById('voice-select');
+    const voices = speechSynthesis.getVoices();
+
+    // Filter for English voices only
+    const englishVoices = voices.filter(voice =>
+        voice.lang.startsWith('en-') || voice.lang === 'en'
+    );
+
+    voiceSelect.innerHTML = '';
+    englishVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        option.textContent = `${voice.name} (${voice.lang})`;
+        if (voice.default) {
+            option.selected = true;
+            selectedVoice = voice;
+        }
+        voiceSelect.appendChild(option);
+    });
+
+    // Sort by name
+    const options = Array.from(voiceSelect.options);
+    options.sort((a, b) => a.text.localeCompare(b.text));
+
+    voiceSelect.innerHTML = '';
+    options.forEach(option => voiceSelect.appendChild(option));
+}
+
+function toggleVoiceSettings() {
+    const content = document.getElementById('voice-settings');
+    const icon = document.querySelector('.settings-header i');
+
+    content.classList.toggle('collapsed');
+    icon.classList.toggle('rotated');
+}
+
+// Initialize voice controls with state persistence
+function initializeVoiceControls() {
+    const voiceSelect = document.getElementById('voice-select');
+    const rateInput = document.getElementById('voice-rate');
+    const pitchInput = document.getElementById('voice-pitch');
+    const rateValue = document.getElementById('voice-rate-value');
+    const pitchValue = document.getElementById('voice-pitch-value');
+
+    // Load saved settings
+    const savedSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+    voiceRate = savedSettings.rate || 1.0;
+    voicePitch = savedSettings.pitch || 1.0;
+
+    // Update UI with saved settings
+    rateInput.value = voiceRate;
+    pitchInput.value = voicePitch;
+    rateValue.textContent = `${voiceRate.toFixed(1)}x`;
+    pitchValue.textContent = `${voicePitch.toFixed(1)}x`;
+
+    voiceSelect.addEventListener('change', (e) => {
+        const voices = speechSynthesis.getVoices();
+        selectedVoice = voices.find(voice => voice.name === e.target.value);
+        localStorage.setItem('voiceSettings', JSON.stringify({
+            ...savedSettings,
+            voice: selectedVoice?.name
+        }));
+    });
+
+    rateInput.addEventListener('input', (e) => {
+        voiceRate = parseFloat(e.target.value);
+        rateValue.textContent = `${voiceRate.toFixed(1)}x`;
+        localStorage.setItem('voiceSettings', JSON.stringify({
+            ...savedSettings,
+            rate: voiceRate
+        }));
+    });
+
+    pitchInput.addEventListener('input', (e) => {
+        voicePitch = parseFloat(e.target.value);
+        pitchValue.textContent = `${voicePitch.toFixed(1)}x`;
+        localStorage.setItem('voiceSettings', JSON.stringify({
+            ...savedSettings,
+            pitch: voicePitch
+        }));
+    });
+
+    updateVoiceList();
+    speechSynthesis.onvoiceschanged = updateVoiceList;
+}
+
 function speakText(text) {
-    // Clean up the text - remove code blocks and markdown
+    // Clean up the text
     const cleanText = text.replace(/```[\s\S]*?```/g, 'code block omitted')
         .replace(/`.*?`/g, '')
         .replace(/\[.*?\]\(.*?\)/g, '')
@@ -548,21 +640,13 @@ function speakText(text) {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
 
-    // Configure speech settings
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    // Get available voices and set a good default
-    let voices = speechSynthesis.getVoices();
-    if (voices.length > 0) {
-        // Try to find a good English voice
-        const preferredVoice = voices.find(voice =>
-            voice.lang.startsWith('en') &&
-            (voice.name.includes('Google') || voice.name.includes('Microsoft'))
-        ) || voices[0];
-        utterance.voice = preferredVoice;
+    // Apply voice settings
+    if (selectedVoice) {
+        utterance.voice = selectedVoice;
     }
+    utterance.rate = voiceRate;
+    utterance.pitch = voicePitch;
+    utterance.volume = 1.0;
 
     utterance.onend = () => {
         isSpeaking = false;
@@ -604,5 +688,6 @@ speechSynthesis.onvoiceschanged = () => {
 // Initialize audio on page load
 document.addEventListener('DOMContentLoaded', function () {
     initializeAudio();
+    initializeVoiceControls();
     document.getElementById('provider').dispatchEvent(new Event('change'));
 });
