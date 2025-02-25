@@ -346,12 +346,14 @@ async function sendMessage(message = null, isRetry = false) {
             chatHistory.push({
                 content: messageToSend,
                 isUser: true,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                metadata: null
             });
             chatHistory.push({
                 content: data.response,
                 isUser: false,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                metadata: data.metadata
             });
             showFeedback(true);
         }

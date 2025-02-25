@@ -10,7 +10,7 @@ build/
 
 # Custom build directories
 saved_chats/
-exorts/
+exports/
 
 
 # Ignore environment variable files
