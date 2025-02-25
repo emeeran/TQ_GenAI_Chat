@@ -28,22 +28,37 @@ API_CONFIG = {
         "endpoint": "https://api.openai.com/v1/chat/completions",
         "models_endpoint": "https://api.openai.com/v1/models",
         "key": os.getenv("OPENAI_API_KEY"),
-        "dynamic_models": True
+        "default_model": "gpt-4o-mini",
+        "dynamic_models": True,
+        "models": [
+            'gpt-4-turbo-preview',
+            'gpt-4-0125-preview',
+            'gpt-4-1106-preview',
+            'gpt-4-vision-preview',
+            'gpt-4',
+            'gpt-4-32k',
+            'gpt-3.5-turbo',
+            'gpt-3.5-turbo-16k',
+            'gpt-3.5-turbo-instruct'
+        ]
     },
     "groq": {
         "endpoint": "https://api.groq.com/openai/v1/chat/completions",
         "key": os.getenv("GROQ_API_KEY"),
+        "default_model": "deepseek-r1-distill-llama-70b",
         "models": [
-            # Current Models
+            # Large Models
             'mixtral-8x7b-32768',
             'llama2-70b-4096',
-            'gemma-7b-it',
             'llama-3.3-70b-versatile',
+            # Medium Models
+            'gemma-7b-it',
             'llama-3.1-8b-instant',
+            'llama3-8b-8192',
+            # Specialized Models
             'llama-guard-3-8b',
             'llama3-70b-8192',
-            'llama3-8b-8192',
-            # Audio/Speech Models
+            # Audio Models
             'whisper-large-v3',
             'whisper-large-v3-turbo',
             'distil-whisper-large-v3-en',
@@ -51,7 +66,7 @@ API_CONFIG = {
             'deepseek-r1-distill-qwen-32b',
             'deepseek-r1-distill-llama-70b',
             'deepseek-r1-distill-llama-70b-specdec',
-            # Preview Models
+            # Preview/Beta Models
             'qwen-2.5-coder-32b',
             'qwen-2.5-32b',
             'llama-3.3-70b-specdec',
@@ -64,30 +79,83 @@ API_CONFIG = {
     "mistral": {
         "endpoint": "https://api.mistral.ai/v1/chat/completions",
         "key": os.getenv("MISTRAL_API_KEY"),
-        "models": ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest']
+        "default_model": "codestral-latest",
+        "models": [
+            # Latest Models
+            'mistral-large-latest',
+            'mistral-medium-latest',
+            'mistral-small-latest',
+            'mistral-tiny-latest',
+            # Specialized Models
+            'codestral-latest',
+            'pixtral-large-latest',
+            'mistral-embed',
+            'mistral-moderation-latest',
+            'mistral-saba-latest',
+            # Edge Models
+            'ministral-8b-latest',
+            'ministral-3b-latest',
+            # Research Models
+            'open-mistral-nemo',
+            'open-codestral-mamba',
+            # Dated Versions
+            'mistral-large-2402',
+            'mistral-large-2407',
+            'mistral-medium-2312',
+            'mistral-small-2402',
+            'codestral-2405',
+            # Legacy Models
+            'open-mixtral-8x7b',
+            'open-mistral-7b',
+            'open-mixtral-8x22b'
+        ]
     },
     "anthropic": {
         "endpoint": "https://api.anthropic.com/v1/messages",
         "key": os.getenv("ANTHROPIC_API_KEY"),
+        "default_model": "claude-3.5-hiaku-20241022",
         "models": [
             # Claude 3 Models
             'claude-3-opus-20240229',
             'claude-3-sonnet-20240229',
             'claude-3-haiku-20240307',
-            # Claude 3.5 Models (Fixed format)
-            'claude-3-5-sonnet-20241022',  # Fixed hyphenation
-            'claude-3-5-haiku-20241022',   # Fixed hyphenation
-            'claude-3-7-sonnet-20240317',  # Fixed hyphenation
+            # Claude 3.5/3.7 Models
+            'claude-3-5-sonnet-20241022',
+            'claude-3-5-haiku-20241022',
+            'claude-3-7-sonnet-20240317',
             # Legacy Models
-            'claude-2-1',                  # Fixed hyphenation
-            'claude-2-0',                  # Fixed hyphenation
-            'claude-instant-1-2'           # Fixed hyphenation
+            'claude-2-1',
+            'claude-2-0',
+            'claude-instant-1-2',
+            # AWS/GCP Variants
+            'claude-3-sonnet@20240229',
+            'claude-3-haiku@20240307'
         ]
     },
     "xai": {
         "endpoint": "https://api.x.ai/v1/chat/completions",
         "key": os.getenv("XAI_API_KEY"),
-        "models": ['grok-2-vision-latest', 'grok-2-latest', 'grok-vision-beta']
+        "models": [
+            # Latest Models
+            'grok-2-vision-latest',
+            'grok-2-latest',
+            'grok-vision-beta',
+            'grok-beta',
+            # Dated Versions
+            'grok-2-vision-1212',
+            'grok-2-1212'
+        ]
+    },
+    "deepseek": {
+        "endpoint": "https://api.deepseek.ai/v1/chat/completions",
+        "key": os.getenv("DEEPSEEK_API_KEY"),
+        "models": [
+            'deepseek-chat',
+            'deepseek-coder',
+            'deepseek-reasoner',
+            'deepseek-math',
+            'deepseek-english'
+        ]
     }
 }
 

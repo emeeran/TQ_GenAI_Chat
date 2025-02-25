@@ -10,10 +10,19 @@ async function updateModels() {
 
         modelSelect.innerHTML = '<option value="">Select Model</option>';
         if (Array.isArray(models)) {
+            // Get default model from the data-default attribute
+            const defaultModel = document.getElementById('provider')
+                .querySelector(`option[value="${provider}"]`)
+                .dataset.default;
+
             models.sort().forEach(model => {
                 const option = document.createElement('option');
                 option.value = model;
                 option.textContent = model;
+                // Select the default model
+                if (model === defaultModel) {
+                    option.selected = true;
+                }
                 modelSelect.appendChild(option);
             });
             modelSelect.disabled = false;
