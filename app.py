@@ -32,7 +32,33 @@ API_CONFIG = {
     "groq": {
         "endpoint": "https://api.groq.com/openai/v1/chat/completions",
         "key": os.getenv("GROQ_API_KEY"),
-        "models": ['mixtral-8x7b-32768', 'llama2-70b-4096', 'gemma-7b-it']
+        "models": [
+            # Current Models
+            'mixtral-8x7b-32768',
+            'llama2-70b-4096',
+            'gemma-7b-it',
+            'llama-3.3-70b-versatile',
+            'llama-3.1-8b-instant',
+            'llama-guard-3-8b',
+            'llama3-70b-8192',
+            'llama3-8b-8192',
+            # Audio/Speech Models
+            'whisper-large-v3',
+            'whisper-large-v3-turbo',
+            'distil-whisper-large-v3-en',
+            # DeepSeek Models
+            'deepseek-r1-distill-qwen-32b',
+            'deepseek-r1-distill-llama-70b',
+            'deepseek-r1-distill-llama-70b-specdec',
+            # Preview Models
+            'qwen-2.5-coder-32b',
+            'qwen-2.5-32b',
+            'llama-3.3-70b-specdec',
+            'llama-3.2-1b-preview',
+            'llama-3.2-3b-preview',
+            'llama-3.2-11b-vision-preview',
+            'llama-3.2-90b-vision-preview'
+        ]
     },
     "mistral": {
         "endpoint": "https://api.mistral.ai/v1/chat/completions",
