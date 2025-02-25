@@ -9,6 +9,12 @@ from functools import lru_cache
 import markdown2
 import html
 import anthropic
+import json
+from pathlib import Path
+from datetime import datetime
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import time
 
 # Initialize Flask and logging
 app = Flask(__name__)
@@ -21,6 +27,17 @@ load_dotenv()
 
 # Reusable session for connection pooling
 session = requests.Session()
+
+# Configure retry strategy
+retry_strategy = Retry(
+    total=3,  # number of retries
+    backoff_factor=2,  # exponential backoff
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "POST"]
+)
+
+# Update session with retry strategy
+session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
 
 # API configuration
 API_CONFIG = {
@@ -256,6 +273,33 @@ def format_response(content: str) -> str:
             'text': content
         }
 
+# Update TIMEOUT_CONFIG
+TIMEOUT_CONFIG = {
+    'default': 15,
+    'xai': {
+        'connect': 10,
+        'read': 60,  # Increased read timeout for X AI
+        'retries': 3
+    },
+    'anthropic': {
+        'connect': 5,
+        'read': 30,
+        'retries': 2
+    },
+    'groq': {
+        'connect': 5,
+        'read': 30,
+        'retries': 2
+    }
+}
+
+def get_provider_timeout(provider: str) -> tuple:
+    """Get provider-specific timeout settings"""
+    config = TIMEOUT_CONFIG.get(provider, {})
+    if isinstance(config, dict):
+        return (config.get('connect', 5), config.get('read', TIMEOUT_CONFIG['default']))
+    return (5, config)
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -298,15 +342,31 @@ def chat():
         else:
             headers = build_headers(provider)
             payload = build_payload(provider, model, message)
-            response = session.post(
-                config['endpoint'],
-                headers=headers,
-                json=payload,
-                timeout=10
-            )
-            response.raise_for_status()
-            json_response = response.json()
-            content = json_response.get('choices', [{}])[0].get('message', {}).get('content', '')
+            connect_timeout, read_timeout = get_provider_timeout(provider)
+
+            try:
+                response = session.post(
+                    config['endpoint'],
+                    headers=headers,
+                    json=payload,
+                    timeout=(connect_timeout, read_timeout)
+                )
+                response.raise_for_status()
+                json_response = response.json()
+                content = json_response.get('choices', [{}])[0].get('message', {}).get('content', '')
+
+            except requests.Timeout as e:
+                logger.error(f"Timeout error for {provider}: {str(e)}")
+                return jsonify({
+                    'error': f'Request to {provider} timed out after {read_timeout}s. The service might be experiencing high load.'
+                }), 504
+
+            except requests.RequestException as e:
+                logger.error(f"Request error for {provider}: {str(e)}")
+                error_details = str(e.response.text) if hasattr(e, 'response') else str(e)
+                return jsonify({
+                    'error': f'Error communicating with {provider}: {error_details}'
+                }), 502
 
         # Format the response
         formatted_response = format_response(content)
@@ -315,9 +375,145 @@ def chat():
         })
 
     except Exception as e:
-        error_msg = f"API request failed: {str(e)}"
-        logger.error(error_msg)
-        return jsonify({'error': error_msg}), 500
+        logger.exception(f"Unexpected error with {provider}")
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+SAVED_CHATS_DIR = Path(__file__).parent / 'saved_chats'
+EXPORTS_DIR = Path(__file__).parent / 'exports'
+
+# Ensure directories exist
+SAVED_CHATS_DIR.mkdir(exist_ok=True)
+EXPORTS_DIR.mkdir(exist_ok=True)
+
+@app.route('/save_chat', methods=['POST'])
+def save_chat():
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+        data = request.get_json()
+        if not data or 'history' not in data:
+            return jsonify({'error': 'Invalid chat data'}), 400
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"chat_{timestamp}.json"
+        filepath = SAVED_CHATS_DIR / filename
+
+        # Ensure the directory exists
+        SAVED_CHATS_DIR.mkdir(parents=True, exist_ok=True)
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"Chat saved successfully as {filename}")
+        return jsonify({
+            'status': 'success',
+            'filename': filename,
+            'filepath': str(filepath)
+        })
+
+    except Exception as e:
+        logger.error(f"Error saving chat: {str(e)}")
+        return jsonify({'error': f'Failed to save chat: {str(e)}'}), 500
+
+@app.route('/list_saved_chats')
+def list_saved_chats():
+    try:
+        files = sorted(SAVED_CHATS_DIR.glob('*.json'), reverse=True)
+        chats = []
+        for file in files:
+            with open(file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                chats.append({
+                    'filename': file.name,
+                    'timestamp': data.get('timestamp', ''),
+                    'preview': data['history'][0]['content'][:100] if data['history'] else ''
+                })
+        return jsonify(chats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/load_chat/<filename>')
+def load_chat(filename):
+    try:
+        with open(SAVED_CHATS_DIR / filename, 'r', encoding='utf-8') as f:
+            return jsonify(json.load(f))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def clean_markdown_content(content):
+    """Clean and format content as proper markdown"""
+    if isinstance(content, dict):
+        # If it's a response object with markdown, use that
+        if 'markdown' in content:
+            content = content['markdown']
+        elif 'text' in content:
+            content = content['text']
+        else:
+            content = str(content)
+
+    # Remove HTML artifacts and convert to proper markdown
+    content = content.replace('&quot;', '"').replace('&apos;', "'")
+    content = content.replace('&lt;', '<').replace('&gt;', '>')
+    content = content.replace('&amp;', '&')
+
+    # Remove HTML tags while preserving markdown
+    content = content.replace('<h3>', '### ').replace('</h3>', '\n')
+    content = content.replace('<h2>', '## ').replace('</h2>', '\n')
+    content = content.replace('<h1>', '# ').replace('</h1>', '\n')
+    content = content.replace('<strong>', '**').replace('</strong>', '**')
+    content = content.replace('<em>', '_').replace('</em>', '_')
+    content = content.replace('<ul>', '').replace('</ul>', '')
+    content = content.replace('<ol>', '').replace('</ol>', '')
+    content = content.replace('<li>', '- ').replace('</li>', '')
+    content = content.replace('<p>', '').replace('</p>', '\n')
+    content = content.replace('<br />', '\n')
+    content = content.replace('<code>', '`').replace('</code>', '`')
+
+    # Fix multiple newlines
+    content = '\n'.join(line for line in content.splitlines() if line.strip())
+
+    return content
+
+@app.route('/export_chat', methods=['POST'])
+def export_chat():
+    try:
+        data = request.get_json()
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        # Get the first user message as topic
+        topic = "chat"
+        for msg in data['history']:
+            if msg['isUser']:
+                topic = msg['content'].strip().lower()
+                topic = ''.join(c if c.isalnum() or c.isspace() else '_' for c in topic)
+                topic = topic.replace(' ', '_')[:30]
+                break
+
+        filename = f"{topic}_{timestamp}.md"
+
+        # Build markdown content
+        markdown = [f"# Chat Export: {topic.replace('_', ' ').title()}\n"]
+
+        for msg in data['history']:
+            role = "User" if msg['isUser'] else "Assistant"
+            content = clean_markdown_content(msg['content'])
+
+            # Add role header and content
+            markdown.extend([
+                f"\n## {role}\n",
+                f"{content}\n",
+                "---\n"
+            ])
+
+        # Write the file with proper markdown formatting
+        with open(EXPORTS_DIR / filename, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(markdown))
+
+        return jsonify({'status': 'success', 'filename': filename})
+    except Exception as e:
+        logger.error(f"Export error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=False)

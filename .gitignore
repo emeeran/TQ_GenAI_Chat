@@ -8,6 +8,11 @@ node_modules/
 dist/
 build/
 
+# Custom build directories
+saved_chats/
+exorts/
+
+
 # Ignore environment variable files
 .env
 

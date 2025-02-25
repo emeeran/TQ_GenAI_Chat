@@ -74,42 +74,113 @@ function showFeedback(show = true) {
     document.getElementById('feedback').classList.toggle('d-none', !show);
 }
 
-function saveChat() {
-    const data = {
-        history: chatHistory,
-        timestamp: new Date().toISOString()
-    };
-    localStorage.setItem('chatHistory', JSON.stringify(data));
-    alert('Chat saved successfully!');
-}
+async function saveChat() {
+    try {
+        const data = {
+            history: chatHistory,
+            timestamp: new Date().toISOString()
+        };
 
-function loadSaved() {
-    const saved = localStorage.getItem('chatHistory');
-    if (saved) {
-        const data = JSON.parse(saved);
-        const chatBox = document.getElementById('chat-box');
-        chatBox.innerHTML = '';
-        chatHistory = data.history;
-        chatHistory.forEach(msg => appendMessage(msg.content, msg.isUser));
-        alert('Chat loaded successfully!');
-    } else {
-        alert('No saved chat found');
+        const response = await fetch('/save_chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (result.error) {
+            throw new Error(result.error);
+        }
+
+        alert(`Chat saved as ${result.filename}`);
+    } catch (error) {
+        console.error('Save error:', error);
+        alert(`Error saving chat: ${error.message}`);
     }
 }
 
-function exportToMd() {
-    let markdown = '# Chat Export\n\n';
-    chatHistory.forEach(msg => {
-        markdown += `## ${msg.isUser ? 'User' : 'Assistant'}\n\n${msg.content}\n\n---\n\n`;
-    });
+async function loadSaved() {
+    try {
+        // Get list of saved chats
+        const response = await fetch('/list_saved_chats');
+        const chats = await response.json();
 
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chat-export-${new Date().toISOString().slice(0, 10)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+        if (chats.length === 0) {
+            alert('No saved chats found');
+            return;
+        }
+
+        // Create modal dialog for chat selection
+        const modal = document.createElement('div');
+        modal.className = 'modal fade show';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Load Saved Chat</h5>
+                        <button type="button" class="btn-close" onclick="this.closest('.modal').remove()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="list-group">
+                            ${chats.map(chat => `
+                                <button class="list-group-item list-group-item-action"
+                                        onclick="loadChatFile('${chat.filename}')">
+                                    ${new Date(chat.timestamp).toLocaleString()}<br>
+                                    <small class="text-muted">${chat.preview}...</small>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch (error) {
+        alert(`Error loading chat list: ${error.message}`);
+    }
+}
+
+async function loadChatFile(filename) {
+    try {
+        const response = await fetch(`/load_chat/${filename}`);
+        const data = await response.json();
+
+        chatHistory = data.history;
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = '';
+        chatHistory.forEach(msg => appendMessage(msg.content, msg.isUser));
+
+        // Remove modal
+        document.querySelector('.modal').remove();
+    } catch (error) {
+        alert(`Error loading chat: ${error.message}`);
+    }
+}
+
+async function exportToMd() {
+    try {
+        const data = {
+            history: chatHistory,
+            timestamp: new Date().toISOString()
+        };
+
+        const response = await fetch('/export_chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        alert(`Chat exported as ${result.filename}`);
+    } catch (error) {
+        alert(`Error exporting chat: ${error.message}`);
+    }
 }
 
 async function retryLast() {
@@ -117,7 +188,65 @@ async function retryLast() {
         alert('No message to retry!');
         return;
     }
-    await sendMessage(lastMessage);
+
+    const provider = document.getElementById('provider').value;
+    const modelSelect = document.getElementById('model');
+    const currentModel = modelSelect.value;
+
+    // Create modal for retry options
+    const modal = document.createElement('div');
+    modal.className = 'modal fade show';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Retry Options</h5>
+                    <button type="button" class="btn-close" onclick="this.closest('.modal').remove()"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group mb-3">
+                        <label>Use current model (${currentModel})</label>
+                        <button class="btn btn-primary w-100" onclick="executeRetry('${currentModel}', this)">
+                            Retry with current model
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <label>Select different model:</label>
+                        <select class="form-control mb-2" id="retry-model-select">
+                            ${Array.from(modelSelect.options).map(opt =>
+        `<option value="${opt.value}" ${opt.value === currentModel ? 'selected' : ''}>
+                                    ${opt.text}
+                                </option>`
+    ).join('')}
+                        </select>
+                        <button class="btn btn-secondary w-100" onclick="executeRetry(null, this)">
+                            Retry with selected model
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function executeRetry(model, buttonElement) {
+    const modal = buttonElement.closest('.modal');
+    const selectedModel = model || document.getElementById('retry-model-select').value;
+
+    // Update model select in main interface if different model chosen
+    if (selectedModel !== document.getElementById('model').value) {
+        document.getElementById('model').value = selectedModel;
+    }
+
+    modal.remove();
+
+    // Add user message to chat showing retry
+    appendMessage(`[Retrying previous prompt with model: ${selectedModel}]`, true);
+
+    // Rerun the message
+    await sendMessage(lastMessage, true);
 }
 
 function provideFeedback(isPositive) {
@@ -129,20 +258,24 @@ function provideFeedback(isPositive) {
     alert(`Thank you for your ${isPositive ? 'positive' : 'negative'} feedback!`);
 }
 
-async function sendMessage() {
+async function sendMessage(message = null, isRetry = false) {
     const userInput = document.getElementById('user-input');
-    const message = userInput.value.trim();
     const provider = document.getElementById('provider').value;
     const model = document.getElementById('model').value;
 
-    if (!message || !provider || !model) {
+    // Use provided message for retry, otherwise get from input
+    const messageToSend = message || userInput.value.trim();
+
+    if (!messageToSend || !provider || !model) {
         alert('Please fill in all fields');
         return;
     }
 
-    // Add user message to chat
-    appendMessage(message, true);
-    userInput.value = '';
+    // Only clear input and add user message if not a retry
+    if (!isRetry) {
+        appendMessage(messageToSend, true);
+        userInput.value = '';
+    }
 
     showProcessing(true);
     showFeedback(false);
@@ -154,7 +287,7 @@ async function sendMessage() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: message,
+                message: messageToSend,
                 provider: provider,
                 model: model
             })
@@ -165,9 +298,9 @@ async function sendMessage() {
             appendMessage(`Error: ${data.error}`, false);
         } else {
             appendMessage(data.response, false);
-            lastMessage = message;
+            lastMessage = messageToSend;
             chatHistory.push({
-                content: message,
+                content: messageToSend,
                 isUser: true,
                 timestamp: new Date().toISOString()
             });
