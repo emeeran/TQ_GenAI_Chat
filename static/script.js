@@ -189,9 +189,8 @@ async function retryLast() {
         return;
     }
 
-    const provider = document.getElementById('provider').value;
-    const modelSelect = document.getElementById('model');
-    const currentModel = modelSelect.value;
+    const currentProvider = document.getElementById('provider').value;
+    const currentModel = document.getElementById('model').value;
 
     // Create modal for retry options
     const modal = document.createElement('div');
@@ -206,22 +205,26 @@ async function retryLast() {
                 </div>
                 <div class="modal-body">
                     <div class="form-group mb-3">
-                        <label>Use current model (${currentModel})</label>
-                        <button class="btn btn-primary w-100" onclick="executeRetry('${currentModel}', this)">
-                            Retry with current model
+                        <label>Current Configuration:</label>
+                        <button class="btn btn-primary w-100" onclick="executeRetry('${currentProvider}', '${currentModel}', this)">
+                            Retry with current provider (${currentProvider}) and model (${currentModel})
                         </button>
                     </div>
-                    <div class="form-group">
-                        <label>Select different model:</label>
-                        <select class="form-control mb-2" id="retry-model-select">
-                            ${Array.from(modelSelect.options).map(opt =>
-        `<option value="${opt.value}" ${opt.value === currentModel ? 'selected' : ''}>
-                                    ${opt.text}
-                                </option>`
-    ).join('')}
+
+                    <div class="form-group mb-3">
+                        <label>Change Provider:</label>
+                        <select class="form-control mb-2" id="retry-provider-select" onchange="updateRetryModels()">
+                            ${document.getElementById('provider').innerHTML}
                         </select>
-                        <button class="btn btn-secondary w-100" onclick="executeRetry(null, this)">
-                            Retry with selected model
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label>Select Model:</label>
+                        <select class="form-control mb-2" id="retry-model-select">
+                            <option value="">Select Provider First</option>
+                        </select>
+                        <button class="btn btn-secondary w-100" onclick="executeRetry(null, null, this)">
+                            Retry with selected provider and model
                         </button>
                     </div>
                 </div>
@@ -229,21 +232,62 @@ async function retryLast() {
         </div>
     `;
     document.body.appendChild(modal);
+
+    // Set current provider and trigger model load
+    document.getElementById('retry-provider-select').value = currentProvider;
+    await updateRetryModels();
 }
 
-async function executeRetry(model, buttonElement) {
+async function updateRetryModels() {
+    const providerSelect = document.getElementById('retry-provider-select');
+    const modelSelect = document.getElementById('retry-model-select');
+    const provider = providerSelect.value;
+
+    modelSelect.innerHTML = '<option value="">Loading models...</option>';
+    modelSelect.disabled = true;
+
+    try {
+        const response = await fetch(`/get_models/${provider}`);
+        const models = await response.json();
+
+        modelSelect.innerHTML = '<option value="">Select Model</option>';
+        if (Array.isArray(models)) {
+            const defaultModel = providerSelect.querySelector(`option[value="${provider}"]`).dataset.default;
+            models.sort().forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                if (model === defaultModel) {
+                    option.selected = true;
+                }
+                modelSelect.appendChild(option);
+            });
+        }
+        modelSelect.disabled = false;
+    } catch (error) {
+        modelSelect.innerHTML = '<option value="">Error loading models</option>';
+    }
+}
+
+async function executeRetry(provider = null, model = null, buttonElement) {
     const modal = buttonElement.closest('.modal');
+    const selectedProvider = provider || document.getElementById('retry-provider-select').value;
     const selectedModel = model || document.getElementById('retry-model-select').value;
 
-    // Update model select in main interface if different model chosen
-    if (selectedModel !== document.getElementById('model').value) {
-        document.getElementById('model').value = selectedModel;
+    if (!selectedProvider || !selectedModel) {
+        alert('Please select both provider and model');
+        return;
     }
+
+    // Update main interface selections
+    document.getElementById('provider').value = selectedProvider;
+    await updateModels();  // This will load models for the new provider
+    document.getElementById('model').value = selectedModel;
 
     modal.remove();
 
     // Add user message to chat showing retry
-    appendMessage(`[Retrying previous prompt with model: ${selectedModel}]`, true);
+    appendMessage(`[Retrying previous prompt with ${selectedProvider} / ${selectedModel}]`, true);
 
     // Rerun the message
     await sendMessage(lastMessage, true);
