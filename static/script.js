@@ -54,6 +54,72 @@ function appendMessage(message, isUser = false) {
     }
 }
 
+let chatHistory = [];
+let lastMessage = null;
+
+function showProcessing(show = true) {
+    document.getElementById('processing').classList.toggle('d-none', !show);
+}
+
+function showFeedback(show = true) {
+    document.getElementById('feedback').classList.toggle('d-none', !show);
+}
+
+function saveChat() {
+    const data = {
+        history: chatHistory,
+        timestamp: new Date().toISOString()
+    };
+    localStorage.setItem('chatHistory', JSON.stringify(data));
+    alert('Chat saved successfully!');
+}
+
+function loadSaved() {
+    const saved = localStorage.getItem('chatHistory');
+    if (saved) {
+        const data = JSON.parse(saved);
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = '';
+        chatHistory = data.history;
+        chatHistory.forEach(msg => appendMessage(msg.content, msg.isUser));
+        alert('Chat loaded successfully!');
+    } else {
+        alert('No saved chat found');
+    }
+}
+
+function exportToMd() {
+    let markdown = '# Chat Export\n\n';
+    chatHistory.forEach(msg => {
+        markdown += `## ${msg.isUser ? 'User' : 'Assistant'}\n\n${msg.content}\n\n---\n\n`;
+    });
+
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-export-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function retryLast() {
+    if (!lastMessage) {
+        alert('No message to retry!');
+        return;
+    }
+    await sendMessage(lastMessage);
+}
+
+function provideFeedback(isPositive) {
+    if (chatHistory.length > 0) {
+        const lastEntry = chatHistory[chatHistory.length - 1];
+        lastEntry.feedback = isPositive;
+    }
+    showFeedback(false);
+    alert(`Thank you for your ${isPositive ? 'positive' : 'negative'} feedback!`);
+}
+
 async function sendMessage() {
     const userInput = document.getElementById('user-input');
     const message = userInput.value.trim();
@@ -68,6 +134,9 @@ async function sendMessage() {
     // Add user message to chat
     appendMessage(message, true);
     userInput.value = '';
+
+    showProcessing(true);
+    showFeedback(false);
 
     try {
         const response = await fetch('/chat', {
@@ -87,9 +156,23 @@ async function sendMessage() {
             appendMessage(`Error: ${data.error}`, false);
         } else {
             appendMessage(data.response, false);
+            lastMessage = message;
+            chatHistory.push({
+                content: message,
+                isUser: true,
+                timestamp: new Date().toISOString()
+            });
+            chatHistory.push({
+                content: data.response,
+                isUser: false,
+                timestamp: new Date().toISOString()
+            });
+            showFeedback(true);
         }
     } catch (error) {
         appendMessage(`Error: ${error.message}`, false);
+    } finally {
+        showProcessing(false);
     }
 }
 

@@ -74,3 +74,62 @@ body {
 .form-group {
     margin-bottom: 1rem;
 }
+
+.action-buttons {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.action-buttons .btn {
+    padding: 12px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.action-buttons .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+}
+
+.action-buttons .btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-buttons .btn i {
+    margin-right: 8px;
+}
+
+.processing-indicator {
+    text-align: center;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 8px;
+}
+
+.feedback-section {
+    margin-top: 15px;
+    padding: 10px;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.feedback-section button {
+    padding: 8px 16px;
+    margin: 0 5px;
+    transition: transform 0.2s;
+}
+
+.feedback-section button:hover {
+    transform: scale(1.1);
+}

@@ -8,6 +8,7 @@ import logging
 from functools import lru_cache
 import markdown2
 import html
+import anthropic
 
 # Initialize Flask and logging
 app = Flask(__name__)
@@ -68,7 +69,20 @@ API_CONFIG = {
     "anthropic": {
         "endpoint": "https://api.anthropic.com/v1/messages",
         "key": os.getenv("ANTHROPIC_API_KEY"),
-        "models": ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307']
+        "models": [
+            # Claude 3 Models
+            'claude-3-opus-20240229',
+            'claude-3-sonnet-20240229',
+            'claude-3-haiku-20240307',
+            # Claude 3.5 Models (Fixed format)
+            'claude-3-5-sonnet-20241022',  # Fixed hyphenation
+            'claude-3-5-haiku-20241022',   # Fixed hyphenation
+            'claude-3-7-sonnet-20240317',  # Fixed hyphenation
+            # Legacy Models
+            'claude-2-1',                  # Fixed hyphenation
+            'claude-2-0',                  # Fixed hyphenation
+            'claude-instant-1-2'           # Fixed hyphenation
+        ]
     },
     "xai": {
         "endpoint": "https://api.x.ai/v1/chat/completions",
@@ -117,24 +131,34 @@ def build_headers(provider: str) -> dict:
 
 def build_payload(provider: str, model: str, message: str) -> dict:
     """Build request payload with provider-specific structure"""
-    payload = {'model': model}
-
     if provider == 'anthropic':
-        payload.update({
+        return {
+            'model': model,
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': [
+                        {
+                            'type': 'text',
+                            'text': message
+                        }
+                    ]
+                }
+            ],
             'system': SYSTEM_MESSAGE,
-            'messages': [{'role': 'user', 'content': message}],
             'max_tokens': 4096
-        })
+        }
     else:
-        payload['messages'] = [
-            {'role': 'system', 'content': SYSTEM_MESSAGE},
-            {'role': 'user', 'content': message}
-        ]
-
-    if provider == 'groq':
-        payload['temperature'] = 0.7
-
-    return payload
+        payload = {
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': SYSTEM_MESSAGE},
+                {'role': 'user', 'content': message}
+            ]
+        }
+        if provider == 'groq':
+            payload['temperature'] = 0.7
+        return payload
 
 def format_response(content: str) -> str:
     """Format the response with markdown and syntax highlighting"""
@@ -192,22 +216,28 @@ def chat():
         return jsonify({'error': f'Invalid provider or missing API key'}), 401
 
     try:
-        headers = build_headers(provider)
-        payload = build_payload(provider, model, message)
-
-        response = session.post(
-            config['endpoint'],
-            headers=headers,
-            json=payload,
-            timeout=10
-        )
-        response.raise_for_status()
-        json_response = response.json()
-
-        # Extract and format response content
         if provider == 'anthropic':
-            content = json_response.get('content', [{}])[0].get('text', '')
+            client = anthropic.Anthropic(api_key=config['key'])
+            response = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                messages=[
+                    {"role": "user", "content": message}
+                ],
+                system=SYSTEM_MESSAGE
+            )
+            content = response.content[0].text
         else:
+            headers = build_headers(provider)
+            payload = build_payload(provider, model, message)
+            response = session.post(
+                config['endpoint'],
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            response.raise_for_status()
+            json_response = response.json()
             content = json_response.get('choices', [{}])[0].get('message', {}).get('content', '')
 
         # Format the response
@@ -216,13 +246,10 @@ def chat():
             'response': formatted_response
         })
 
-    except requests.exceptions.RequestException as e:
-        error_msg = f"API request failed: {str(e)}"
-        logger.error(f"{error_msg}. Response: {e.response.text[:200] if e.response else 'No response'}")
-        return jsonify({'error': error_msg}), 500
     except Exception as e:
-        logger.exception("Unexpected error processing request")
-        return jsonify({'error': 'Internal server error'}), 500
+        error_msg = f"API request failed: {str(e)}"
+        logger.error(error_msg)
+        return jsonify({'error': error_msg}), 500
 
 if __name__ == '__main__':
     app.run(debug=False)
