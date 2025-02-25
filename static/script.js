@@ -10,14 +10,13 @@ async function updateModels() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const models = await response.json();
+        const data = await response.json();
+        const models = data.models;
+        const defaultModel = data.default;
+
         modelSelect.innerHTML = '<option value="">Select Model</option>';
 
         if (Array.isArray(models) && models.length > 0) {
-            // Get default model from the data-default attribute
-            const providerOption = document.querySelector(`option[value="${provider}"]`);
-            const defaultModel = providerOption ? providerOption.dataset.default : null;
-
             models.sort().forEach(model => {
                 const option = document.createElement('option');
                 option.value = model;
@@ -87,10 +86,15 @@ function appendMessage(message, isUser = false) {
             hljs.highlightElement(block);
         });
     }
+
+    if (!isUser && message.text) {
+        lastAiResponse = message.text;
+    }
 }
 
 let chatHistory = [];
 let lastMessage = null;
+let lastAiResponse = '';
 
 function showProcessing(show = true) {
     document.getElementById('processing').classList.toggle('d-none', !show);
@@ -114,15 +118,12 @@ async function saveChat() {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
 
         const result = await response.json();
-        if (result.error) {
-            throw new Error(result.error);
-        }
-
-        alert(`Chat saved as ${result.filename}`);
+        alert(`Chat saved successfully as: ${result.filename}`);
     } catch (error) {
         console.error('Save error:', error);
         alert(`Error saving chat: ${error.message}`);
@@ -201,10 +202,15 @@ async function exportToMd() {
             body: JSON.stringify(data)
         });
 
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
         const result = await response.json();
-        if (result.error) throw new Error(result.error);
-        alert(`Chat exported as ${result.filename}`);
+        alert(`Chat exported successfully as: ${result.filename}`);
     } catch (error) {
+        console.error('Export error:', error);
         alert(`Error exporting chat: ${error.message}`);
     }
 }
@@ -274,11 +280,17 @@ async function updateRetryModels() {
 
     try {
         const response = await fetch(`/get_models/${provider}`);
-        const models = await response.json();
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const models = data.models;
+        const defaultModel = data.default;
 
         modelSelect.innerHTML = '<option value="">Select Model</option>';
-        if (Array.isArray(models)) {
-            const defaultModel = providerSelect.querySelector(`option[value="${provider}"]`).dataset.default;
+
+        if (Array.isArray(models) && models.length > 0) {
             models.sort().forEach(model => {
                 const option = document.createElement('option');
                 option.value = model;
@@ -291,32 +303,59 @@ async function updateRetryModels() {
         }
         modelSelect.disabled = false;
     } catch (error) {
+        console.error('Error fetching retry models:', error);
         modelSelect.innerHTML = '<option value="">Error loading models</option>';
     }
 }
 
 async function executeRetry(provider = null, model = null, buttonElement) {
-    const modal = buttonElement.closest('.modal');
-    const selectedProvider = provider || document.getElementById('retry-provider-select').value;
-    const selectedModel = model || document.getElementById('retry-model-select').value;
+    try {
+        const modal = buttonElement.closest('.modal');
+        const selectedProvider = provider || document.getElementById('retry-provider-select').value;
+        const selectedModel = model || document.getElementById('retry-model-select').value;
 
-    if (!selectedProvider || !selectedModel) {
-        alert('Please select both provider and model');
-        return;
+        if (!selectedProvider || !selectedModel) {
+            alert('Please select both provider and model');
+            return;
+        }
+
+        console.log(`Retrying with ${selectedProvider}/${selectedModel}`);
+
+        // Update provider first
+        const providerSelect = document.getElementById('provider');
+        providerSelect.value = selectedProvider;
+
+        // Wait for models to load
+        await updateModels();
+
+        // Wait for DOM update
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Set model selection
+        const modelSelect = document.getElementById('model');
+        modelSelect.value = selectedModel;
+
+        // Verify selections
+        if (!modelSelect.value) {
+            console.error('Model selection failed:', {
+                provider: selectedProvider,
+                model: selectedModel,
+                availableModels: Array.from(modelSelect.options).map(opt => opt.value)
+            });
+            throw new Error('Failed to set model selection');
+        }
+
+        modal.remove();
+
+        // Add user message to chat showing retry
+        appendMessage(`[Retrying previous prompt with ${selectedProvider}/${selectedModel}]`, true);
+
+        // Rerun the message
+        await sendMessage(lastMessage, true);
+    } catch (error) {
+        console.error('Retry error:', error);
+        alert(`Error during retry: ${error.message}`);
     }
-
-    // Update main interface selections
-    document.getElementById('provider').value = selectedProvider;
-    await updateModels();  // This will load models for the new provider
-    document.getElementById('model').value = selectedModel;
-
-    modal.remove();
-
-    // Add user message to chat showing retry
-    appendMessage(`[Retrying previous prompt with ${selectedProvider} / ${selectedModel}]`, true);
-
-    // Rerun the message
-    await sendMessage(lastMessage, true);
 }
 
 function provideFeedback(isPositive) {
@@ -329,33 +368,31 @@ function provideFeedback(isPositive) {
 }
 
 async function sendMessage(message = null, isRetry = false) {
-    const userInput = document.getElementById('user-input');
-    const provider = document.getElementById('provider').value;
-    const model = document.getElementById('model').value;
-
-    // Use provided message for retry, otherwise get from input
-    const messageToSend = message || userInput.value.trim();
-
-    if (!messageToSend || !provider || !model) {
-        alert('Please fill in all fields');
-        return;
-    }
-
-    // Only clear input and add user message if not a retry
-    if (!isRetry) {
-        appendMessage(messageToSend, true);
-        userInput.value = '';
-    }
-
-    showProcessing(true);
-    showFeedback(false);
-
     try {
+        const userInput = document.getElementById('user-input');
+        const provider = document.getElementById('provider').value;
+        const model = document.getElementById('model').value;
+
+        const messageToSend = message || userInput.value.trim();
+
+        if (!messageToSend || !provider || !model) {
+            throw new Error('Please fill in all fields');
+        }
+
+        // Only clear input and add user message if not a retry
+        if (!isRetry) {
+            appendMessage(messageToSend, true);
+            userInput.value = '';
+        }
+
+        showProcessing(true);
+        showFeedback(false);
+
+        console.log('Sending message:', { provider, model, message: messageToSend });
+
         const response = await fetch('/chat', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: messageToSend,
                 provider: provider,
@@ -364,24 +401,31 @@ async function sendMessage(message = null, isRetry = false) {
         });
 
         const data = await response.json();
-        if (data.error) {
-            appendMessage(`Error: ${data.error}`, false);
-        } else {
-            appendMessage(data.response, false);
-            lastMessage = messageToSend;
-            chatHistory.push({
-                content: messageToSend,
-                isUser: true,
-                timestamp: new Date().toISOString()
-            });
-            chatHistory.push({
-                content: data.response,
-                isUser: false,
-                timestamp: new Date().toISOString()
-            });
-            showFeedback(true);
+
+        if (!response.ok) {
+            throw new Error(data.error || `HTTP error! status: ${response.status}`);
         }
+
+        appendMessage(data.response, false);
+        if (data.response && data.response.text) {
+            lastAiResponse = data.response.text;
+        }
+        lastMessage = messageToSend;
+
+        chatHistory.push({
+            content: messageToSend,
+            isUser: true,
+            timestamp: new Date().toISOString()
+        });
+        chatHistory.push({
+            content: data.response,
+            isUser: false,
+            timestamp: new Date().toISOString()
+        });
+
+        showFeedback(true);
     } catch (error) {
+        console.error('Send message error:', error);
         appendMessage(`Error: ${error.message}`, false);
     } finally {
         showProcessing(false);
@@ -397,7 +441,13 @@ document.getElementById('user-input').addEventListener('keypress', function (eve
 
 // Initialize by triggering model load for default provider
 document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('provider').dispatchEvent(new Event('change'));
+    // Set Groq as default provider
+    const providerSelect = document.getElementById('provider');
+    providerSelect.value = 'groq';
+
+    // Initialize audio and trigger model load
+    initializeAudio();
+    providerSelect.dispatchEvent(new Event('change'));
 });
 
 // Audio recording variables
@@ -482,21 +532,57 @@ async function transcribeAudio(audioBlob) {
 }
 
 function speakText(text) {
+    // Clean up the text - remove code blocks and markdown
+    const cleanText = text.replace(/```[\s\S]*?```/g, 'code block omitted')
+        .replace(/`.*?`/g, '')
+        .replace(/\[.*?\]\(.*?\)/g, '')
+        .replace(/#+\s/g, '')
+        .replace(/\*\*/g, '');
+
     if (isSpeaking) {
         speechSynthesis.cancel();
         isSpeaking = false;
+        updateSpeakButton();
         return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+
+    // Configure speech settings
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // Get available voices and set a good default
+    let voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+        // Try to find a good English voice
+        const preferredVoice = voices.find(voice =>
+            voice.lang.startsWith('en') &&
+            (voice.name.includes('Google') || voice.name.includes('Microsoft'))
+        ) || voices[0];
+        utterance.voice = preferredVoice;
+    }
+
     utterance.onend = () => {
         isSpeaking = false;
         updateSpeakButton();
     };
 
-    speechSynthesis.speak(utterance);
-    isSpeaking = true;
-    updateSpeakButton();
+    utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        isSpeaking = false;
+        updateSpeakButton();
+    };
+
+    try {
+        speechSynthesis.speak(utterance);
+        isSpeaking = true;
+        updateSpeakButton();
+    } catch (error) {
+        console.error('Speech synthesis failed:', error);
+        alert('Text-to-speech failed. Please check your browser settings.');
+    }
 }
 
 function updateSpeakButton() {
@@ -509,6 +595,11 @@ function updateSpeakButton() {
         speakButton.classList.remove('btn-danger');
     }
 }
+
+// Ensure voices are loaded
+speechSynthesis.onvoiceschanged = () => {
+    console.log('Voices loaded:', speechSynthesis.getVoices().length);
+};
 
 // Initialize audio on page load
 document.addEventListener('DOMContentLoaded', function () {
