@@ -56,6 +56,18 @@ body {
     align-self: flex-start;
 }
 
+.message-metadata {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.ai-message .message-metadata {
+    border-top-color: rgba(0, 0, 0, 0.05);
+}
+
 .input-container {
     display: flex;
     gap: 10px;
@@ -132,4 +144,41 @@ body {
 
 .feedback-section button:hover {
     transform: scale(1.1);
+}
+
+.speak-message {
+    float: right;
+    margin-left: 10px;
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+}
+
+.speak-message:hover {
+    opacity: 1;
+}
+
+#record-button {
+    min-width: 45px;
+}
+
+#speak-button {
+    min-width: 45px;
+}
+
+.recording {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
