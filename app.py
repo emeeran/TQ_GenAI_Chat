@@ -11,6 +11,7 @@ from typing import Dict, Any
 from dotenv import load_dotenv
 from openai import OpenAI
 from persona import PERSONAS
+import anthropic
 
 # Initialize Flask app with correct template directory
 app = Flask(__name__,
@@ -134,28 +135,25 @@ def chat():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
 
-        required_fields = ['message', 'provider', 'model']
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
-            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+        provider = data.get('provider')
+        if not provider:
+            return jsonify({'error': 'Provider is required'}), 400
 
-        # Get provider config
-        provider = data['provider']
+        # Verify API key is configured
         config = API_CONFIGS.get(provider)
-        if not config:
-            return jsonify({'error': f'Invalid provider: {provider}'}), 400
+        if not config or not config.get('key', '').strip():
+            return jsonify({'error': f'API key not configured for {provider}'}), 401
 
-        # Check API key
-        if not config.get('key'):
-            return jsonify({'error': f'No API key configured for {provider}'}), 401
-
-        # Process request
         try:
             response = process_chat_request(data)
             return jsonify(response)
-        except requests.RequestException as e:
-            app.logger.error(f"API request error: {str(e)}")
-            return jsonify({'error': f'API request failed: {str(e)}'}), 502
+        except ValueError as e:
+            if "Invalid Anthropic API key" in str(e):
+                return jsonify({'error': 'Authentication failed: Invalid API key'}), 401
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            app.logger.error(f"Chat processing error: {str(e)}")
+            return jsonify({'error': 'Error processing request'}), 500
 
     except Exception as e:
         app.logger.error(f"Chat error: {str(e)}")
@@ -163,12 +161,15 @@ def chat():
 
 # Optimized utility functions
 def process_chat_request(data: Dict) -> Dict:
-    """Process chat request with optimized error handling"""
     provider = data['provider']
     model = data['model']
     message = data['message']
     persona = data.get('persona', '')
 
+    if provider == 'anthropic':
+        return process_anthropic_request(model, message, persona)
+
+    # Handle other providers with existing code
     config = API_CONFIGS[provider]
     endpoint = config['endpoint']
     api_key = config['key']
@@ -218,6 +219,58 @@ def process_chat_request(data: Dict) -> Dict:
         app.logger.error(f"Request payload: {json.dumps(payload)}")
         app.logger.error(f"Response status code: {response.status_code if 'response' in locals() else 'N/A'}")
         app.logger.error(f"Response content: {response.content if 'response' in locals() else 'N/A'}")
+        raise
+
+def process_anthropic_request(model: str, message: str, persona: str) -> Dict:
+    """Handle Anthropic API requests separately"""
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("Anthropic API key not found in environment variables")
+
+        client = anthropic.Anthropic(
+            api_key=api_key.strip()
+        )
+
+        # Get persona description
+        system_prompt = PERSONAS.get(persona, '')
+
+        # Create messages using correct Anthropic format
+        response = client.messages.create(
+            model=model,
+            system=system_prompt,  # System prompt goes here, not in messages
+            messages=[
+                {"role": "user", "content": message}
+            ],
+            max_tokens=4096
+        )
+
+        if not response.content:
+            raise ValueError("Empty response from Anthropic API")
+
+        # Handle response content correctly
+        response_text = response.content[0].text if isinstance(response.content, list) else response.content.text
+
+        return {
+            'response': {
+                'text': response_text,
+                'metadata': {
+                    'provider': 'anthropic',
+                    'model': model,
+                    'response_time': '1s'
+                }
+            }
+        }
+    except anthropic.APIError as e:
+        app.logger.error(f"Anthropic API error: {str(e)}")
+        if "invalid" in str(e).lower():
+            error_msg = str(e)
+            if "api_key" in error_msg.lower():
+                raise ValueError("Invalid Anthropic API key")
+            raise ValueError(f"Anthropic API error: {error_msg}")
+        raise
+    except Exception as e:
+        app.logger.error(f"Anthropic request error: {str(e)}")
         raise
 
 def validate_api_key(provider: str, key: str) -> bool:
