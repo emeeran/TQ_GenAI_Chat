@@ -1,3 +1,44 @@
+// Debounce function to limit rapid calls
+const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+};
+
+// Cache DOM queries
+const elements = {
+    chatBox: document.getElementById('chat-box'),
+    userInput: document.getElementById('user-input'),
+    provider: document.getElementById('provider'),
+    model: document.getElementById('model'),
+    persona: document.getElementById('persona')
+};
+
+// Add request queue
+const requestQueue = [];
+let isProcessing = false;
+
+async function processQueue() {
+    if (isProcessing || requestQueue.length === 0) return;
+
+    isProcessing = true;
+    while (requestQueue.length > 0) {
+        const request = requestQueue.shift();
+        try {
+            await request();
+        } catch (error) {
+            console.error('Request error:', error);
+        }
+    }
+    isProcessing = false;
+}
+
 async function updateModels() {
     const provider = document.getElementById('provider').value;
     const modelSelect = document.getElementById('model');
@@ -367,7 +408,7 @@ function provideFeedback(isPositive) {
     alert(`Thank you for your ${isPositive ? 'positive' : 'negative'} feedback!`);
 }
 
-async function sendMessage(message = null, isRetry = false) {
+const sendMessage = debounce(async (message = null, isRetry = false) => {
     try {
         const userInput = document.getElementById('user-input');
         const provider = document.getElementById('provider').value;
@@ -436,7 +477,7 @@ async function sendMessage(message = null, isRetry = false) {
     } finally {
         showProcessing(false);
     }
-}
+}, 250);
 
 // Add enter key listener for input
 document.getElementById('user-input').addEventListener('keypress', function (event) {
@@ -763,7 +804,17 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('provider').dispatchEvent(new Event('change'));
 });
 
-// ...existing code...
+// Use IntersectionObserver for chat scroll
+const scrollObserver = new IntersectionObserver(
+    (entries) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) {
+                entry.target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    },
+    { threshold: 0.1 }
+);
 
 function initializeSidebar() {
     const headers = document.querySelectorAll('.settings-header');
@@ -771,11 +822,19 @@ function initializeSidebar() {
     headers.forEach(header => {
         const content = header.nextElementSibling;
         const icon = header.querySelector('.fa-chevron-down');
+        const isActions = header.getAttribute('data-section') === 'actions';
 
-        // Set initial state
-        content.style.display = 'none';
-        content.classList.remove('expanded');
-        header.classList.remove('active');
+        // Set initial state - expanded for actions, collapsed for others
+        if (isActions) {
+            content.style.display = 'block';
+            content.classList.add('expanded');
+            header.classList.add('active');
+            icon.style.transform = 'rotate(180deg)';
+        } else {
+            content.style.display = 'none';
+            content.classList.remove('expanded');
+            header.classList.remove('active');
+        }
 
         header.addEventListener('click', () => {
             // Close all other sections
@@ -830,5 +889,3 @@ document.addEventListener('DOMContentLoaded', () => {
         group.style.transitionDelay = `${index * 50}ms`;
     });
 });
-
-// ...rest of existing code...
