@@ -21,6 +21,19 @@ body {
     scrollbar-color: #90a4ae #e9ecef;
 }
 
+.sidebar-title {
+    padding: 1rem;
+    text-align: center;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+.sidebar-title h3 {
+    margin: 0;
+    font-weight: 600;
+    color: #1976d2;
+}
+
 .sidebar::-webkit-scrollbar {
     width: 8px;
 }

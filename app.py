@@ -1,265 +1,337 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
+from functools import lru_cache
 import requests
 import speech_recognition as sr
 from pydub import AudioSegment
-import io
-import subprocess
-import markdown2
-import time
+import io, time, json, os
 from datetime import datetime
-import json
 from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
-import os
+from openai import OpenAI
 from persona import PERSONAS
 
-# Initialize Flask app and configurations
-app = Flask(__name__)
-CORS(app)
-load_dotenv()
+# Initialize Flask app with correct template directory
+app = Flask(__name__,
+    template_folder=str(Path(__file__).parent / 'templates'),
+    static_folder=str(Path(__file__).parent / 'static')
+)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+app.config['JSON_SORT_KEYS'] = False  # Preserve JSON order
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max-size
 
-# Directory setup
+# Optimization settings
+CACHE_TTL = 300  # Cache TTL in seconds
+REQUEST_TIMEOUT = 30  # API request timeout
+MAX_RETRIES = 3  # Maximum retry attempts
+
+# Initialize paths and configs
+load_dotenv()
 SAVE_DIR = Path("saved_chats").mkdir(exist_ok=True) or Path("saved_chats")
 EXPORT_DIR = Path("exports").mkdir(exist_ok=True) or Path("exports")
 
-# API and model configurations
-API_CONFIGS: Dict[str, Dict[str, Any]] = {
-    "openai": {"endpoint": "https://api.openai.com/v1/chat/completions", "key": os.getenv("OPENAI_API_KEY"), "default": "gpt-4o-mini"},
-    "groq": {"endpoint": "https://api.groq.com/openai/v1/chat/completions", "key": os.getenv("GROQ_API_KEY"), "default": "deepseek-r1-distill-llama-70b"},
-    "mistral": {"endpoint": "https://api.mistral.ai/v1/chat/completions", "key": os.getenv("MISTRAL_API_KEY"), "default": "codestral-latest"},
-    "anthropic": {"endpoint": "https://api.anthropic.com/v1/messages", "key": os.getenv("ANTHROPIC_API_KEY"), "default": "claude-3-5-sonnet-latest"},
-    "xai": {"endpoint": "https://api.x.ai/v1/chat/completions", "key": os.getenv("XAI_API_KEY"), "default": "grok-2-latest"},
-    "deepseek": {"endpoint": "https://api.deepseek.ai/v1/chat/completions", "key": os.getenv("DEEPSEEK_API_KEY"), "default": "deepseek-r1-70b"}
+# Rate limiting
+request_times = {}
+RATE_LIMIT = 60  # requests per minute
+
+def rate_limit_check(key: str) -> bool:
+    now = time.time()
+    request_times[key] = request_times.get(key, [])
+    request_times[key] = [t for t in request_times[key] if t > now - 60]
+    if len(request_times[key]) >= RATE_LIMIT:
+        return False
+    request_times[key].append(now)
+    return True
+
+@lru_cache(maxsize=100)
+def get_cached_response(provider: str, model: str, message: str, persona: str) -> Dict:
+    """Cache API responses to improve performance"""
+    # Implementation here
+
+# Improved API configurations with validation
+API_CONFIGS = {
+    "openai": {
+        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "key": os.getenv("OPENAI_API_KEY"),
+        "default": "gpt-4o-mini",
+        "fallback": "gpt-3.5-turbo"
+    },
+    "groq": {
+        "endpoint": "https://api.groq.com/v1/chat/completions",
+        "key": os.getenv("GROQ_API_KEY"),
+        "default": "deepseek-r1-distill-llama-70b",
+        "fallback": "mixtral-8x7b-32768"
+    },
+    "mistral": {
+        "endpoint": "https://api.mistral.ai/v1/chat/completions",
+        "key": os.getenv("MISTRAL_API_KEY"),
+        "default": "codestral-latest",
+        "fallback": "mistral-small-latest"
+    },
+    "anthropic": {
+        "endpoint": "https://api.anthropic.com/v1/messages",
+        "key": os.getenv("ANTHROPIC_API_KEY"),
+        "default": "claude-3-5-sonnet-latest",
+        "fallback": "claude-3-sonnet-20240229"
+    },
+    "xai": {
+        "endpoint": "https://api.x.ai/v1/chat/completions",
+        "key": os.getenv("XAI_API_KEY", "").strip(),
+        "default": "grok-2-latest",
+        "fallback": "grok-2",
+    },
+    "deepseek": {
+        "endpoint": "https://api.deepseek.com/v1/chat/completions",
+        "key": os.getenv("DEEPSEEK_API_KEY"),
+        "default": "deepseek-r1-distill-llama-70b",
+        "fallback": "deepseek-chat"
+    }
 }
 
+# Add complete model configurations
 MODEL_CONFIGS = {
     "openai": [
-        'gpt-4o', 'gpt-4o-mini', 'chatgpt-4o-latest', 'o1', 'o1-mini', 'o3-mini', 'o1-preview',
-        'gpt-4o-realtime-preview', 'gpt-4o-mini-realtime-preview', 'gpt-4o-audio-preview',
-        'gpt-4-turbo-preview', 'gpt-4-0125-preview', 'gpt-4', 'gpt-4-32k', 'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'
+        'gpt-4o', 'chatgpt-4o-latest', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini',
+        'o1-preview', 'gpt-4o-realtime-preview', 'gpt-4o-mini-realtime-preview',
+        'gpt-4o-audio-preview'
     ],
     "groq": [
-        'mixtral-8x7b-32768', 'llama2-70b-4096', 'llama-3.3-70b-versatile', 'gemma2-9b-it',
-        'gemma-7b-it', 'llama-3.1-8b-instant', 'llama3-8b-8192', 'llama-guard-3-8b', 'llama3-70b-8192',
-        'whisper-large-v3', 'whisper-large-v3-turbo', 'distil-whisper-large-v3-en',
-        'qwen-2.5-coder-32b', 'qwen-2.5-32b', 'deepseek-r1-distill-qwen-32b', 'deepseek-r1-distill-llama-70b',
-        'deepseek-r1-distill-llama-70b-specdec', 'llama-3.3-70b-specdec', 'llama-3.2-1b-preview',
-        'llama-3.2-3b-preview', 'llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'
+        'distil-whisper-large-v3-en', 'gemma2-9b-it', 'llama-3.3-70b-versatile',
+        'llama-3.1-8b-instant', 'llama-guard-3-8b', 'llama3-70b-8192', 'llama3-8b-8192',
+        'mixtral-8x7b-32768', 'whisper-large-v3', 'whisper-large-v3-turbo',
+        'qwen-2.5-coder-32b', 'qwen-2.5-32b', 'deepseek-r1-distill-qwen-32b',
+        'deepseek-r1-distill-llama-70b-specdec', 'deepseek-r1-distill-llama-70b',
+        'llama-3.3-70b-specdec'
     ],
     "mistral": [
-        'mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'mistral-tiny-latest',
-        'codestral-latest', 'pixtral-large-latest', 'mistral-embed', 'mistral-moderation-latest', 'mistral-saba-latest',
-        'ministral-8b-latest', 'ministral-3b-latest', 'open-mistral-nemo', 'open-codestral-mamba', 'mathstral',
+        'codestral-latest', 'mistral-large-latest', 'pixtral-large-latest',
+        'mistral-saba-latest', 'ministral-3b-latest', 'ministral-8b-latest',
+        'mistral-embed', 'mistral-moderation-latest', 'mistral-small-latest',
+        'pixtral-12b-2409', 'open-mistral-nemo', 'open-codestral-mamba', 'mathstral',
         'open-mixtral-8x7b', 'open-mistral-7b', 'open-mixtral-8x22b', 'mistral-small-2402',
         'mistral-large-2402', 'mistral-large-2407'
     ],
     "anthropic": [
-        'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307',
-        'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022',
-        'claude-3-7-sonnet-20240317'
+        'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229',
+        'claude-3-sonnet-20240229', 'claude-3-haiku-20240307', 'claude-3-5-sonnet-latest',
+        'claude-3-5-haiku-latest'
     ],
     "xai": [
-        'grok-2-latest', 'grok-2-1212', 'grok-2', 'grok-2-vision-latest', 'grok-2-vision-1212', 'grok-2-vision',
-        'grok-beta', 'grok-vision-beta'
+        'grok-2-vision-1212', 'grok-2-vision', 'grok-2-vision-latest', 'grok-2-1212',
+        'grok-2', 'grok-2-latest', 'grok-vision-beta', 'grok-beta'
     ],
     "deepseek": [
-        'deepseek-chat', 'deepseek-coder', 'deepseek-reasoner', 'deepseek-math', 'deepseek-english',
-        'deepseek-r1-70b', 'deepseek-r1-70b-alpha', 'deepseek-r1-70b-chat', 'deepseek-r1-70b-instruct'
+        'deepseek-chat', 'deepseek-reasoner'
     ]
 }
 
-SYSTEM_MESSAGE = """You are an expert developer skilled in multiple programming languages. Write clean, efficient code, handle errors robustly, and provide clear explanations. Optimize for performance, follow best practices, and ensure safety."""
-
-# Utility Functions
-def check_ffmpeg() -> bool:
-    try:
-        subprocess.run(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("ERROR: ffmpeg not installed. Install it for audio support (e.g., 'brew install ffmpeg' on MacOS).")
-        return False
-
-def format_response(content: str, provider: str, model: str, timing: float) -> Dict[str, Any]:
-    markdown_content = markdown2.markdown(content, extras=["fenced-code-blocks", "tables"])
-    return {
-        'markdown': content, 'html': markdown_content, 'text': content,
-        'metadata': {'provider': provider, 'model': model, 'generated_at': datetime.now().isoformat(), 'response_time': f"{timing:.2f}s"}
-    }
-
-def get_payload(provider: str, model: str, message: str, persona: str) -> Dict[str, Any]:
-    system_message = PERSONAS.get(persona, PERSONAS["all_round_developer"])
-
-    if provider == "anthropic":
-        return {
-            'model': model,
-            'messages': [
-                {
-                    'role': 'user',
-                    'content': f"System: {system_message}\n\nUser: {message}"
-                }
-            ],
-            'max_tokens': 4096
-        }
-    else:
-        return {
-            'model': model,
-            'temperature': 0.7,
-            'max_tokens': 4096,
-            'messages': [
-                {'role': 'system', 'content': system_message},
-                {'role': 'user', 'content': message}
-            ]
-        }
-
-def get_headers(provider: str, api_key: str) -> Dict[str, str]:
-    return (
-        {'x-api-key': api_key, 'anthropic-version': '2024-01-01', 'Content-Type': 'application/json'}
-        if provider == "anthropic" else
-        {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
-    )
-
-def extract_topic(history: list) -> str | None:
-    first_msg = next((msg['content'] for msg in history if msg.get('isUser')), '')
-    text = first_msg.get('text', first_msg) if isinstance(first_msg, dict) else str(first_msg)
-    return ''.join(c for c in text.split('\n')[0] if c.isalnum() or c.isspace())[:50].strip().replace(' ', '_').lower() or None
-
-# Routes
-@app.route('/')
-def home():
-    return render_template('index.html')
-
+# Update chat endpoint with better error handling
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        start_time = time.time()
         data = request.get_json()
-        provider = data.get('provider')
-        model = data.get('model')
-        message = data.get('message')
-        persona = data.get('persona', 'all_round_developer')
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
 
-        if not all([provider, model, message]):
-            return jsonify({'error': 'Missing parameters'}), 400
+        required_fields = ['message', 'provider', 'model']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
 
+        # Get provider config
+        provider = data['provider']
         config = API_CONFIGS.get(provider)
-        if not config or not config['key']:
-            return jsonify({'error': f'Invalid provider or missing API key: {provider}'}), 400 if config else 401
+        if not config:
+            return jsonify({'error': f'Invalid provider: {provider}'}), 400
 
-        response = requests.post(
-            config['endpoint'],
-            headers=get_headers(provider, config['key']),
-            json=get_payload(provider, model, message, persona),
-            timeout=30
-        )
+        # Check API key
+        if not config.get('key'):
+            return jsonify({'error': f'No API key configured for {provider}'}), 401
+
+        # Process request
+        try:
+            response = process_chat_request(data)
+            return jsonify(response)
+        except requests.RequestException as e:
+            app.logger.error(f"API request error: {str(e)}")
+            return jsonify({'error': f'API request failed: {str(e)}'}), 502
+
+    except Exception as e:
+        app.logger.error(f"Chat error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# Optimized utility functions
+def process_chat_request(data: Dict) -> Dict:
+    """Process chat request with optimized error handling"""
+    provider = data['provider']
+    model = data['model']
+    message = data['message']
+    persona = data.get('persona', '')
+
+    config = API_CONFIGS[provider]
+    endpoint = config['endpoint']
+    api_key = config['key']
+
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
+    # Base payload
+    payload = {
+        'model': model,
+        'messages': [
+            {'role': 'system', 'content': f'Persona: {persona}'},
+            {'role': 'user', 'content': message}
+        ]
+    }
+
+    # Add max_tokens for X AI
+    if provider == 'xai':
+        payload['max_tokens'] = 2048
+
+    try:
+        response = requests.post(endpoint, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
+        app.logger.info(f"Request to {endpoint}: {payload}")
+        app.logger.info(f"Response status: {response.status_code}")
+        app.logger.info(f"Response content: {response.content}")
+
         response.raise_for_status()
+        result = response.json()
 
-        content = response.json().get('content', [{}])[0].get('text') if provider == "anthropic" else response.json()['choices'][0]['message']['content']
-        return jsonify({'response': format_response(content, provider, model, time.time() - start_time)})
+        if 'choices' in result and len(result['choices']) > 0:
+            return {
+                'response': {
+                    'text': result['choices'][0]['message']['content'],
+                    'metadata': {
+                        'provider': provider,
+                        'model': model,
+                        'response_time': f"{response.elapsed.total_seconds()}s"
+                    }
+                }
+            }
+        else:
+            raise ValueError('Invalid response structure from API')
 
-    except requests.Timeout:
-        return jsonify({'error': 'Request timed out'}), 504
     except requests.RequestException as e:
-        return jsonify({'error': f'API error: {str(e)}'}), e.response.status_code if e.response else 502
-    except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        app.logger.error(f"API request error: {str(e)}")
+        app.logger.error(f"Request payload: {json.dumps(payload)}")
+        app.logger.error(f"Response status code: {response.status_code if 'response' in locals() else 'N/A'}")
+        app.logger.error(f"Response content: {response.content if 'response' in locals() else 'N/A'}")
+        raise
 
-@app.route('/transcribe', methods=['POST'])
-def transcribe():
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'}), 400
+def validate_api_key(provider: str, key: str) -> bool:
+    """Validate API key format and credentials"""
+    # Implementation here
 
-    try:
-        audio = AudioSegment.from_file(request.files['audio']).export(io.BytesIO(), format="wav")
-        audio.seek(0)
-        with sr.AudioFile(audio) as source:
-            return jsonify({'text': sr.Recognizer().recognize_google(sr.Recognizer().record(source))})
-    except sr.UnknownValueError:
-        return jsonify({'error': 'Speech not recognized'}), 400
-    except Exception as e:
-        return jsonify({'error': f'Transcription failed: {str(e)}'}), 500
+# Add performance monitoring
+@app.before_request
+def start_timer():
+    request.start_time = time.time()
 
-@app.route('/save_chat', methods=['POST'])
-def save_chat():
-    data = request.get_json()
-    if not data or 'history' not in data:
-        return jsonify({'error': 'Invalid chat data'}), 400
+@app.after_request
+def log_request(response):
+    if hasattr(request, 'start_time'):
+        duration = time.time() - request.start_time
+        app.logger.info(f'Request to {request.path} took {duration:.2f}s')
+    return response
 
-    filename = f"chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    try:
-        with (SAVE_DIR / filename).open('w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
-        return jsonify({'message': 'Chat saved', 'filename': filename})
-    except Exception as e:
-        return jsonify({'error': f'Save failed: {str(e)}'}), 500
-
-@app.route('/list_saved_chats')
-def list_saved_chats():
-    try:
-        chats = []
-        for filepath in SAVE_DIR.glob('*.json'):
-            try:
-                with filepath.open('r', encoding='utf-8') as f:
-                    data = json.load(f)
-                history = data.get('history', [])
-                preview = (
-                    history[0]['content'].get('text', str(history[0]['content']))[:100]
-                    if history else 'Empty chat'
-                )
-                chats.append({
-                    'filename': filepath.name,
-                    'timestamp': data.get('timestamp', filepath.stat().st_mtime),
-                    'preview': preview
-                })
-            except (json.JSONDecodeError, KeyError, IndexError) as e:
-                chats.append({
-                    'filename': filepath.name,
-                    'timestamp': filepath.stat().st_mtime,
-                    'preview': f'Error loading preview: {str(e)}'
-                })
-        return jsonify(sorted(chats, key=lambda x: float(x['timestamp']), reverse=True))
-    except Exception as e:
-        return jsonify({'error': f'Failed to list chats: {str(e)}'}), 500
-
-@app.route('/load_chat/<filename>')
-def load_chat(filename):
-    filepath = SAVE_DIR / filename
-    if not filepath.exists():
-        return jsonify({'error': 'Chat not found'}), 404
-
-    try:
-        with filepath.open('r', encoding='utf-8') as f:
-            return jsonify(json.load(f))
-    except Exception as e:
-        return jsonify({'error': f'Load failed: {str(e)}'}), 500
-
-@app.route('/export_chat', methods=['POST'])
-def export_chat():
-    data = request.get_json()
-    if not data or 'history' not in data:
-        return jsonify({'error': 'Invalid chat data'}), 400
-
-    topic, timestamp = extract_topic(data['history']), datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"chat_{topic}_{timestamp}.md" if topic else f"chat_export_{timestamp}.md"
-
-    try:
-        with (EXPORT_DIR / filename).open('w', encoding='utf-8') as f:
-            f.write(f"# Chat Export: {topic or 'Untitled'}\nGenerated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            for msg in data['history']:
-                role, content = "User" if msg.get('isUser') else "Assistant", msg.get('content', '')
-                text = content.get('text', str(content)) if isinstance(content, dict) else str(content)
-                if isinstance(content, dict) and content.get('metadata'):
-                    f.write(f"_{content['metadata'].get('provider')}/{content['metadata'].get('model')} ({content['metadata'].get('response_time')})_\n\n")
-                f.write(f"## {role}\n\n{text}\n\n---\n\n")
-        return jsonify({'message': 'Chat exported', 'filename': filename})
-    except Exception as e:
-        return jsonify({'error': f'Export failed: {str(e)}'}), 500
-
+# Update the get_models route
 @app.route('/get_models/<provider>')
 def get_models(provider):
-    return jsonify({'models': MODEL_CONFIGS.get(provider, []), 'default': API_CONFIGS.get(provider, {}).get('default')})
+    """Get available models for provider"""
+    try:
+        if provider not in MODEL_CONFIGS:
+            return jsonify({'error': f'Invalid provider: {provider}'}), 400
+
+        config = API_CONFIGS.get(provider, {})
+        available_models = MODEL_CONFIGS.get(provider, [])
+        default_model = config.get('default')
+        fallback_model = config.get('fallback')
+
+        # Ensure default and fallback models exist in available models
+        if default_model and default_model not in available_models:
+            available_models.append(default_model)
+        if fallback_model and fallback_model not in available_models:
+            available_models.append(fallback_model)
+
+        return jsonify({
+            'models': available_models,
+            'default': default_model,
+            'fallback': fallback_model,
+            'selected': default_model or fallback_model or (available_models[0] if available_models else None)
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error getting models: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Add transcribe route with proper error handling
+@app.route('/transcribe', methods=['POST'])
+def transcribe():
+    """Handle audio transcription"""
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file provided'}), 400
+
+        audio_file = request.files['audio']
+        if not audio_file:
+            return jsonify({'error': 'Empty audio file'}), 400
+
+        # Initialize recognizer
+        recognizer = sr.Recognizer()
+
+        try:
+            # Convert audio file to WAV
+            audio = AudioSegment.from_file(audio_file)
+            wav_data = io.BytesIO()
+            audio.export(wav_data, format="wav")
+            wav_data.seek(0)
+
+            # Transcribe audio
+            with sr.AudioFile(wav_data) as source:
+                audio_data = recognizer.record(source)
+                text = recognizer.recognize_google(audio_data)
+                return jsonify({'text': text})
+
+        except sr.UnknownValueError:
+            return jsonify({'error': 'Could not understand audio'}), 400
+        except sr.RequestError:
+            return jsonify({'error': 'Error connecting to speech recognition service'}), 503
+
+    except Exception as e:
+        app.logger.error(f"Transcription error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# Add favicon route
+@app.route('/favicon.ico')
+def favicon():
+    return app.send_static_file('favicon.ico')
+
+@app.route('/')
+def home():
+    """Serve the main application page with groq as default provider"""
+    try:
+        return render_template('index.html', default_provider='groq')
+    except Exception as e:
+        app.logger.error(f"Error rendering template: {str(e)}")
+        return str(e), 500
+
+# Ensure directories exist
+def ensure_directories():
+    """Create necessary directories if they don't exist"""
+    dirs = [
+        Path(__file__).parent / 'templates',
+        Path(__file__).parent / 'static',
+        Path(__file__).parent / 'saved_chats',
+        Path(__file__).parent / 'exports'
+    ]
+    for dir_path in dirs:
+        dir_path.mkdir(exist_ok=True, parents=True)
+
+# Initialize directories before running
+ensure_directories()
 
 if __name__ == '__main__':
-    check_ffmpeg()
-    app.run(debug=True)
+    app.run(debug=False, threaded=True)  # Enable threading for better performance

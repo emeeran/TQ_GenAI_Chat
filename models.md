@@ -2,7 +2,7 @@
 
 ## Provider - openai
 
-- 
+-
 
 - | Alias                          | Points to                                 |
   | :----------------------------- | :---------------------------------------- |
@@ -151,7 +151,7 @@ print(message.content)
 | Mistral Embed      |                                                              |         ✔️         | Our state-of-the-art semantic for extracting representation of text extracts |     8k     |       `mistral-embed`       |  23.12  |
 | Mistral Moderation |                                                              |         ✔️         | Our moderation service that enables our users to detect harmful text content |     8k     | `mistral-moderation-latest` |  24.11  |
 
-- 
+-
 
 | Model         | Weight availability | Available via API |                         Description                          | Max Tokens |     API Endpoints      | Version |
 | ------------- | :-----------------: | :---------------: | :----------------------------------------------------------: | :--------: | :--------------------: | :-----: |
@@ -180,7 +180,7 @@ Here are the details of the available versions:
 - `mistral-saba-latest`: currently points to `mistral-saba-2502`.
 - `codestral-latest`: currently points to `codestral-2501`.
 
-## 
+##
 
 | Model               |                     Weight availability                      | Available via API |                         Description                          | Max Tokens |     API Endpoints     | Version | Legacy date | Deprecation on date | Retirement date |   Alternative model    |
 | ------------------- | :----------------------------------------------------------: | :---------------: | :----------------------------------------------------------: | :--------: | :-------------------: | :-----: | :---------: | :-----------------: | :-------------: | :--------------------: |
@@ -297,4 +297,16 @@ response = client.chat.completions.create(
 
 print(response.choices[0].message.content)
 ```
+
+
+
+
+Please set groq as default provider and set default model for each provider as below:
+
+groq  - deepseek-r1-distill-llama-70b,
+openai - gpt-4o-mini,
+x-ai  - grok-2-latest,
+mistral - codestral-latest,
+anthropic - claude-3.5-sonnet-latest
+
 

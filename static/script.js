@@ -408,24 +408,28 @@ async function sendMessage(message = null, isRetry = false) {
             throw new Error(data.error || `HTTP error! status: ${response.status}`);
         }
 
-        appendMessage(data.response, false);
-        if (data.response && data.response.text) {
-            lastAiResponse = data.response.text;
+        if (data && data.response) {
+            appendMessage(data.response, false);
+            if (data.response.text) {
+                lastAiResponse = data.response.text;
+            }
+            lastMessage = messageToSend;
+
+            chatHistory.push({
+                content: messageToSend,
+                isUser: true,
+                timestamp: new Date().toISOString()
+            });
+            chatHistory.push({
+                content: data.response,
+                isUser: false,
+                timestamp: new Date().toISOString()
+            });
+
+            showFeedback(true);
+        } else {
+            throw new Error('Invalid response from server');
         }
-        lastMessage = messageToSend;
-
-        chatHistory.push({
-            content: messageToSend,
-            isUser: true,
-            timestamp: new Date().toISOString()
-        });
-        chatHistory.push({
-            content: data.response,
-            isUser: false,
-            timestamp: new Date().toISOString()
-        });
-
-        showFeedback(true);
     } catch (error) {
         console.error('Send message error:', error);
         appendMessage(`Error: ${error.message}`, false);
@@ -831,3 +835,69 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem('selectedPersona', e.target.value);
     });
 });
+
+// ...existing code...
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Set Groq as default provider
+    const providerSelect = document.getElementById('provider');
+    providerSelect.value = 'groq';
+
+    // Initialize components
+    initializeAudio();
+    initializeVoiceControls();
+    initializePersona();
+
+    // Load models for default provider
+    updateModels();
+});
+
+// ...rest of existing code...
+
+async function updateModels() {
+    const provider = document.getElementById('provider').value;
+    const modelSelect = document.getElementById('model');
+
+    modelSelect.innerHTML = '<option value="">Loading models...</option>';
+    modelSelect.disabled = true;
+
+    try {
+        const response = await fetch(`/get_models/${provider}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        modelSelect.innerHTML = '<option value="">Select Model</option>';
+
+        if (Array.isArray(data.models) && data.models.length > 0) {
+            data.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                if (model === data.default || model === data.selected) {
+                    option.selected = true;
+                }
+                modelSelect.appendChild(option);
+            });
+            modelSelect.disabled = false;
+        } else {
+            modelSelect.innerHTML = '<option value="">No models available</option>';
+            modelSelect.disabled = true;
+        }
+    } catch (error) {
+        console.error('Error fetching models:', error);
+        modelSelect.innerHTML = '<option value="">Error loading models</option>';
+        modelSelect.disabled = true;
+    }
+}
+
+// Initialize models on page load
+document.addEventListener('DOMContentLoaded', function () {
+    const providerSelect = document.getElementById('provider');
+    providerSelect.value = 'groq'; // Set default provider
+    updateModels(); // Load initial models
+});
+
+// ...rest of existing code...
