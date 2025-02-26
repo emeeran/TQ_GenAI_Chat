@@ -11,27 +11,33 @@ body {
     height: 100vh;
 }
 
+/* Enhanced Sidebar Styles */
 .sidebar {
-    background-color: #f8f9fa;
-    padding: 20px;
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem 1rem;
     height: 100vh;
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #90a4ae #e9ecef;
 }
 
 .sidebar-title {
-    padding: 1rem;
-    text-align: center;
-    border-bottom: 1px solid #dee2e6;
-    background-color: #f8f9fa;
+    margin: -1.5rem -1rem 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #2196f3, #1976d2);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-title h3 {
-    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
     font-weight: 600;
-    color: #1976d2;
+    margin: 0;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -305,167 +311,98 @@ body {
     color: #6c757d;
 }
 
-/* Settings Groups Improvements */
+/* Clean up and fix settings styles */
 .settings-group {
-    background-color: #ffffff;
+    background: white;
     border-radius: 12px;
-    border: 1px solid #e0e0e0;
-    margin-bottom: 15px;
-    overflow: hidden;
-    transition: all 0.2s ease;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-group:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .settings-header {
-    padding: 15px;
-    background-color: #f8f9fa;
+    padding: 1.2rem;
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
     cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
     user-select: none;
-    transition: background-color 0.2s ease;
-    position: relative;
-    z-index: 1;
-}
-
-.settings-header:hover {
-    background-color: #e9ecef;
+    border-radius: 12px;
+    transition: all 0.3s ease;
 }
 
 .settings-header.active {
-    background-color: #e9ecef;
-    border-bottom: 1px solid #e0e0e0;
+    background: linear-gradient(to right, #e3f2fd, #f8f9fa);
+    border-radius: 12px 12px 0 0;
 }
 
 .settings-header h4 {
-    margin: 0;
-    font-size: 0.95rem;
+    color: #1976d2;
     font-weight: 600;
-    color: #424242;
+    font-size: 1rem;
+    margin: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.75rem;
+}
+
+.settings-header h4 i {
+    font-size: 1.1rem;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1976d2;
+    transition: all 0.3s ease;
 }
 
 .settings-content {
-    background-color: #ffffff;
-    overflow: hidden;
-    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
     max-height: 0;
-    opacity: 1;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 0 0 12px 12px;
 }
 
 .settings-content.expanded {
     max-height: 500px;
-    padding: 15px;
-    border-top: 1px solid #e0e0e0;
+    opacity: 1;
+    padding: 1.2rem;
 }
 
-.settings-content.collapsed {
-    padding: 0;
-    opacity: 0;
-}
-
-.settings-content:not(.collapsed) {
-    padding: 15px;
-    border-top: 1px solid #e0e0e0;
-}
-
-.settings-header i.fa-chevron-down {
-    transition: transform 0.3s ease;
-    font-size: 0.875rem;
-    color: #757575;
-}
-
-.settings-header.active i.fa-chevron-down {
-    transform: rotate(180deg);
-}
-
-/* Settings Groups */
-.settings-group {
-    background-color: #ffffff;
-    border-radius: 12px;
+.settings-group .form-control,
+.settings-group select {
     border: 1px solid #e0e0e0;
-    margin-bottom: 15px;
-    overflow: hidden;
-}
-
-.settings-group:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.settings-header {
-    padding: 15px;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
     background-color: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    user-select: none;
 }
 
-.settings-header.active {
-    border-bottom-color: transparent;
+.settings-group .form-control:focus,
+.settings-group select:focus {
+    border-color: #1976d2;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
 }
 
-.settings-header h4 {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin: 0;
+.settings-group label {
+    font-weight: 500;
     color: #424242;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.settings-header h4 i {
-    color: #757575;
-    font-size: 1rem;
-}
-
-.settings-content {
-    max-height: none;
-    /* Remove fixed max-height */
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
-    background-color: #ffffff;
-}
-
-.settings-content.collapsed {
-    padding: 0;
-    border-top: none;
-}
-
-.settings-content:not(.collapsed) {
-    padding: 15px;
-    border-top: 1px solid #e0e0e0;
-}
-
-/* Form control spacing in settings */
-.settings-content .form-control {
     margin-bottom: 0.5rem;
+    font-size: 0.9rem;
 }
 
-.settings-content .d-flex {
-    gap: 0.5rem;
-}
-
-.settings-header i {
-    transition: transform 0.3s ease;
-}
-
-.settings-header:hover {
-    opacity: 0.8;
-}
-
-.settings-header i.fa-chevron-down {
-    transition: transform 0.3s ease;
-}
-
-.settings-header i.rotated {
-    transform: rotate(180deg);
-}
+/* Remove all other conflicting .settings-* styles */
 
 /* Audio settings specific styles */
 #voice-settings {
@@ -496,3 +433,109 @@ body {
 .settings-content.collapsed {
     max-height: 0;
 }
+
+/* Audio Settings Specific Styles */
+.audio-controls {
+    background-color: #ffffff;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.audio-slider {
+    width: 100%;
+    margin: 0.5rem 0;
+}
+
+.audio-value {
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-align: right;
+    min-width: 3rem;
+}
+
+/* Form Controls */
+.form-control {
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    padding: 0.6rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: #1976d2;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+}
+
+.form-group label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #546e7a;
+    margin-bottom: 0.5rem;
+}
+
+/* Status Indicators */
+.processing-indicator {
+    background: linear-gradient(to right, #e3f2fd, #bbdefb);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.feedback-section {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+}
+
+/* ...existing styles... */
+
+.settings-group {
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    transition: margin-bottom 0.3s ease, transform 0.3s ease;
+}
+
+.settings-group:has(.settings-content.expanded) {
+    margin-bottom: 1rem;
+}
+
+.settings-header {
+    padding: 0.8rem 1rem;
+    min-height: 48px;
+    border-radius: 8px;
+}
+
+.settings-header h4 {
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.settings-header h4 i {
+    font-size: 1rem;
+    width: 20px;
+}
+
+.settings-content {
+    padding: 0;
+    border-radius: 0 0 8px 8px;
+}
+
+.settings-content.expanded {
+    padding: 1rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Improve spacing in forms */
+.settings-content .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.settings-content .form-control {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+/* Remove duplicate/conflicting styles */
+/* ...rest of existing styles... */

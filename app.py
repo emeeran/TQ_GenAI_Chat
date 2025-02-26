@@ -58,7 +58,7 @@ API_CONFIGS = {
         "fallback": "gpt-3.5-turbo"
     },
     "groq": {
-        "endpoint": "https://api.groq.com/v1/chat/completions",
+        "endpoint": "https://api.groq.com/openai/v1/chat/completions",  # Fixed URL
         "key": os.getenv("GROQ_API_KEY"),
         "default": "deepseek-r1-distill-llama-70b",
         "fallback": "mixtral-8x7b-32768"
@@ -173,6 +173,11 @@ def process_chat_request(data: Dict) -> Dict:
     endpoint = config['endpoint']
     api_key = config['key']
 
+    # Add more detailed logging
+    app.logger.info(f"Making request to {endpoint}")
+    app.logger.info(f"Selected model: {model}")
+    app.logger.info(f"Provider: {provider}")
+
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json'
@@ -187,15 +192,9 @@ def process_chat_request(data: Dict) -> Dict:
         ]
     }
 
-    # Add max_tokens for X AI
-    if provider == 'xai':
-        payload['max_tokens'] = 2048
-
     try:
         response = requests.post(endpoint, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
-        app.logger.info(f"Request to {endpoint}: {payload}")
         app.logger.info(f"Response status: {response.status_code}")
-        app.logger.info(f"Response content: {response.content}")
 
         response.raise_for_status()
         result = response.json()
@@ -237,11 +236,23 @@ def log_request(response):
         app.logger.info(f'Request to {request.path} took {duration:.2f}s')
     return response
 
+# Add error handling middleware
+@app.errorhandler(400)
+def bad_request(error):
+    app.logger.error(f"Bad Request: {error}")
+    return jsonify({
+        'error': 'Bad Request',
+        'message': str(error)
+    }), 400
+
 # Update the get_models route
 @app.route('/get_models/<provider>')
 def get_models(provider):
     """Get available models for provider"""
     try:
+        if not provider:
+            return jsonify({'error': 'Provider is required'}), 400
+
         if provider not in MODEL_CONFIGS:
             return jsonify({'error': f'Invalid provider: {provider}'}), 400
 
@@ -250,12 +261,16 @@ def get_models(provider):
         default_model = config.get('default')
         fallback_model = config.get('fallback')
 
+        # Sort models alphabetically
+        available_models = sorted(available_models)
+
         # Ensure default and fallback models exist in available models
         if default_model and default_model not in available_models:
             available_models.append(default_model)
         if fallback_model and fallback_model not in available_models:
             available_models.append(fallback_model)
 
+        # Simplify response structure
         return jsonify({
             'models': available_models,
             'default': default_model,
@@ -265,7 +280,10 @@ def get_models(provider):
 
     except Exception as e:
         app.logger.error(f"Error getting models: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 # Add transcribe route with proper error handling
 @app.route('/transcribe', methods=['POST'])
@@ -329,6 +347,115 @@ def ensure_directories():
     ]
     for dir_path in dirs:
         dir_path.mkdir(exist_ok=True, parents=True)
+
+# Add new routes for save and export
+@app.route('/save_chat', methods=['POST'])
+def save_chat():
+    try:
+        data = request.get_json()
+        if not data or 'history' not in data:
+            return jsonify({'error': 'No chat history provided'}), 400
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'chat_{timestamp}.json'
+        filepath = SAVE_DIR / filename
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'message': 'Chat saved successfully',
+            'filename': filename
+        })
+
+    except Exception as e:
+        app.logger.error(f"Save chat error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/list_saved_chats')
+def list_saved_chats():
+    try:
+        files = []
+        for file in SAVE_DIR.glob('*.json'):
+            with open(file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # Get first message for preview
+                preview = next((msg['content'] for msg in data['history'] if msg['content']), '')
+                if isinstance(preview, dict):
+                    preview = preview.get('text', '')
+                preview = preview[:100]  # Limit preview length
+
+                files.append({
+                    'filename': file.name,
+                    'timestamp': data.get('timestamp', ''),
+                    'preview': preview
+                })
+
+        return jsonify(sorted(files, key=lambda x: x['timestamp'], reverse=True))
+
+    except Exception as e:
+        app.logger.error(f"List saved chats error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/load_chat/<filename>')
+def load_chat(filename):
+    try:
+        filepath = SAVE_DIR / filename
+        if not filepath.exists():
+            return jsonify({'error': 'File not found'}), 404
+
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        return jsonify(data)
+
+    except Exception as e:
+        app.logger.error(f"Load chat error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+def generate_chat_topic(messages: list) -> str:
+    """Generate a topic from chat history"""
+    # Get first user message
+    first_message = next((msg['content'] for msg in messages if msg['isUser']), '')
+    if isinstance(first_message, dict):
+        first_message = first_message.get('text', '')
+
+    # Clean and format the topic
+    topic = first_message.strip().lower()
+    # Take first few words, max 50 chars
+    topic = ' '.join(topic.split()[:5])[:50]
+    # Replace special chars with underscores
+    topic = ''.join(c if c.isalnum() else '_' for c in topic)
+    # Remove multiple underscores
+    topic = '_'.join(filter(None, topic.split('_')))
+    return topic or 'untitled'
+
+@app.route('/export_chat', methods=['POST'])
+def export_chat():
+    try:
+        data = request.get_json()
+        if not data or 'history' not in data:
+            return jsonify({'error': 'No chat history provided'}), 400
+
+        # Generate topic-based filename
+        topic = generate_chat_topic(data['history'])
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'{topic}_{timestamp}.md'
+        filepath = EXPORT_DIR / filename
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(f'# Chat: {topic}\n\n')
+            f.write(f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
+            # ...rest of existing write operations...
+
+        return jsonify({
+            'message': 'Chat exported successfully',
+            'filename': filename
+        })
+
+    except Exception as e:
+        app.logger.error(f"Export chat error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # Initialize directories before running
 ensure_directories()

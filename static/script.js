@@ -763,141 +763,72 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('provider').dispatchEvent(new Event('change'));
 });
 
-function toggleContent(header) {
-    const content = header.nextElementSibling;
-    const icon = header.querySelector('.fa-chevron-down');
+// ...existing code...
 
-    // Toggle active state on header
-    header.classList.toggle('active');
+function initializeSidebar() {
+    const headers = document.querySelectorAll('.settings-header');
 
-    // Get scroll height before any changes
-    const scrollHeight = content.querySelector('div') ?
-        content.querySelector('div').scrollHeight + 30 : // Add padding
-        content.scrollHeight;
-
-    // Apply transitions
-    if (content.classList.contains('collapsed')) {
-        content.style.maxHeight = scrollHeight + 'px';
-        content.classList.remove('collapsed');
-        icon.classList.add('rotated');
-
-        // Wait for transition to complete before removing max-height
-        setTimeout(() => {
-            if (!content.classList.contains('collapsed')) {
-                content.style.maxHeight = 'none';
-            }
-        }, 300);
-    } else {
-        // Set actual height before transitioning to 0
-        content.style.maxHeight = scrollHeight + 'px';
-        setTimeout(() => {
-            content.style.maxHeight = '0px';
-            content.classList.add('collapsed');
-            icon.classList.remove('rotated');
-        }, 10);
-    }
-}
-
-function initializeCollapsibleSections() {
-    const savedStates = JSON.parse(localStorage.getItem('sidebarStates') || '{}');
-
-    document.querySelectorAll('.settings-group .settings-header').forEach(header => {
+    headers.forEach(header => {
         const content = header.nextElementSibling;
-        const groupId = header.querySelector('h4').textContent.trim();
+        const icon = header.querySelector('.fa-chevron-down');
 
-        // Restore saved state
-        if (savedStates[groupId]) {
-            header.classList.add('active');
-            content.classList.remove('collapsed');
-            content.style.maxHeight = 'none';
-            header.querySelector('.fa-chevron-down').classList.add('rotated');
-        }
+        // Set initial state
+        content.style.display = 'none';
+        content.classList.remove('expanded');
+        header.classList.remove('active');
 
-        header.addEventListener('click', function (e) {
-            e.preventDefault();
-            toggleContent(this);
+        header.addEventListener('click', () => {
+            // Close all other sections
+            headers.forEach(h => {
+                if (h !== header) {
+                    const c = h.nextElementSibling;
+                    h.classList.remove('active');
+                    c.classList.remove('expanded');
+                    // Smooth collapse
+                    c.style.display = 'none';
+                }
+            });
 
-            // Save state
-            savedStates[groupId] = !content.classList.contains('collapsed');
-            localStorage.setItem('sidebarStates', JSON.stringify(savedStates));
+            // Toggle current section
+            const isExpanding = !content.classList.contains('expanded');
+
+            if (isExpanding) {
+                content.style.display = 'block';
+                // Force reflow for animation
+                content.offsetHeight;
+                content.classList.add('expanded');
+                header.classList.add('active');
+            } else {
+                content.classList.remove('expanded');
+                header.classList.remove('active');
+                // Wait for animation before hiding
+                setTimeout(() => {
+                    if (!content.classList.contains('expanded')) {
+                        content.style.display = 'none';
+                    }
+                }, 300);
+            }
+
+            // Update icon rotation
+            icon.style.transform = isExpanding ? 'rotate(180deg)' : 'rotate(0deg)';
         });
     });
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    initializeCollapsibleSections();
-    // Restore saved persona
-    const savedPersona = localStorage.getItem('selectedPersona') || 'all_round_developer';
-    document.getElementById('persona').value = savedPersona;
-
-    // Save persona selection
-    document.getElementById('persona').addEventListener('change', function (e) {
-        localStorage.setItem('selectedPersona', e.target.value);
+// Initialize with smooth transitions
+document.addEventListener('DOMContentLoaded', () => {
+    // Remove old event listeners
+    document.querySelectorAll('.settings-header').forEach(header => {
+        const clone = header.cloneNode(true);
+        header.parentNode.replaceChild(clone, header);
     });
-});
 
-// ...existing code...
+    initializeSidebar();
 
-document.addEventListener('DOMContentLoaded', function () {
-    // Set Groq as default provider
-    const providerSelect = document.getElementById('provider');
-    providerSelect.value = 'groq';
-
-    // Initialize components
-    initializeAudio();
-    initializeVoiceControls();
-    initializePersona();
-
-    // Load models for default provider
-    updateModels();
-});
-
-// ...rest of existing code...
-
-async function updateModels() {
-    const provider = document.getElementById('provider').value;
-    const modelSelect = document.getElementById('model');
-
-    modelSelect.innerHTML = '<option value="">Loading models...</option>';
-    modelSelect.disabled = true;
-
-    try {
-        const response = await fetch(`/get_models/${provider}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        modelSelect.innerHTML = '<option value="">Select Model</option>';
-
-        if (Array.isArray(data.models) && data.models.length > 0) {
-            data.models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                if (model === data.default || model === data.selected) {
-                    option.selected = true;
-                }
-                modelSelect.appendChild(option);
-            });
-            modelSelect.disabled = false;
-        } else {
-            modelSelect.innerHTML = '<option value="">No models available</option>';
-            modelSelect.disabled = true;
-        }
-    } catch (error) {
-        console.error('Error fetching models:', error);
-        modelSelect.innerHTML = '<option value="">Error loading models</option>';
-        modelSelect.disabled = true;
-    }
-}
-
-// Initialize models on page load
-document.addEventListener('DOMContentLoaded', function () {
-    const providerSelect = document.getElementById('provider');
-    providerSelect.value = 'groq'; // Set default provider
-    updateModels(); // Load initial models
+    // Add initial transition delay for staggered animation
+    document.querySelectorAll('.settings-group').forEach((group, index) => {
+        group.style.transitionDelay = `${index * 50}ms`;
+    });
 });
 
 // ...rest of existing code...
