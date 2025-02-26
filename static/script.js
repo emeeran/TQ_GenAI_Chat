@@ -372,6 +372,7 @@ async function sendMessage(message = null, isRetry = false) {
         const userInput = document.getElementById('user-input');
         const provider = document.getElementById('provider').value;
         const model = document.getElementById('model').value;
+        const persona = document.getElementById('persona').value;
 
         const messageToSend = message || userInput.value.trim();
 
@@ -396,7 +397,8 @@ async function sendMessage(message = null, isRetry = false) {
             body: JSON.stringify({
                 message: messageToSend,
                 provider: provider,
-                model: model
+                model: model,
+                persona: persona
             })
         });
 
@@ -820,4 +822,12 @@ function initializeCollapsibleSections() {
 
 document.addEventListener('DOMContentLoaded', function () {
     initializeCollapsibleSections();
+    // Restore saved persona
+    const savedPersona = localStorage.getItem('selectedPersona') || 'all_round_developer';
+    document.getElementById('persona').value = savedPersona;
+
+    // Save persona selection
+    document.getElementById('persona').addEventListener('change', function (e) {
+        localStorage.setItem('selectedPersona', e.target.value);
+    });
 });

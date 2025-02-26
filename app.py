@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
 import os
+from persona import PERSONAS
 
 # Initialize Flask app and configurations
 app = Flask(__name__)
@@ -87,13 +88,30 @@ def format_response(content: str, provider: str, model: str, timing: float) -> D
         'metadata': {'provider': provider, 'model': model, 'generated_at': datetime.now().isoformat(), 'response_time': f"{timing:.2f}s"}
     }
 
-def get_payload(provider: str, model: str, message: str) -> Dict[str, Any]:
-    payload = {'model': model, 'temperature': 0.7, 'max_tokens': 4096}
-    return (
-        {**payload, 'messages': [{'role': 'user', 'content': message}], 'system': SYSTEM_MESSAGE}
-        if provider == "anthropic" else
-        {**payload, 'messages': [{'role': 'system', 'content': SYSTEM_MESSAGE}, {'role': 'user', 'content': message}]}
-    )
+def get_payload(provider: str, model: str, message: str, persona: str) -> Dict[str, Any]:
+    system_message = PERSONAS.get(persona, PERSONAS["all_round_developer"])
+
+    if provider == "anthropic":
+        return {
+            'model': model,
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': f"System: {system_message}\n\nUser: {message}"
+                }
+            ],
+            'max_tokens': 4096
+        }
+    else:
+        return {
+            'model': model,
+            'temperature': 0.7,
+            'max_tokens': 4096,
+            'messages': [
+                {'role': 'system', 'content': system_message},
+                {'role': 'user', 'content': message}
+            ]
+        }
 
 def get_headers(provider: str, api_key: str) -> Dict[str, str]:
     return (
@@ -117,7 +135,10 @@ def chat():
     try:
         start_time = time.time()
         data = request.get_json()
-        provider, model, message = data.get('provider'), data.get('model'), data.get('message')
+        provider = data.get('provider')
+        model = data.get('model')
+        message = data.get('message')
+        persona = data.get('persona', 'all_round_developer')
 
         if not all([provider, model, message]):
             return jsonify({'error': 'Missing parameters'}), 400
@@ -127,8 +148,10 @@ def chat():
             return jsonify({'error': f'Invalid provider or missing API key: {provider}'}), 400 if config else 401
 
         response = requests.post(
-            config['endpoint'], headers=get_headers(provider, config['key']),
-            json=get_payload(provider, model, message), timeout=30
+            config['endpoint'],
+            headers=get_headers(provider, config['key']),
+            json=get_payload(provider, model, message, persona),
+            timeout=30
         )
         response.raise_for_status()
 
