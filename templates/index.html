@@ -19,78 +19,98 @@
             <div class="col-md-3 sidebar">
                 <!-- Model Settings -->
                 <div class="settings-group">
-                    <h4>Model Settings</h4>
-                    <div class="form-group">
-                        <label for="provider">API Provider</label>
-                        <select class="form-control" id="provider" onchange="updateModels()">
-                            <option value="groq" data-default="deepseek-r1-distill-llama-70b">Groq</option>
-                            <option value="openai" data-default="gpt-4o-mini">OpenAI</option>
-                            <option value="mistral" data-default="codestral-latest">Mistral</option>
-                            <option value="anthropic" data-default="claude-3-5-sonnet-latest">Anthropic</option>
-                            <option value="xai" data-default="grok-latest">X AI</option>
-                            <option value="deepseek" data-default="deepseek-r1-70b">Deepseek</option>
-                        </select>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="model">Model</label>
-                        <select class="form-control" id="model" disabled>
-                            <option value="">Select Model</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Voice Settings (Collapsible) -->
-                <div class="settings-group">
-                    <div class="settings-header" onclick="toggleVoiceSettings()">
-                        <h4>Voice Settings</h4>
+                    <div class="settings-header">
+                        <h4><i class="fas fa-cog"></i> Model Settings</h4>
                         <i class="fas fa-chevron-down"></i>
                     </div>
-                    <div id="voice-settings" class="settings-content collapsed">
-                        <div class="mb-2">
-                            <label for="voice-select">Voice (English)</label>
-                            <select class="form-control" id="voice-select">
-                                <option value="">Loading voices...</option>
+                    <div class="settings-content collapsed">
+                        <div class="form-group">
+                            <label for="provider">API Provider</label>
+                            <select class="form-control" id="provider" onchange="updateModels()">
+                                <option value="groq">Groq</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="mistral">Mistral</option>
+                                <option value="anthropic">Anthropic</option>
+                                <option value="xai">X AI</option>
+                                <option value="deepseek">DeepSeek</option>
                             </select>
                         </div>
-                        <div class="mb-2">
-                            <label for="voice-rate">Speed</label>
-                            <input type="range" class="form-range" id="voice-rate" min="0.5" max="2" step="0.1"
-                                value="1">
-                            <small class="text-muted" id="voice-rate-value">1.0x</small>
-                        </div>
-                        <div class="mb-2">
-                            <label for="voice-pitch">Pitch</label>
-                            <input type="range" class="form-range" id="voice-pitch" min="0.5" max="2" step="0.1"
-                                value="1">
-                            <small class="text-muted" id="voice-pitch-value">1.0x</small>
+                        <div class="form-group">
+                            <label for="model">Model</label>
+                            <select class="form-control" id="model" disabled>
+                                <option value="">Select Model</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="action-buttons mt-4">
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <button class="btn btn-success w-100" onclick="saveChat()">
-                                <i class="fas fa-save"></i> Save
-                            </button>
-                        </div>
-                        <div class="col-6">
-                            <button class="btn btn-warning w-100" onclick="retryLast()">
-                                <i class="fas fa-redo"></i> Retry
-                            </button>
+                <div class="settings-group">
+                    <div class="settings-header">
+                        <h4><i class="fas fa-tools"></i> Actions</h4>
+                    </div>
+                    <div class="settings-content">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button class="btn btn-success w-100" onclick="saveChat()">
+                                    <i class="fas fa-save"></i> Save
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-info w-100" onclick="loadSaved()">
+                                    <i class="fas fa-folder-open"></i> Load
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-warning w-100" onclick="retryLast()">
+                                    <i class="fas fa-redo"></i> Retry
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-primary w-100" onclick="exportToMd()">
+                                    <i class="fas fa-file-export"></i> Export
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <button class="btn btn-info w-100" onclick="exportToMd()">
-                                <i class="fas fa-download"></i> Export
-                            </button>
+                </div>
+
+                <!-- Voice Settings (Collapsible) -->
+                <div class="settings-group">
+                    <div class="settings-header" onclick="toggleContent(this)">
+                        <h4><i class="fas fa-microphone"></i> Audio Settings</h4>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="settings-content collapsed">
+                        <div class="mb-3">
+                            <label for="voice-gender">Voice Gender</label>
+                            <select class="form-control" id="voice-gender">
+                                <option value="all">All</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                            </select>
                         </div>
-                        <div class="col-6">
-                            <button class="btn btn-primary w-100" onclick="loadSaved()">
-                                <i class="fas fa-upload"></i> Load
-                            </button>
+                        <div class="mb-3">
+                            <label for="voice-select">Voice Selection</label>
+                            <select class="form-control" id="voice-select">
+                                <option value="">Loading voices...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-rate">Speed</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="range" class="form-range flex-grow-1" id="voice-rate" min="0.5" max="2"
+                                    step="0.1" value="1">
+                                <span class="text-muted" id="voice-rate-value">1.0x</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="voice-pitch">Pitch</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="range" class="form-range flex-grow-1" id="voice-pitch" min="0.5" max="2"
+                                    step="0.1" value="1">
+                                <span class="text-muted" id="voice-pitch-value">1.0x</span>
+                            </div>
                         </div>
                     </div>
                 </div>

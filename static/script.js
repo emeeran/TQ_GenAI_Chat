@@ -538,15 +538,27 @@ async function transcribeAudio(audioBlob) {
 
 function updateVoiceList() {
     const voiceSelect = document.getElementById('voice-select');
+    const genderSelect = document.getElementById('voice-gender');
     const voices = speechSynthesis.getVoices();
+    const selectedGender = genderSelect.value;
 
-    // Filter for English voices only
-    const englishVoices = voices.filter(voice =>
-        voice.lang.startsWith('en-') || voice.lang === 'en'
-    );
+    // Filter voices by language and gender
+    const filteredVoices = voices.filter(voice => {
+        const isEnglish = voice.lang.startsWith('en-') || voice.lang === 'en';
+        if (selectedGender === 'all') return isEnglish;
+        // Simple gender detection based on voice name
+        const isFemale = voice.name.toLowerCase().includes('female') ||
+            voice.name.toLowerCase().includes('woman');
+        const isMale = voice.name.toLowerCase().includes('male') ||
+            voice.name.toLowerCase().includes('man');
+        return isEnglish && (
+            (selectedGender === 'female' && isFemale) ||
+            (selectedGender === 'male' && isMale)
+        );
+    });
 
     voiceSelect.innerHTML = '';
-    englishVoices.forEach(voice => {
+    filteredVoices.forEach(voice => {
         const option = document.createElement('option');
         option.value = voice.name;
         option.textContent = `${voice.name} (${voice.lang})`;
@@ -560,7 +572,6 @@ function updateVoiceList() {
     // Sort by name
     const options = Array.from(voiceSelect.options);
     options.sort((a, b) => a.text.localeCompare(b.text));
-
     voiceSelect.innerHTML = '';
     options.forEach(option => voiceSelect.appendChild(option));
 }
@@ -576,6 +587,7 @@ function toggleVoiceSettings() {
 // Initialize voice controls with state persistence
 function initializeVoiceControls() {
     const voiceSelect = document.getElementById('voice-select');
+    const genderSelect = document.getElementById('voice-gender');
     const rateInput = document.getElementById('voice-rate');
     const pitchInput = document.getElementById('voice-pitch');
     const rateValue = document.getElementById('voice-rate-value');
@@ -585,12 +597,24 @@ function initializeVoiceControls() {
     const savedSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
     voiceRate = savedSettings.rate || 1.0;
     voicePitch = savedSettings.pitch || 1.0;
+    const savedGender = savedSettings.gender || 'all';
 
     // Update UI with saved settings
     rateInput.value = voiceRate;
     pitchInput.value = voicePitch;
     rateValue.textContent = `${voiceRate.toFixed(1)}x`;
     pitchValue.textContent = `${voicePitch.toFixed(1)}x`;
+    genderSelect.value = savedGender;
+
+    // Event listeners
+    genderSelect.addEventListener('change', (e) => {
+        const gender = e.target.value;
+        localStorage.setItem('voiceSettings', JSON.stringify({
+            ...savedSettings,
+            gender: gender
+        }));
+        updateVoiceList(); // Refresh voice list with gender filter
+    });
 
     voiceSelect.addEventListener('change', (e) => {
         const voices = speechSynthesis.getVoices();
@@ -623,14 +647,32 @@ function initializeVoiceControls() {
     speechSynthesis.onvoiceschanged = updateVoiceList;
 }
 
-function speakText(text) {
-    // Clean up the text
-    const cleanText = text.replace(/```[\s\S]*?```/g, 'code block omitted')
+function cleanTextForSpeech(text) {
+    return text
+        // Remove code blocks
+        .replace(/```[\s\S]*?```/g, 'code block omitted')
+        // Remove inline code
         .replace(/`.*?`/g, '')
-        .replace(/\[.*?\]\(.*?\)/g, '')
+        // Remove URLs
+        .replace(/https?:\/\/\S+/g, 'URL omitted')
+        // Remove markdown links
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+        // Remove headers
         .replace(/#+\s/g, '')
-        .replace(/\*\*/g, '');
+        // Remove bold/italic markers
+        .replace(/[\*_]{1,2}([^\*_]+)[\*_]{1,2}/g, '$1')
+        // Remove list markers
+        .replace(/^[-*+]\s/gm, '')
+        // Remove numbered lists
+        .replace(/^\d+\.\s/gm, '')
+        // Add pauses at punctuation
+        .replace(/([.!?])\s+/g, '$1, ')
+        // Clean up multiple spaces
+        .replace(/\s+/g, ' ')
+        .trim();
+}
 
+function speakText(text) {
     if (isSpeaking) {
         speechSynthesis.cancel();
         isSpeaking = false;
@@ -638,36 +680,59 @@ function speakText(text) {
         return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const cleanText = cleanTextForSpeech(text);
 
-    // Apply voice settings
-    if (selectedVoice) {
-        utterance.voice = selectedVoice;
+    // Split text into sentences for better handling
+    const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
+    let currentSentence = 0;
+
+    function speakNextSentence() {
+        if (currentSentence >= sentences.length || !isSpeaking) {
+            isSpeaking = false;
+            updateSpeakButton();
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(sentences[currentSentence]);
+
+        // Apply voice settings
+        if (selectedVoice) utterance.voice = selectedVoice;
+        utterance.rate = voiceRate;
+        utterance.pitch = voicePitch;
+        utterance.volume = 1.0;
+
+        utterance.onend = () => {
+            currentSentence++;
+            speakNextSentence();
+        };
+
+        utterance.onerror = (event) => {
+            console.error('Speech synthesis error:', event);
+            isSpeaking = false;
+            updateSpeakButton();
+        };
+
+        speechSynthesis.speak(utterance);
     }
-    utterance.rate = voiceRate;
-    utterance.pitch = voicePitch;
-    utterance.volume = 1.0;
-
-    utterance.onend = () => {
-        isSpeaking = false;
-        updateSpeakButton();
-    };
-
-    utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        isSpeaking = false;
-        updateSpeakButton();
-    };
 
     try {
-        speechSynthesis.speak(utterance);
         isSpeaking = true;
         updateSpeakButton();
+        speakNextSentence();
     } catch (error) {
         console.error('Speech synthesis failed:', error);
         alert('Text-to-speech failed. Please check your browser settings.');
+        isSpeaking = false;
+        updateSpeakButton();
     }
 }
+
+// Add speech synthesis resume functionality
+setInterval(() => {
+    if (isSpeaking && !speechSynthesis.speaking) {
+        speechSynthesis.resume();
+    }
+}, 250);
 
 function updateSpeakButton() {
     const speakButton = document.getElementById('speak-button');
@@ -690,4 +755,69 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeAudio();
     initializeVoiceControls();
     document.getElementById('provider').dispatchEvent(new Event('change'));
+});
+
+function toggleContent(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('.fa-chevron-down');
+
+    // Toggle active state on header
+    header.classList.toggle('active');
+
+    // Get scroll height before any changes
+    const scrollHeight = content.querySelector('div') ?
+        content.querySelector('div').scrollHeight + 30 : // Add padding
+        content.scrollHeight;
+
+    // Apply transitions
+    if (content.classList.contains('collapsed')) {
+        content.style.maxHeight = scrollHeight + 'px';
+        content.classList.remove('collapsed');
+        icon.classList.add('rotated');
+
+        // Wait for transition to complete before removing max-height
+        setTimeout(() => {
+            if (!content.classList.contains('collapsed')) {
+                content.style.maxHeight = 'none';
+            }
+        }, 300);
+    } else {
+        // Set actual height before transitioning to 0
+        content.style.maxHeight = scrollHeight + 'px';
+        setTimeout(() => {
+            content.style.maxHeight = '0px';
+            content.classList.add('collapsed');
+            icon.classList.remove('rotated');
+        }, 10);
+    }
+}
+
+function initializeCollapsibleSections() {
+    const savedStates = JSON.parse(localStorage.getItem('sidebarStates') || '{}');
+
+    document.querySelectorAll('.settings-group .settings-header').forEach(header => {
+        const content = header.nextElementSibling;
+        const groupId = header.querySelector('h4').textContent.trim();
+
+        // Restore saved state
+        if (savedStates[groupId]) {
+            header.classList.add('active');
+            content.classList.remove('collapsed');
+            content.style.maxHeight = 'none';
+            header.querySelector('.fa-chevron-down').classList.add('rotated');
+        }
+
+        header.addEventListener('click', function (e) {
+            e.preventDefault();
+            toggleContent(this);
+
+            // Save state
+            savedStates[groupId] = !content.classList.contains('collapsed');
+            localStorage.setItem('sidebarStates', JSON.stringify(savedStates));
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    initializeCollapsibleSections();
 });
