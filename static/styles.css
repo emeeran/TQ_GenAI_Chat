@@ -565,3 +565,156 @@ body {
 }
 
 /* ...rest of existing styles... */
+
+/* ...existing styles... */
+
+.upload-progress {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.upload-progress .progress {
+    height: 4px;
+}
+
+.files-header {
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.files-counter {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.file-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: white;
+}
+
+.file-item {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    background: white;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-icon {
+    width: 20px;
+    text-align: center;
+}
+
+.files-counter {
+    color: #666;
+    font-size: 0.9rem;
+    padding: 4px 0;
+}
+
+/* Remove old file preview styles */
+/* ...rest of existing styles... */
+
+/* ...existing styles... */
+
+.file-list {
+    max-height: 300px;
+    /* Increased height for more files */
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-top: 1rem;
+    background: white;
+}
+
+.file-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-item small {
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-item:hover {
+    background-color: #f8f9fa;
+}
+
+.file-icon {
+    width: 24px;
+    text-align: center;
+}
+
+.files-counter {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+/* ...rest of existing styles... */
+
+/* ...existing styles... */
+
+.file-reference {
+    padding: 8px 12px;
+    margin: 4px 0;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.file-reference:hover {
+    background: #e9ecef;
+    border-color: #ced4da;
+}
+
+.file-reference small {
+    color: #6c757d;
+    font-size: 0.85em;
+    margin-top: 4px;
+}
+
+/* ...rest of existing styles... */
+
+/* ...existing styles... */
+
+.file-context-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin: 4px 0;
+}
+
+.file-context-item .filename {
+    flex-grow: 1;
+    margin-right: 1rem;
+}
+
+.file-context-item button {
+    white-space: nowrap;
+}
+
+/* ...rest of existing styles... */

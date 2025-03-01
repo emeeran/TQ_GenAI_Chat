@@ -889,3 +889,136 @@ document.addEventListener('DOMContentLoaded', () => {
         group.style.transitionDelay = `${index * 50}ms`;
     });
 });
+
+async function uploadFiles() {
+    const fileInput = document.getElementById('file-input');
+    const progressBar = document.getElementById('upload-progress');
+    const filesList = document.querySelector('.file-list');
+    const files = fileInput.files;
+
+    // ...existing validation code...
+
+    for (let file of files) {
+        const fileItem = createFileItem(file);
+        filesList.appendChild(fileItem);
+
+        try {
+            await monitorFileProcessing(file, fileItem);
+        } catch (error) {
+            updateFileItemStatus(fileItem, 'error', error.message);
+            addRetryButton(fileItem, file);
+        }
+    }
+}
+
+function createFileItem(file) {
+    const item = document.createElement('div');
+    item.className = 'file-item d-flex align-items-center mb-2';
+    item.innerHTML = `
+        <div class="file-icon me-2">
+            <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="d-flex justify-content-between">
+                <span>${file.name}</span>
+                <small class="text-muted status">Processing...</small>
+            </div>
+            <div class="progress mt-1" style="height: 2px;">
+                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+    `;
+    return item;
+}
+
+async function monitorFileProcessing(file, fileItem, isRetry = false) {
+    const maxAttempts = 100;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+        try {
+            const response = await fetch(`/upload/status/${file.name}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                updateFileItemProgress(fileItem, data.progress);
+                updateFileItemStatus(fileItem, data.status);
+
+                if (data.status === 'Complete' || (!data.recoverable && data.error)) {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    break;
+                }
+            } else {
+                throw new Error('Status check failed');
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+
+        } catch (error) {
+            if (!isRetry && fileItem.querySelector('.retry-button')) {
+                break;
+            }
+            throw error;
+        }
+    }
+}
+
+function updateFileItemProgress(fileItem, progress) {
+    const progressBar = fileItem.querySelector('.progress-bar');
+    progressBar.style.width = `${progress}%`;
+}
+
+function updateFileItemStatus(fileItem, status, message = null) {
+    const statusEl = fileItem.querySelector('.status');
+    const icon = fileItem.querySelector('.file-icon i');
+
+    statusEl.textContent = message || status;
+
+    if (status === 'Complete') {
+        icon.className = 'fas fa-check text-success';
+    } else if (status === 'error') {
+        icon.className = 'fas fa-exclamation-circle text-danger';
+    }
+}
+
+function addRetryButton(fileItem, file) {
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'btn btn-sm btn-outline-primary retry-button ms-2';
+    retryBtn.innerHTML = '<i class="fas fa-redo"></i>';
+    retryBtn.onclick = () => retryProcessing(file, fileItem);
+
+    fileItem.querySelector('.flex-grow-1').appendChild(retryBtn);
+}
+
+async function retryProcessing(file, fileItem) {
+    try {
+        // Reset UI
+        fileItem.querySelector('.file-icon i').className = 'fas fa-spinner fa-spin';
+        fileItem.querySelector('.status').textContent = 'Retrying...';
+        fileItem.querySelector('.retry-button')?.remove();
+
+        // Create form data for retry
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Send retry request
+        const response = await fetch(`/upload/retry/${file.name}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('Retry failed');
+        }
+
+        // Monitor new processing
+        await monitorFileProcessing(file, fileItem, true);
+
+    } catch (error) {
+        updateFileItemStatus(fileItem, 'error', 'Retry failed');
+        addRetryButton(fileItem, file);
+    }
+}

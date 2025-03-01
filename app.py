@@ -14,6 +14,8 @@ from persona import PERSONAS
 import anthropic
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import traceback
+from utils.file_processor import FileProcessor, ProcessingError
 
 # Initialize Flask app
 app = Flask(__name__,
@@ -422,6 +424,169 @@ def generate_chat_topic(messages: list) -> str:
         return topic or 'untitled'
     except Exception:
         return f'chat_{datetime.now().strftime("%Y%m%d")}'
+
+@app.route('/upload', methods=['POST'])
+def upload_files():
+    """Handle file uploads with crash recovery"""
+    try:
+        if 'files[]' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No files provided'}), 400
+
+        files = request.files.getlist('files[]')
+        results = []
+
+        for file in files:
+            try:
+                PROCESSING_STATUS[file.filename] = {
+                    'progress': 0,
+                    'status': 'Starting...',
+                    'recoverable': True
+                }
+
+                # Process file with error handling
+                result = process_file_safely(file)
+                results.append(result)
+
+            except Exception as e:
+                error_trace = traceback.format_exc()
+                PROCESSING_ERRORS[file.filename] = {
+                    'error': str(e),
+                    'traceback': error_trace,
+                    'timestamp': datetime.now().isoformat()
+                }
+
+                results.append({
+                    'filename': file.filename,
+                    'status': 'error',
+                    'message': f'Processing failed: {str(e)}',
+                    'recoverable': True
+                })
+
+        return jsonify({
+            'status': 'success',
+            'results': results,
+            'stored_files': list(FILE_STORE.keys())
+        })
+
+    except Exception as e:
+        app.logger.error(f"Upload error: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def process_file_safely(file):
+    """Process a file with error recovery"""
+    try:
+        # Get file processor
+        ext = file.filename.rsplit('.', 1)[-1].lower()
+        processor = FileProcessor.get_processor(ext)
+
+        if not processor:
+            return {
+                'filename': file.filename,
+                'status': 'error',
+                'message': 'Unsupported file type'
+            }
+
+        # Read file content safely
+        file_content = file.read()
+        if not file_content:
+            raise ProcessingError("Empty file")
+
+        # Process with progress updates
+        PROCESSING_STATUS[file.filename]['status'] = 'Processing...'
+        content = processor(file_content,
+                          progress_callback=lambda p: update_processing_progress(file.filename, p))
+
+        # Store result
+        FILE_STORE[file.filename] = {
+            'content': content,
+            'timestamp': datetime.now().isoformat()
+        }
+
+        PROCESSING_STATUS[file.filename].update({
+            'progress': 100,
+            'status': 'Complete'
+        })
+
+        return {
+            'filename': file.filename,
+            'status': 'success',
+            'message': 'File processed successfully'
+        }
+
+    except ProcessingError as e:
+        # Handle recoverable processing errors
+        PROCESSING_STATUS[file.filename].update({
+            'progress': 0,
+            'status': f'Failed: {str(e)}',
+            'recoverable': True
+        })
+        raise
+
+    except Exception as e:
+        # Handle unrecoverable errors
+        PROCESSING_STATUS[file.filename].update({
+            'progress': 0,
+            'status': 'Failed: System Error',
+            'recoverable': False
+        })
+        raise
+
+def update_processing_progress(filename: str, progress: int):
+    """Update file processing progress"""
+    if filename in PROCESSING_STATUS:
+        PROCESSING_STATUS[filename].update({
+            'progress': progress,
+            'status': 'Processing...' if progress < 100 else 'Complete'
+        })
+
+@app.route('/upload/status/<filename>')
+def get_processing_status(filename):
+    """Get detailed processing status"""
+    if filename not in PROCESSING_STATUS:
+        return jsonify({'status': 'error', 'message': 'File not found'}), 404
+
+    status = PROCESSING_STATUS[filename]
+    error = PROCESSING_ERRORS.get(filename, None)
+
+    return jsonify({
+        'status': status['status'],
+        'progress': status['progress'],
+        'recoverable': status.get('recoverable', False),
+        'error': error['error'] if error else None,
+        'timestamp': error['timestamp'] if error else None
+    })
+
+@app.route('/upload/retry/<filename>', methods=['POST'])
+def retry_processing(filename):
+    """Retry failed file processing"""
+    if filename not in PROCESSING_STATUS:
+        return jsonify({'status': 'error', 'message': 'File not found'}), 404
+
+    if not PROCESSING_STATUS[filename].get('recoverable', False):
+        return jsonify({
+            'status': 'error',
+            'message': 'This error is not recoverable'
+        }), 400
+
+    try:
+        # Clear error state
+        PROCESSING_STATUS[filename]['status'] = 'Retrying...'
+        if filename in PROCESSING_ERRORS:
+            del PROCESSING_ERRORS[filename]
+
+        # Reprocess file
+        file = request.files.get('file')
+        if not file:
+            return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+
+        result = process_file_safely(file)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Retry failed: {str(e)}'
+        }), 500
 
 @app.route('/')
 def home():

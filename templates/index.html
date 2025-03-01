@@ -136,6 +136,38 @@
                     </div>
                 </div>
 
+                <!-- Move File Upload section here, after Voice Settings -->
+                <div class="settings-group">
+                    <div class="settings-header" data-section="files">
+                        <h4><i class="fas fa-file-upload"></i> Files</h4>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="settings-content" id="file-upload">
+                        <div class="form-group">
+                            <label for="file-input">Upload multiple files:</label>
+                            <small class="text-muted d-block mb-2">
+                                PDF, EPUB, Images, Documents, Data files (max 60MB each)
+                            </small>
+                            <input type="file" class="form-control" id="file-input" multiple
+                                accept=".pdf,.epub,.jpg,.jpeg,.png,.docx,.xlsx,.csv,.txt,.md">
+                            <div class="progress mt-2 d-none" id="upload-progress">
+                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary w-100 mt-2" onclick="uploadFiles()">
+                            <i class="fas fa-upload"></i> Upload Files
+                        </button>
+
+                        <div class="uploaded-files mt-3">
+                            <div class="files-counter mb-2">No files uploaded</div>
+                            <div class="list-group file-list">
+                                <!-- Files will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Status Section -->
                 <div id="status-container">
                     <div id="processing" class="processing-indicator mt-3 d-none">
