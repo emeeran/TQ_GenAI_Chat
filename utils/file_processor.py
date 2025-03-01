@@ -1,258 +1,153 @@
-from typing import Callable, Optional, Dict
+import asyncio
+from typing import Dict, Callable
 from datetime import datetime
 import traceback
-import fitz  # PyMuPDF
-import ebooklib
-from ebooklib import epub
-from bs4 import BeautifulSoup
+import PyPDF2
 import docx
 import pandas as pd
-from PIL import Image
 import io
-import pytesseract
-import markdown
-from concurrent.futures import ThreadPoolExecutor
-from flask import current_app
+from PIL import Image
 from pathlib import Path
-import time
 
 class ProcessingError(Exception):
     pass
 
 class FileStatus:
-    """File processing status tracker"""
     def __init__(self):
-        self.status = {}
-        self.errors = {}
+        self._statuses = {}
 
-    def start_processing(self, filename: str):
-        self.status[filename] = {
-            'status': 'processing',
+    def start(self, filename: str):
+        self._statuses[filename] = {
+            'status': 'Processing',
             'progress': 0,
-            'timestamp': datetime.now().isoformat(),
-            'recoverable': True
-        }
-
-    def update_progress(self, filename: str, progress: int):
-        if filename in self.status:
-            self.status[filename].update({
-                'progress': progress,
-                'status': 'complete' if progress >= 100 else 'processing'
-            })
-
-    def set_error(self, filename: str, error: Exception, recoverable: bool = True):
-        self.errors[filename] = {
-            'error': str(error),
-            'traceback': traceback.format_exc(),
+            'error': None,
             'timestamp': datetime.now().isoformat()
         }
-        if filename in self.status:
-            self.status[filename].update({
-                'status': 'error',
-                'progress': 0,
-                'recoverable': recoverable
+
+    def update(self, filename: str, progress: int):
+        if filename in self._statuses:
+            self._statuses[filename].update({
+                'progress': progress,
+                'timestamp': datetime.now().isoformat()
             })
 
-    def get_status(self, filename: str) -> Dict:
-        if filename not in self.status:
-            raise FileNotFoundError(f'No status found for: {filename}')
+    def complete(self, filename: str):
+        if filename in self._statuses:
+            self._statuses[filename].update({
+                'status': 'Complete',
+                'progress': 100,
+                'timestamp': datetime.now().isoformat()
+            })
 
-        status = self.status[filename]
-        error = self.errors.get(filename)
+    def error(self, filename: str, error: str):
+        if filename in self._statuses:
+            self._statuses[filename].update({
+                'status': 'Error',
+                'error': str(error),
+                'timestamp': datetime.now().isoformat()
+            })
 
-        return {
-            'status': status['status'],
-            'progress': status['progress'],
-            'recoverable': status.get('recoverable', False),
-            'error': error['error'] if error else None,
-            'timestamp': error['timestamp'] if error else status['timestamp']
-        }
+    def get(self, filename: str) -> Dict:
+        return self._statuses.get(filename, {
+            'status': 'Not Found',
+            'progress': 0,
+            'error': None
+        })
 
-# Initialize global status tracker
+# Global status tracker
 status_tracker = FileStatus()
 
+ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'md', 'csv', 'xlsx', 'jpg', 'jpeg', 'png'}
+
 class FileProcessor:
-    """Unified file processor with optimized handling"""
-
-    _executor = ThreadPoolExecutor(max_workers=4)
-    _supported_formats = {
-        'pdf': 'process_pdf',
-        'epub': 'process_epub',
-        'docx': 'process_docx',
-        'xlsx': 'process_excel',
-        'csv': 'process_excel',
-        'md': 'process_markdown',
-        'jpg': 'process_image',
-        'jpeg': 'process_image',
-        'png': 'process_image'
-    }
-
-    @classmethod
-    def get_processor(cls, ext: str) -> Optional[Callable]:
-        """Get appropriate processor for file type"""
-        method_name = cls._supported_formats.get(ext.lower())
-        return getattr(cls, method_name) if method_name else None
+    """Handle different file types with proper error handling"""
 
     @staticmethod
-    async def process_pdf(content: bytes, progress_callback: Callable = None) -> str:
-        """Process PDF files with optimized memory usage"""
+    async def process_file(file_obj, filename: str) -> str:
+        """Process uploaded file and return its content"""
         try:
-            doc = fitz.open(stream=content, filetype="pdf")
-            total_pages = len(doc)
-            text_parts = []
-
-            for i, page in enumerate(doc):
-                text_parts.append(page.get_text())
-                if progress_callback:
-                    progress_callback(int((i + 1) * 100 / total_pages))
-
-            return "\n".join(text_parts)
-        except Exception as e:
-            raise ProcessingError(f"PDF processing error: {str(e)}")
-
-    @staticmethod
-    async def process_epub(content: bytes, progress_callback: Callable = None) -> str:
-        """Process EPUB files with improved handling"""
-        try:
-            # Write bytes to temporary file first
-            temp_file = Path(__file__).parent / f"temp_{int(time.time())}.epub"
-            try:
-                # Write content to temp file
-                temp_file.write_bytes(content)
-
-                # Process EPUB from file
-                book = epub.read_epub(str(temp_file))
-                text_parts = []
-                total_items = len(list(book.get_items()))
-                processed = 0
-
-                for item in book.get_items():
-                    if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                        try:
-                            soup = BeautifulSoup(item.get_content(), 'html.parser')
-                            clean_text = soup.get_text(separator='\n', strip=True)
-                            if clean_text:  # Only add non-empty content
-                                text_parts.append(clean_text)
-                        except Exception as e:
-                            current_app.logger.warning(f"Error processing EPUB item: {str(e)}")
-
-                        processed += 1
-                        if progress_callback:
-                            progress_callback(int(processed * 100 / total_items))
-
-                # Join with proper spacing
-                result = "\n\n".join(filter(None, text_parts))
-                return result or "No readable content found in EPUB"
-
-            finally:
-                # Clean up temp file
-                if temp_file.exists():
-                    temp_file.unlink()
-
-        except Exception as e:
-            current_app.logger.error(f"EPUB processing error: {str(e)}")
-            raise ProcessingError(f"EPUB processing error: {str(e)}")
-
-    @staticmethod
-    async def process_docx(content: bytes, progress_callback: Callable = None) -> str:
-        """Process DOCX files"""
-        try:
-            doc = docx.Document(io.BytesIO(content))
-            text_parts = []
-            total_paras = len(doc.paragraphs)
-
-            for i, para in enumerate(doc.paragraphs):
-                text_parts.append(para.text)
-                if progress_callback:
-                    progress_callback(int((i + 1) * 100 / total_paras))
-
-            return "\n".join(text_parts)
-        except Exception as e:
-            raise ProcessingError(f"DOCX processing error: {str(e)}")
-
-    @staticmethod
-    async def process_excel(content: bytes, progress_callback: Callable = None) -> str:
-        """Process Excel files"""
-        try:
-            df = pd.read_excel(io.BytesIO(content)) if content[-4:] == b'xlsx' else pd.read_csv(io.BytesIO(content))
-            if progress_callback:
-                progress_callback(50)
-
-            # Convert to markdown table for better formatting
-            result = df.to_markdown(index=False)
-            if progress_callback:
-                progress_callback(100)
-
-            return result
-        except Exception as e:
-            raise ProcessingError(f"Excel processing error: {str(e)}")
-
-    @staticmethod
-    async def process_markdown(content: bytes, progress_callback: Callable = None) -> str:
-        """Process Markdown files"""
-        try:
-            text = content.decode('utf-8')
-            if progress_callback:
-                progress_callback(50)
-
-            # Convert to HTML then strip tags for plain text
-            html = markdown.markdown(text)
-            soup = BeautifulSoup(html, 'html.parser')
-            if progress_callback:
-                progress_callback(100)
-
-            return soup.get_text()
-        except Exception as e:
-            raise ProcessingError(f"Markdown processing error: {str(e)}")
-
-    @staticmethod
-    async def process_image(content: bytes, progress_callback: Callable = None) -> str:
-        """Process images with OCR"""
-        try:
-            image = Image.open(io.BytesIO(content))
-            if progress_callback:
-                progress_callback(50)
-
-            text = pytesseract.image_to_string(image)
-            if progress_callback:
-                progress_callback(100)
-
-            return text
-        except Exception as e:
-            raise ProcessingError(f"Image processing error: {str(e)}")
-
-    @classmethod
-    async def process_file(cls, file, filename: str) -> str:
-        """Process file with improved error handling"""
-        try:
-            current_app.logger.info(f"Processing file: {filename}")
-            status_tracker.start_processing(filename)
-
-            if not file:
-                raise ProcessingError("Empty file")
-
+            status_tracker.start(filename)
             ext = filename.rsplit('.', 1)[1].lower()
-            processor = cls.get_processor(ext)
 
-            if not processor:
+            if ext not in ALLOWED_EXTENSIONS:
                 raise ProcessingError(f'Unsupported file type: {ext}')
 
-            content = await processor(
-                file.read(),
-                progress_callback=lambda p: status_tracker.update_progress(filename, p)
-            )
-
+            content = file_obj.read()
             if not content:
-                raise ProcessingError("Processing resulted in empty content")
+                raise ProcessingError('Empty file')
 
-            status_tracker.update_progress(filename, 100)
-            current_app.logger.info(f"Successfully processed file: {filename}")
-            return content
+            # Process based on file type
+            if ext == 'pdf':
+                text = await FileProcessor._process_pdf(content)
+            elif ext == 'docx':
+                text = await FileProcessor._process_docx(content)
+            elif ext in ['txt', 'md']:
+                text = await FileProcessor._process_text(content)
+            elif ext == 'csv':
+                text = await FileProcessor._process_csv(content)
+            elif ext == 'xlsx':
+                text = await FileProcessor._process_excel(content)
+            elif ext in ['jpg', 'jpeg', 'png']:
+                text = await FileProcessor._process_image(content)
+            else:
+                raise ProcessingError(f'Unexpected file type: {ext}')
+
+            status_tracker.complete(filename)
+            return text
 
         except Exception as e:
-            current_app.logger.error(f"File processing error for {filename}: {str(e)}")
-            status_tracker.set_error(filename, e)
-            raise
+            status_tracker.error(filename, str(e))
+            raise ProcessingError(f'Error processing {filename}: {str(e)}')
+
+    @staticmethod
+    async def _process_pdf(content: bytes) -> str:
+        try:
+            pdf = PyPDF2.PdfReader(io.BytesIO(content))
+            return '\n\n'.join(page.extract_text() for page in pdf.pages)
+        except Exception as e:
+            raise ProcessingError(f'PDF processing error: {str(e)}')
+
+    @staticmethod
+    async def _process_docx(content: bytes) -> str:
+        try:
+            doc = docx.Document(io.BytesIO(content))
+            return '\n\n'.join(paragraph.text for paragraph in doc.paragraphs)
+        except Exception as e:
+            raise ProcessingError(f'DOCX processing error: {str(e)}')
+
+    @staticmethod
+    async def _process_text(content: bytes) -> str:
+        try:
+            return content.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                return content.decode('latin-1')
+            except Exception as e:
+                raise ProcessingError(f'Text decoding error: {str(e)}')
+
+    @staticmethod
+    async def _process_csv(content: bytes) -> str:
+        try:
+            df = pd.read_csv(io.BytesIO(content))
+            return df.to_string()
+        except Exception as e:
+            raise ProcessingError(f'CSV processing error: {str(e)}')
+
+    @staticmethod
+    async def _process_excel(content: bytes) -> str:
+        try:
+            df = pd.read_excel(io.BytesIO(content))
+            return df.to_string()
+        except Exception as e:
+            raise ProcessingError(f'Excel processing error: {str(e)}')
+
+    @staticmethod
+    async def _process_image(content: bytes) -> str:
+        try:
+            img = Image.open(io.BytesIO(content))
+            return f"Image: {img.format} {img.size}x{img.size} {img.mode}"
+        except Exception as e:
+            raise ProcessingError(f'Image processing error: {str(e)}')
 
 # Make sure status_tracker is available for import
 __all__ = ['FileProcessor', 'ProcessingError', 'status_tracker']

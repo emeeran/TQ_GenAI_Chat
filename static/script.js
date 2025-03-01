@@ -912,85 +912,187 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function uploadFiles() {
-    const fileInput = document.getElementById('file-input');
-    const filesList = document.querySelector('.file-list');
-    const filesCounter = document.querySelector('.files-counter');
-    const files = fileInput.files;
+function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.add('drag-over');
+}
 
-    if (!files.length) {
-        alert('Please select files to upload');
-        return;
-    }
+function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('drag-over');
+}
 
-    // Show progress bar
-    const progressBar = document.getElementById('upload-progress');
-    progressBar.classList.remove('d-none');
+function handleFileDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
 
-    const formData = new FormData();
-    Array.from(files).forEach(file => {
-        formData.append('files[]', file);
-    });
+    const dropzone = event.currentTarget;
+    dropzone.classList.remove('drag-over');
 
-    try {
-        const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-
-        // Update files counter
-        const successCount = result.results.filter(f => f.status === 'success').length;
-        filesCounter.textContent = `${successCount} files uploaded`;
-
-        // Clear existing list
-        filesList.innerHTML = '';
-
-        // Add new files with file type icons
-        result.results.forEach(file => {
-            const ext = file.filename.split('.').pop().toLowerCase();
-            const icon = getFileIcon(ext);
-
-            const item = document.createElement('div');
-            item.className = `file-item ${file.status === 'success' ? 'text-success' : 'text-danger'}`;
-            item.innerHTML = `
-                <i class="${icon}"></i>
-                ${file.filename}
-                ${file.error ? `<small class="text-danger">(${file.error})</small>` : ''}
-            `;
-            filesList.appendChild(item);
-        });
-
-        // Clear file input
-        fileInput.value = '';
-
-        // Hide progress bar
-        progressBar.classList.add('d-none');
-
-        // After successful upload
-        await updateDocumentsList();
-
-    } catch (error) {
-        console.error('Upload error:', error);
-        alert('Error uploading files');
-        progressBar.classList.add('d-none');
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        updateFileInput(files);
     }
 }
 
-function getFileIcon(ext) {
-    const icons = {
-        pdf: 'fas fa-file-pdf',
-        epub: 'fas fa-book',
-        docx: 'fas fa-file-word',
-        xlsx: 'fas fa-file-excel',
-        csv: 'fas fa-file-csv',
-        md: 'fas fa-file-alt',
-        jpg: 'fas fa-file-image',
-        jpeg: 'fas fa-file-image',
-        png: 'fas fa-file-image'
-    };
-    return icons[ext] || 'fas fa-file';
+function updateFileInput(files) {
+    const fileInput = document.getElementById('file-input');
+    const uploadBtn = document.getElementById('upload-button');
+
+    // Update file input
+    const dt = new DataTransfer();
+    Array.from(files).forEach(file => {
+        dt.items.add(file);
+    });
+    fileInput.files = dt.files;
+
+    // Enable upload button
+    uploadBtn.disabled = false;
+}
+
+// Listen for file input changes
+document.getElementById('file-input').addEventListener('change', function () {
+    document.getElementById('upload-button').disabled = this.files.length === 0;
+});
+
+async function uploadFiles() {
+    const fileInput = document.getElementById('file-input');
+    const uploadBtn = document.getElementById('upload-button');
+    const progressOverlay = document.querySelector('.upload-progress-overlay');
+    const progressBar = progressOverlay.querySelector('.progress-bar');
+    const currentFilename = progressOverlay.querySelector('.current-filename');
+
+    if (!fileInput.files.length) return;
+
+    try {
+        uploadBtn.disabled = true;
+        progressOverlay.classList.remove('d-none');
+
+        const formData = new FormData();
+        Array.from(fileInput.files).forEach(file => {
+            formData.append('files[]', file);
+            currentFilename.textContent = file.name;
+        });
+
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+            }
+        };
+
+        // Handle completion
+        xhr.onload = async () => {
+            if (xhr.status === 200) {
+                const result = JSON.parse(xhr.responseText);
+                if (result.results?.some(f => f.status === 'success')) {
+                    await updateDocumentsList();
+                    showNotification('Files uploaded successfully', 'success');
+                }
+            } else {
+                throw new Error(xhr.status === 413 ? 'Files too large' : 'Upload failed');
+            }
+
+            // Reset UI
+            fileInput.value = '';
+            uploadBtn.disabled = true;
+            progressBar.style.width = '0%';
+            progressOverlay.classList.add('d-none');
+        };
+
+        // Handle errors
+        xhr.onerror = () => {
+            showNotification('Upload failed', 'error');
+            progressOverlay.classList.add('d-none');
+            uploadBtn.disabled = true;
+        };
+
+        // Send request
+        xhr.open('POST', '/upload', true);
+        xhr.send(formData);
+
+    } catch (error) {
+        console.error('Upload error:', error);
+        showNotification(error.message, 'error');
+        progressOverlay.classList.add('d-none');
+        uploadBtn.disabled = true;
+    }
+}
+
+function showNotification(message, type = 'info') {
+    // Simple notification display
+    alert(`${type.toUpperCase()}: ${message}`);
+}
+
+function createFileUploadItem(file) {
+    const size = formatBytes(file.size);
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    const item = document.createElement('div');
+    item.className = 'file-upload-item mb-3';
+    item.dataset.filename = file.name;
+
+    item.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="${getFileIcon(ext)} me-2"></i>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="filename">${file.name}</span>
+                    <span class="file-size text-muted">${size}</span>
+                </div>
+                <div class="progress mt-2" style="height: 3px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar" style="width: 0%"></div>
+                </div>
+                <div class="upload-status small text-muted mt-1">
+                    <i class="fas fa-circle-notch fa-spin me-1"></i>
+                    Preparing upload...
+                </div>
+            </div>
+        </div>
+    `;
+    return item;
+}
+
+function updateUploadProgress(filename, progress) {
+    const item = document.querySelector(`.file-upload-item[data-filename="${filename}"]`);
+    if (!item) return;
+
+    const progressBar = item.querySelector('.progress-bar');
+    const statusText = item.querySelector('.upload-status');
+
+    progressBar.style.width = `${progress}%`;
+    statusText.innerHTML = `
+        <i class="fas fa-circle-notch fa-spin me-1"></i>
+        Uploading... ${progress}%
+    `;
+}
+
+function updateUploadStatus(filename, status, message = '') {
+    const item = document.querySelector(`.file-upload-item[data-filename="${filename}"]`);
+    if (!item) return;
+
+    const progressBar = item.querySelector('.progress-bar');
+    const statusText = item.querySelector('.upload-status');
+
+    progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+
+    if (status === 'success') {
+        progressBar.style.width = '100%';
+        progressBar.className = 'progress-bar bg-success';
+        statusText.className = 'upload-status small text-success mt-1';
+        statusText.innerHTML = '<i class="fas fa-check-circle me-1"></i>Upload complete';
+    } else {
+        progressBar.style.width = '100%';
+        progressBar.className = 'progress-bar bg-danger';
+        statusText.className = 'upload-status small text-danger mt-1';
+        statusText.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i>${message}`;
+    }
 }
 
 async function monitorFileProcessing(file, fileItem, isRetry = false) {
@@ -1028,129 +1130,141 @@ async function monitorFileProcessing(file, fileItem, isRetry = false) {
     }
 }
 
-function createFileItem(file) {
-    const item = document.createElement('div');
-    item.className = 'file-item d-flex align-items-center mb-2';
-    item.innerHTML = `
-        <div class="file-icon me-2">
-            <i class="fas fa-spinner fa-spin"></i>
-        </div>
-        <div class="flex-grow-1">
-            <div class="d-flex justify-content-between">
-                <span>${file.name}</span>
-                <small class="text-muted status">Processing...</small>
-            </div>
-            <div class="progress mt-1" style="height: 2px;">
-                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-            </div>
-        </div>
-    `;
-    return item;
+function openFileList() {
+    const modal = document.getElementById('fileListModal');
+    modal.style.display = 'block';
+    startFileListUpdates();
 }
 
-function updateFileItemProgress(fileItem, progress) {
-    const progressBar = fileItem.querySelector('.progress-bar');
-    progressBar.style.width = `${progress}%`;
-}
-
-function updateFileItemStatus(fileItem, status, message = null) {
-    const statusEl = fileItem.querySelector('.status');
-    const icon = fileItem.querySelector('.file-icon i');
-
-    statusEl.textContent = message || status;
-
-    if (status === 'Complete') {
-        icon.className = 'fas fa-check text-success';
-    } else if (status === 'error') {
-        icon.className = 'fas fa-exclamation-circle text-danger';
-    }
-}
-
-function addRetryButton(fileItem, file) {
-    const retryBtn = document.createElement('button');
-    retryBtn.className = 'btn btn-sm btn-outline-primary retry-button ms-2';
-    retryBtn.innerHTML = '<i class="fas fa-redo"></i>';
-    retryBtn.onclick = () => retryProcessing(file, fileItem);
-
-    fileItem.querySelector('.flex-grow-1').appendChild(retryBtn);
-}
-
-async function retryProcessing(file, fileItem) {
-    try {
-        // Reset UI
-        fileItem.querySelector('.file-icon i').className = 'fas fa-spinner fa-spin';
-        fileItem.querySelector('.status').textContent = 'Retrying...';
-        fileItem.querySelector('.retry-button')?.remove();
-
-        // Create form data for retry
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // Send retry request
-        const response = await fetch(`/upload/retry/${file.name}`, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error('Retry failed');
-        }
-
-        // Monitor new processing
-        await monitorFileProcessing(file, fileItem, true);
-
-    } catch (error) {
-        updateFileItemStatus(fileItem, 'error', 'Retry failed');
-        addRetryButton(fileItem, file);
-    }
+function closeFileList() {
+    const modal = document.getElementById('fileListModal');
+    modal.style.display = 'none';
+    stopFileListUpdates();
 }
 
 async function updateDocumentsList() {
     try {
         const response = await fetch('/documents/list');
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
+
         const data = await response.json();
 
-        const filesList = document.querySelector('.file-list');
+        const fileList = document.getElementById('fileList');
         const filesCounter = document.querySelector('.files-counter');
 
-        // Update counter
-        filesCounter.textContent = `${data.stats.total_documents} files uploaded (${formatBytes(data.stats.total_size)})`;
+        if (!fileList || !filesCounter) {
+            console.error('File list elements not found');
+            return;
+        }
 
-        // Update list
-        filesList.innerHTML = '';
-        data.documents.forEach(doc => {
-            const item = document.createElement('div');
-            item.className = 'file-item';
-            const ext = doc.filename.split('.').pop().toLowerCase();
-            item.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="${getFileIcon(ext)} me-2"></i>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between">
-                            <span>${doc.filename}</span>
-                            <div class="file-actions">
-                                <button class="btn btn-sm btn-outline-primary view-file" onclick="viewFile('${doc.filename}')">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary use-in-chat" onclick="useInChat('${doc.filename}')">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <small class="text-muted">
-                            ${formatBytes(doc.size)} •
-                            ${new Date(doc.timestamp).toLocaleString()}
-                        </small>
+        // Update counter with better formatting
+        const stats = data.stats || { total_documents: 0, total_size: 0 };
+        filesCounter.textContent = `${stats.total_documents} files (${formatBytes(stats.total_size)})`;
+
+        // Clear and update list
+        fileList.innerHTML = '';
+
+        if (data.documents && Array.isArray(data.documents)) {
+            if (data.documents.length === 0) {
+                fileList.innerHTML = '<div class="text-muted text-center p-3">No files uploaded yet</div>';
+                return;
+            }
+
+            data.documents.forEach(doc => {
+                const ext = doc.filename.split('.').pop().toLowerCase();
+                const card = document.createElement('div');
+                card.className = 'file-card';
+                card.innerHTML = `
+                    <div class="file-header">
+                        <i class="${getFileIcon(ext)} file-icon"></i>
+                        <div class="file-name">${doc.filename}</div>
                     </div>
-                </div>
-            `;
-            filesList.appendChild(item);
-        });
+                    <div class="file-meta">
+                        ${formatBytes(doc.size)} •
+                        ${new Date(doc.timestamp).toLocaleString()}
+                    </div>
+                    <div class="file-preview text-muted small mb-3">
+                        ${doc.preview ? (doc.preview.substring(0, 100) + '...') : 'No preview available'}
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-outline-primary btn-sm" onclick="viewFile('${doc.filename}')">
+                            <i class="fas fa-eye me-1"></i>View
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="useInChat('${doc.filename}')">
+                            <i class="fas fa-paper-plane me-1"></i>Use
+                        </button>
+                    </div>
+                `;
+                fileList.appendChild(card);
+            });
+        } else {
+            fileList.innerHTML = '<div class="text-muted text-center p-3">Error loading files</div>';
+        }
     } catch (error) {
         console.error('Error updating documents list:', error);
+        const fileList = document.getElementById('fileList');
+        if (fileList) {
+            fileList.innerHTML = `
+                <div class="alert alert-danger m-3">
+                    Error loading file list: ${error.message}
+                </div>
+            `;
+        }
     }
 }
 
+// Update getFileIcon helper function
+function getFileIcon(ext) {
+    const icons = {
+        pdf: 'fas fa-file-pdf',
+        doc: 'fas fa-file-word',
+        docx: 'fas fa-file-word',
+        xls: 'fas fa-file-excel',
+        xlsx: 'fas fa-file-excel',
+        txt: 'fas fa-file-alt',
+        md: 'fas fa-file-code',
+        jpg: 'fas fa-file-image',
+        jpeg: 'fas fa-file-image',
+        png: 'fas fa-file-image',
+        csv: 'fas fa-file-csv'
+    };
+    return icons[ext.toLowerCase()] || 'fas fa-file';
+}
+
+// Auto-update file list periodically
+let fileListUpdateInterval;
+
+function startFileListUpdates() {
+    // Update initially
+    updateDocumentsList();
+
+    // Then update every 5 seconds
+    fileListUpdateInterval = setInterval(updateDocumentsList, 5000);
+}
+
+function stopFileListUpdates() {
+    if (fileListUpdateInterval) {
+        clearInterval(fileListUpdateInterval);
+    }
+}
+
+// Initialize document list on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // ...existing init code...
+    updateDocumentsList();
+
+    // Add modal close handler
+    window.onclick = function (event) {
+        const modal = document.getElementById('fileListModal');
+        if (event.target === modal) {
+            closeFileList();
+        }
+    };
+});
+
+// Update viewFile function to work with modal
 async function viewFile(filename) {
     try {
         const response = await fetch(`/documents/view/${filename}`);
@@ -1160,7 +1274,7 @@ async function viewFile(filename) {
             throw new Error(data.error || 'Failed to load file');
         }
 
-        // Create modal with file preview
+        // Create preview modal
         const modal = document.createElement('div');
         modal.className = 'modal fade show';
         modal.style.display = 'block';
@@ -1168,7 +1282,10 @@ async function viewFile(filename) {
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">${filename}</h5>
+                        <h5 class="modal-title">
+                            <i class="${getFileIcon(filename.split('.').pop())} me-2"></i>
+                            ${filename}
+                        </h5>
                         <button type="button" class="btn-close" onclick="this.closest('.modal').remove()"></button>
                     </div>
                     <div class="modal-body">
@@ -1177,8 +1294,12 @@ async function viewFile(filename) {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
-                        <button class="btn btn-primary" onclick="useInChat('${filename}')">Use in Chat</button>
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">
+                            Close
+                        </button>
+                        <button class="btn btn-primary" onclick="useInChat('${filename}')">
+                            <i class="fas fa-paper-plane me-2"></i>Use in Chat
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1187,7 +1308,7 @@ async function viewFile(filename) {
 
     } catch (error) {
         console.error('Error viewing file:', error);
-        alert('Error viewing file: ' + error.message);
+        showNotification('Error viewing file: ' + error.message, 'error');
     }
 }
 
@@ -1212,4 +1333,103 @@ function formatBytes(bytes) {
 document.addEventListener('DOMContentLoaded', () => {
     // ...existing init code...
     updateDocumentsList();
+});
+
+function handleFiles(files) {
+    const preview = document.querySelector('.upload-preview');
+    preview.innerHTML = '';
+
+    Array.from(files).forEach(file => {
+        const item = document.createElement('div');
+        item.className = 'preview-item';
+
+        if (file.type.startsWith('image/')) {
+            const img = document.createElement('img');
+            img.file = file;
+            item.appendChild(img);
+
+            const reader = new FileReader();
+            reader.onload = (e) => { img.src = e.target.result; };
+            reader.readAsDataURL(file);
+        } else {
+            const icon = document.createElement('i');
+            icon.className = getFileIcon(file.name.split('.').pop());
+            item.appendChild(icon);
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-file';
+        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            item.remove();
+            updateFileList();
+        };
+
+        item.appendChild(removeBtn);
+        preview.appendChild(item);
+    });
+}
+
+function updateFileList() {
+    const preview = document.querySelector('.upload-preview');
+    const input = document.getElementById('file-input');
+    const newFiles = new DataTransfer();
+
+    preview.querySelectorAll('.preview-item').forEach((item, index) => {
+        if (input.files[index]) {
+            newFiles.items.add(input.files[index]);
+        }
+    });
+
+    input.files = newFiles.files;
+}
+
+function showUploadProgress(filename, progress) {
+    const item = document.querySelector(`.file-upload-item[data-filename="${filename}"]`);
+    if (!item) return;
+
+    const progressBar = item.querySelector('.progress-bar');
+    const status = item.querySelector('.upload-status');
+
+    progressBar.style.width = `${progress}%`;
+    if (progress === 100) {
+        progressBar.classList.remove('progress-bar-animated');
+        status.innerHTML = '<i class="fas fa-check text-success"></i> Complete';
+
+        // Add to file list modal
+        updateFileListModal(filename);
+    }
+}
+
+function updateFileListModal(newFile) {
+    const modal = document.getElementById('fileListModal');
+    if (!modal.style.display === 'block') return;
+
+    // Refresh file list
+    updateDocumentsList();
+}
+
+// Enhanced drag and drop handling
+document.querySelector('.upload-dropzone').addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+});
+
+document.querySelector('.upload-dropzone').addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+});
+
+document.querySelector('.upload-dropzone').addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+
+    const files = e.dataTransfer.files;
+    document.getElementById('file-input').files = files;
+    handleFiles(files);
+});
+
+document.getElementById('file-input').addEventListener('change', function () {
+    handleFiles(this.files);
 });

@@ -1,31 +1,41 @@
 from typing import Dict, List
+import numpy as np
 from datetime import datetime
-import traceback
 from pathlib import Path
-from flask import current_app
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import concurrent.futures
+from flask import current_app
+from utils.caching import LRUCache
+from functools import lru_cache
 
 class FileManagerError(Exception):
     """Custom exception for FileManager errors"""
     pass
 
 class FileManager:
-    """Handle file storage and retrieval with vector search"""
+    """Optimized file storage and vector search"""
 
     def __init__(self):
-        """Initialize with Flask app context"""
         self.document_store = {}
-        self.vectorizer = TfidfVectorizer(
-            strip_accents='unicode',
-            max_features=10000,
-            stop_words='english'
-        )
         self.vector_store = None
         self.total_documents = 0
         self.total_size = 0
 
-        # Register with Flask app
+        # Optimized vectorizer
+        self.vectorizer = TfidfVectorizer(
+            strip_accents='unicode',
+            max_features=10000,
+            stop_words='english',
+            dtype=np.float32  # Use float32 for better memory usage
+        )
+
+        # Replace lru_cache_extended with our custom LRUCache
+        self.search_cache = LRUCache(maxsize=1000, ttl=300)
+
+        # Initialize thread pool
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
         current_app.file_manager = self
         current_app.logger.info("FileManager initialized and registered with app")
 
@@ -70,12 +80,13 @@ class FileManager:
             raise FileManagerError(f"Failed to add document: {str(e)}")
 
     def list_documents(self) -> List[Dict]:
-        """Get list of available documents"""
+        """Get list of available documents with previews"""
         return [
             {
                 'filename': filename,
                 'size': len(doc['content']),
-                'timestamp': doc['timestamp']
+                'timestamp': doc['timestamp'],
+                'preview': doc['content'][:200] + '...' if len(doc['content']) > 200 else doc['content']
             }
             for filename, doc in self.document_store.items()
         ]
@@ -83,9 +94,8 @@ class FileManager:
     def _update_vectors(self) -> None:
         """Update document vectors with error handling"""
         try:
-            if not self.document_store:
-                self.vector_store = None
-                return
+            self.vector_store = None
+            return
 
             texts = [doc['content'] for doc in self.document_store.values()]
             self.vector_store = self.vectorizer.fit_transform(texts)
@@ -96,43 +106,59 @@ class FileManager:
             self.vector_store = None
             raise FileManagerError(f"Failed to update vectors: {str(e)}")
 
+    @lru_cache(maxsize=100)
+    def _compute_similarity(self, query_vector, doc_vector) -> float:
+        """Cached similarity computation"""
+        return float(cosine_similarity(query_vector, doc_vector)[0, 0])
+
     def search_documents(self, query: str, top_n: int = 3) -> List[Dict]:
-        """Search documents by similarity with proper array handling"""
+        """Optimized vector search with caching"""
+        cache_key = f"{query}:{top_n}"
+
+        # Use our custom cache
+        if cache_key in self.search_cache:
+            return self.search_cache.get(cache_key)
+
+        if not self.document_store or self.vector_store is None:
+            return []
+
         try:
-            if not self.document_store or self.vector_store is None:
-                return []
-
-            # Transform query and get raw similarities
+            # Transform query
             query_vector = self.vectorizer.transform([query])
-            similarity_matrix = cosine_similarity(query_vector, self.vector_store)
-            similarities = similarity_matrix[0]  # Get the first row as a flat array
 
-            # Get indices of documents above threshold
+            # Compute similarities in parallel
+            futures = []
+            for i in range(self.vector_store.shape[0]):
+                doc_vector = self.vector_store[i:i+1]
+                futures.append(
+                    self.pool.submit(self._compute_similarity, query_vector, doc_vector)
+                )
+
+            # Collect results
+            similarities = [f.result() for f in futures]
+
+            # Get top results
             threshold = 0.1
-            valid_indices = [
-                i for i, score in enumerate(similarities)
-                if score > threshold
-            ]
-
-            # Sort by similarity score
             scored_indices = [
-                (i, similarities[i]) for i in valid_indices
+                (i, score) for i, score in enumerate(similarities)
+                if score > threshold
             ]
             scored_indices.sort(key=lambda x: x[1], reverse=True)
 
-            # Get top N results
-            documents = []
             filenames = list(self.document_store.keys())
+            results = []
 
             for idx, score in scored_indices[:top_n]:
                 filename = filenames[idx]
-                documents.append({
+                results.append({
                     'filename': filename,
                     'content': self.document_store[filename]['content'],
-                    'similarity': float(score)
+                    'similarity': score
                 })
 
-            return documents
+            # Cache results with our custom cache
+            self.search_cache.set(cache_key, results)
+            return results
 
         except Exception as e:
             current_app.logger.error(f"Search error: {str(e)}")

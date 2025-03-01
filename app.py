@@ -1,10 +1,14 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
-from functools import lru_cache, wraps
+from werkzeug.utils import secure_filename
+from functools import lru_cache, wraps  # Add this import
+import os
+import io
+import time
+import json
 import requests
 import speech_recognition as sr
 from pydub import AudioSegment
-import io, time, json, os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
@@ -27,7 +31,12 @@ app = Flask(__name__,
 )
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config['JSON_SORT_KEYS'] = False
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024  # Increase to 64MB
+app.config['UPLOAD_FOLDER'] = str(Path(app.root_path) / 'uploads')
+app.config['MAX_FILES'] = 10
+
+# Ensure upload directory exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Initialize services with app context
 with app.app_context():
@@ -559,65 +568,110 @@ def allowed_file(filename: str) -> bool:
 
 @app.route('/upload', methods=['POST'])
 async def upload_files():
-    """Handle multiple file uploads with progress tracking"""
-    if 'files[]' not in request.files:
-        return jsonify({'error': 'No files provided'}), 400
+    """Handle file uploads with improved error handling"""
+    try:
+        if 'files[]' not in request.files:
+            return jsonify({'error': 'No files provided'}), 400
 
-    results = []
-    files = request.files.getlist('files[]')
+        uploaded_files = request.files.getlist('files[]')
 
-    for file in files:
-        if not file or not allowed_file(file.filename):
-            results.append({
-                'filename': file.filename,
-                'status': 'error',
-                'error': 'Invalid file type'
-            })
-            continue
+        # Check number of files
+        if len(uploaded_files) > app.config['MAX_FILES']:
+            return jsonify({
+                'error': f'Too many files. Maximum {app.config["MAX_FILES"]} files allowed'
+            }), 400
 
-        try:
-            # Process file with status tracking
-            content = await FileProcessor.process_file(file, file.filename)
+        results = []
+        temp_dir = Path(app.config['UPLOAD_FOLDER']) / 'temp'
+        temp_dir.mkdir(exist_ok=True)
 
-            # Store in file manager
-            file_manager.add_document(file.filename, content)
+        for file in uploaded_files:
+            if not file or not file.filename:
+                continue
 
-            results.append({
-                'filename': file.filename,
-                'status': 'success',
-                'size': len(content)
-            })
+            try:
+                # Clean and validate filename
+                filename = secure_filename(file.filename)
+                if not filename:
+                    continue
 
-        except (ProcessingError, FileManagerError) as e:
-            app.logger.error(f"File processing error: {str(e)}")
-            results.append({
-                'filename': file.filename,
-                'status': 'error',
-                'error': str(e)
-            })
-        except Exception as e:
-            app.logger.error(f"Unexpected error: {str(e)}")
-            results.append({
-                'filename': file.filename,
-                'status': 'error',
-                'error': 'Internal server error'
-            })
+                # Validate file type
+                if not allowed_file(filename):
+                    results.append({
+                        'filename': filename,
+                        'status': 'error',
+                        'error': 'Invalid file type'
+                    })
+                    continue
 
-    return jsonify({
-        'status': 'success',
-        'results': results
-    })
+                # Check file size
+                file.seek(0, os.SEEK_END)
+                size = file.tell()
+                file.seek(0)
+
+                if size > app.config['MAX_CONTENT_LENGTH']:
+                    results.append({
+                        'filename': filename,
+                        'status': 'error',
+                        'error': f'File too large. Maximum size is {app.config["MAX_CONTENT_LENGTH"] // (1024*1024)}MB'
+                    })
+                    continue
+
+                # Save and process file
+                temp_path = temp_dir / filename
+                file.save(str(temp_path))
+
+                try:
+                    with open(temp_path, 'rb') as f:
+                        content = await FileProcessor.process_file(f, filename)
+
+                    # Store in file manager
+                    with app.app_context():
+                        file_manager.add_document(filename, content)
+
+                    results.append({
+                        'filename': filename,
+                        'status': 'success',
+                        'size': len(content)
+                    })
+
+                finally:
+                    # Clean up temp file
+                    if temp_path.exists():
+                        temp_path.unlink()
+
+            except Exception as e:
+                app.logger.error(f"Error processing {file.filename}: {str(e)}")
+                results.append({
+                    'filename': file.filename,
+                    'status': 'error',
+                    'error': str(e)
+                })
+
+        return jsonify({
+            'status': 'success' if any(r['status'] == 'success' for r in results) else 'error',
+            'results': results
+        })
+
+    except Exception as e:
+        app.logger.error(f"Upload error: {str(e)}")
+        return jsonify({
+            'error': str(e)
+        }), 500
 
 @app.route('/upload/status/<filename>')
 def get_processing_status(filename):
-    """Get file processing status"""
+    """Get file processing status with better error handling"""
     try:
-        return jsonify(status_tracker.get_status(filename))
-    except FileNotFoundError:
-        return jsonify({'status': 'error', 'message': 'File not found'}), 404
+        status = status_tracker.get(filename)
+        return jsonify(status)
     except Exception as e:
         app.logger.error(f"Status check error: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'filename': filename
+        }), 500
 
 @app.route('/upload/retry/<filename>', methods=['POST'])
 def retry_processing(filename):
@@ -653,18 +707,31 @@ def retry_processing(filename):
 
 @app.route('/documents/list', methods=['GET'])
 def list_documents():
-    """Get list of uploaded documents"""
+    """Get list of uploaded documents with better error handling"""
     try:
         with app.app_context():
-            documents = file_manager.list_documents()
-            stats = file_manager.get_stats()
+            # Ensure file_manager exists
+            if not hasattr(app, 'file_manager'):
+                return jsonify({
+                    'documents': [],
+                    'stats': {'total_documents': 0, 'total_size': 0}
+                })
+
+            documents = app.file_manager.list_documents()
+            stats = app.file_manager.get_stats()
+
+            # Ensure we always return valid data structure
             return jsonify({
-                'documents': documents,
-                'stats': stats
+                'documents': documents or [],
+                'stats': stats or {'total_documents': 0, 'total_size': 0}
             })
     except Exception as e:
         app.logger.error(f"Error listing documents: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': str(e),
+            'documents': [],
+            'stats': {'total_documents': 0, 'total_size': 0}
+        }), 500
 
 @app.route('/documents/view/<filename>', methods=['GET'])
 def view_document(filename):

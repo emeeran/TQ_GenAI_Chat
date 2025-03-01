@@ -154,28 +154,43 @@
                     </div>
                     <div class="settings-content" id="file-upload">
                         <div class="form-group">
-                            <label for="file-input">Upload multiple files:</label>
-                            <small class="text-muted d-block mb-2">
-                                PDF, EPUB, Images, Documents, Data files (max 60MB each)
-                            </small>
-                            <input type="file" class="form-control" id="file-input" multiple
-                                accept=".pdf,.epub,.jpg,.jpeg,.png,.docx,.xlsx,.csv,.txt,.md">
-                            <div class="progress mt-2 d-none" id="upload-progress">
-                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            <!-- Simplified upload dropzone -->
+                            <div class="file-upload-container">
+                                <div class="upload-dropzone" ondrop="handleFileDrop(event)"
+                                    ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                                    <input type="file" class="form-control" id="file-input" multiple
+                                        accept=".pdf,.epub,.jpg,.jpeg,.png,.docx,.xlsx,.csv,.txt,.md">
+                                    <div class="upload-icon-wrapper">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary upload-btn mt-2 w-100" onclick="uploadFiles()"
+                                    id="upload-button" disabled>
+                                    <i class="fas fa-upload me-2"></i>Upload Files
+                                </button>
                             </div>
-                        </div>
 
-                        <button class="btn btn-primary w-100 mt-2" onclick="uploadFiles()">
-                            <i class="fas fa-upload"></i> Upload Files
-                        </button>
-
-                        <div class="uploaded-files mt-3">
-                            <div class="files-counter mb-2">No files uploaded</div>
-                            <div class="list-group file-list">
-                                <!-- Files will be added here -->
+                            <!-- Progress overlay -->
+                            <div class="upload-progress-overlay d-none">
+                                <div class="current-file-progress">
+                                    <div class="file-info">
+                                        <i class="fas fa-file me-2"></i>
+                                        <span class="current-filename">filename.txt</span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar progress-bar-animated" style="width: 0%"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Add this button after the upload section -->
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn btn-outline-primary" onclick="openFileList()">
+                        <i class="fas fa-folder-open me-2"></i>View Uploaded Files
+                    </button>
                 </div>
 
                 <!-- Status Section -->
@@ -216,6 +231,29 @@
             </div>
         </div>
     </div>
+
+    <!-- Add this modal at the bottom of body, before scripts -->
+    <div class="modal" id="fileListModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-file-alt me-2"></i>Uploaded Files
+                        <span class="files-counter badge bg-primary ms-2"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeFileList()"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="file-list-container">
+                        <div id="fileList" class="file-grid">
+                            <!-- Files will be added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
         document.getElementById('provider').addEventListener('change', async function () {
