@@ -15,7 +15,10 @@ import anthropic
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import traceback
-from utils.file_processor import FileProcessor, ProcessingError
+from utils.file_processor import FileProcessor, ProcessingError, status_tracker
+from services.file_manager import FileManager, FileManagerError
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Initialize Flask app
 app = Flask(__name__,
@@ -26,10 +29,31 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config['JSON_SORT_KEYS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
+# Initialize services with app context
+with app.app_context():
+    file_manager = FileManager()
+
 # Optimization settings
 CACHE_TTL = 300
-REQUEST_TIMEOUT = 30
+REQUEST_TIMEOUT = 60  # Increased from 30 to 60 seconds
+CONNECT_TIMEOUT = 10
+READ_TIMEOUT = 50
 MAX_RETRIES = 3
+
+# Configure retry strategy
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504],
+)
+
+# Create session with retry strategy
+def create_request_session():
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 # Ensure .env is loaded with verbose debugging
 env_path = Path(__file__).parent / '.env'
@@ -179,6 +203,32 @@ def chat():
         app.logger.error(f"Chat error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/search_context', methods=['POST'])
+def search_context():
+    """Search uploaded documents for relevant content"""
+    try:
+        data = request.get_json()
+        query = data.get('message', '')
+
+        if not query:
+            return jsonify({'error': 'No query provided'}), 400
+
+        with app.app_context():
+            results = file_manager.search_documents(query)
+
+            # Format results for response
+            formatted_results = [{
+                'filename': r['filename'],
+                'excerpt': r['content'][:500] + '...' if len(r['content']) > 500 else r['content'],
+                'similarity': r['similarity']
+            } for r in results]
+
+            return jsonify({'results': formatted_results})
+
+    except Exception as e:
+        app.logger.error(f"Context search error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @cache_response
 @async_response
 def process_chat_request(data: Dict) -> Dict:
@@ -187,11 +237,42 @@ def process_chat_request(data: Dict) -> Dict:
     message = data['message']
     persona = data.get('persona', '')
 
-    if provider == 'anthropic':
-        return process_anthropic_request(model, message, persona)
-    elif provider == 'xai':
-        return process_xai_request(model, message, persona)
+    # Enhanced context handling
+    try:
+        with app.app_context():
+            context_results = file_manager.search_documents(message, top_n=3)
+            if context_results:
+                context_texts = []
+                for result in context_results:
+                    excerpt = result['content'][:800] + '...' if len(result['content']) > 800 else result['content']
+                    context_texts.append(f"""### From {result['filename']} (Relevance: {result['similarity']:.2%})
+```
+{excerpt}
+```""")
 
+                if context_texts:
+                    message = f"""I have access to {file_manager.total_documents} documents. Here's relevant information I found:
+
+{'\n\n'.join(context_texts)}
+
+User question: {message}
+
+Please synthesize a clear, well-organized answer using this context where relevant. Format your response in Markdown, and cite the source documents when using their information."""
+
+    except Exception as e:
+        app.logger.warning(f"Error getting document context: {str(e)}")
+
+    # Add markdown formatting instruction to all providers
+    markdown_instruction = "Format your response using proper Markdown. Use headers (###) for sections, code blocks for examples or quotes (```), and proper linking when referencing sources. Use bullet points and numbered lists where appropriate."
+
+    # Handle different providers
+    if provider == 'anthropic':
+        system_prompt = f"{PERSONAS.get(persona, '')}\n{markdown_instruction}"
+        return process_anthropic_request(model, message, system_prompt)
+    elif provider == 'xai':
+        return process_xai_request(model, message, f"{persona}\n{markdown_instruction}")
+
+    # Add markdown formatting instruction to system prompt
     config = API_CONFIGS[provider]
     endpoint = config['endpoint']
     api_key = config['key']
@@ -200,14 +281,25 @@ def process_chat_request(data: Dict) -> Dict:
     payload = {
         'model': model,
         'messages': [
-            {'role': 'system', 'content': f'Persona: {persona}'},
+            {'role': 'system', 'content': f"""Persona: {persona}
+{markdown_instruction}
+
+When using context from documents, format the references like this:
+> Source: [filename] (relevance: XX%)"""},
             {'role': 'user', 'content': message}
         ]
     }
 
     try:
-        response = requests.post(endpoint, headers=headers, json=payload, timeout=REQUEST_TIMEOUT)
+        session = create_request_session()
+        response = session.post(
+            endpoint,
+            headers=headers,
+            json=payload,
+            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
+        )
         response.raise_for_status()
+
         result = response.json()
         if 'choices' in result and result['choices']:
             return {
@@ -216,18 +308,25 @@ def process_chat_request(data: Dict) -> Dict:
                     'metadata': {'provider': provider, 'model': model, 'response_time': f"{response.elapsed.total_seconds()}s"}
                 }
             }
-        raise ValueError('Invalid response structure from API')
-    except requests.RequestException as e:
-        app.logger.error(f"API request error: {str(e)}")
-        raise ValueError(f"Request failed: {str(e)}")
 
-def process_anthropic_request(model: str, message: str, persona: str) -> Dict:
+        raise ValueError('Invalid response structure from API')
+
+    except requests.Timeout:
+        error_msg = f"Request to {provider} timed out after {READ_TIMEOUT}s"
+        app.logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    except requests.RequestException as e:
+        error_msg = f"API request failed: {str(e)}"
+        app.logger.error(f"{error_msg}\nEndpoint: {endpoint}")
+        raise ValueError(error_msg)
+
+def process_anthropic_request(model: str, message: str, system_prompt: str) -> Dict:
     api_key = API_CONFIGS['anthropic']['key']
     if not api_key:
         raise ValueError("Anthropic API key not found")
 
     client = anthropic.Anthropic(api_key=api_key)
-    system_prompt = PERSONAS.get(persona, '')
 
     response = client.messages.create(
         model=model,
@@ -239,6 +338,11 @@ def process_anthropic_request(model: str, message: str, persona: str) -> Dict:
     response_text = response.content[0].text if response.content else ""
     if not response_text:
         raise ValueError("Empty response from Anthropic API")
+
+    # Ensure response is properly formatted
+    if not '```' in response_text and not '#' in response_text:
+        response_text = f"""### Response
+{response_text}"""
 
     return {
         'response': {
@@ -260,7 +364,7 @@ def process_xai_request(model: str, message: str, persona: str) -> Dict:
 
     client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
 
-    system_prompt = f"{PERSONAS.get(persona, '')} You are Grok, inspired by Hitchhiker's Guide to the Galaxy."
+    system_prompt = f"{PERSONAS.get(persona, '')} You are Grok, inspired by Hitchhiker's Guide to the Galaxy.\n{markdown_instruction}"
     try:
         response = client.chat.completions.create(
             model=model,
@@ -302,23 +406,43 @@ def get_models(provider):
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
+    """Handle audio transcription with better error handling"""
     if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'}), 400
+        return jsonify({
+            'error': 'No audio file provided',
+            'status': 'error'
+        }), 400
 
-    audio_file = request.files['audio']
-    recognizer = sr.Recognizer()
-    audio = AudioSegment.from_file(audio_file)
-    wav_data = io.BytesIO()
-    audio.export(wav_data, format="wav")
-    wav_data.seek(0)
+    try:
+        audio_file = request.files['audio']
+        if audio_file.filename == '':
+            raise ValueError("Empty audio file")
 
-    with sr.AudioFile(wav_data) as source:
-        audio_data = recognizer.record(source)
-        try:
+        recognizer = sr.Recognizer()
+        audio = AudioSegment.from_file(audio_file)
+        wav_data = io.BytesIO()
+        audio.export(wav_data, format="wav")
+        wav_data.seek(0)
+
+        with sr.AudioFile(wav_data) as source:
+            audio_data = recognizer.record(source)
             text = recognizer.recognize_google(audio_data)
-            return jsonify({'text': text})
-        except sr.UnknownValueError:
-            return jsonify({'error': 'Could not understand audio'}), 400
+            return jsonify({
+                'text': text,
+                'status': 'success'
+            })
+
+    except sr.UnknownValueError:
+        return jsonify({
+            'error': 'Could not understand audio',
+            'status': 'error'
+        }), 400
+    except Exception as e:
+        app.logger.error(f"Transcription error: {str(e)}")
+        return jsonify({
+            'error': f'Transcription failed: {str(e)}',
+            'status': 'error'
+        }), 500
 
 @app.route('/save_chat', methods=['POST'])
 def save_chat():
@@ -425,136 +549,75 @@ def generate_chat_topic(messages: list) -> str:
     except Exception:
         return f'chat_{datetime.now().strftime("%Y%m%d")}'
 
+ALLOWED_EXTENSIONS = {
+    'pdf', 'epub', 'docx', 'xlsx',
+    'csv', 'md', 'jpg', 'jpeg', 'png'
+}
+
+def allowed_file(filename: str) -> bool:
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @app.route('/upload', methods=['POST'])
-def upload_files():
-    """Handle file uploads with crash recovery"""
-    try:
-        if 'files[]' not in request.files:
-            return jsonify({'status': 'error', 'message': 'No files provided'}), 400
+async def upload_files():
+    """Handle multiple file uploads with progress tracking"""
+    if 'files[]' not in request.files:
+        return jsonify({'error': 'No files provided'}), 400
 
-        files = request.files.getlist('files[]')
-        results = []
+    results = []
+    files = request.files.getlist('files[]')
 
-        for file in files:
-            try:
-                PROCESSING_STATUS[file.filename] = {
-                    'progress': 0,
-                    'status': 'Starting...',
-                    'recoverable': True
-                }
-
-                # Process file with error handling
-                result = process_file_safely(file)
-                results.append(result)
-
-            except Exception as e:
-                error_trace = traceback.format_exc()
-                PROCESSING_ERRORS[file.filename] = {
-                    'error': str(e),
-                    'traceback': error_trace,
-                    'timestamp': datetime.now().isoformat()
-                }
-
-                results.append({
-                    'filename': file.filename,
-                    'status': 'error',
-                    'message': f'Processing failed: {str(e)}',
-                    'recoverable': True
-                })
-
-        return jsonify({
-            'status': 'success',
-            'results': results,
-            'stored_files': list(FILE_STORE.keys())
-        })
-
-    except Exception as e:
-        app.logger.error(f"Upload error: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-def process_file_safely(file):
-    """Process a file with error recovery"""
-    try:
-        # Get file processor
-        ext = file.filename.rsplit('.', 1)[-1].lower()
-        processor = FileProcessor.get_processor(ext)
-
-        if not processor:
-            return {
+    for file in files:
+        if not file or not allowed_file(file.filename):
+            results.append({
                 'filename': file.filename,
                 'status': 'error',
-                'message': 'Unsupported file type'
-            }
+                'error': 'Invalid file type'
+            })
+            continue
 
-        # Read file content safely
-        file_content = file.read()
-        if not file_content:
-            raise ProcessingError("Empty file")
+        try:
+            # Process file with status tracking
+            content = await FileProcessor.process_file(file, file.filename)
 
-        # Process with progress updates
-        PROCESSING_STATUS[file.filename]['status'] = 'Processing...'
-        content = processor(file_content,
-                          progress_callback=lambda p: update_processing_progress(file.filename, p))
+            # Store in file manager
+            file_manager.add_document(file.filename, content)
 
-        # Store result
-        FILE_STORE[file.filename] = {
-            'content': content,
-            'timestamp': datetime.now().isoformat()
-        }
+            results.append({
+                'filename': file.filename,
+                'status': 'success',
+                'size': len(content)
+            })
 
-        PROCESSING_STATUS[file.filename].update({
-            'progress': 100,
-            'status': 'Complete'
-        })
+        except (ProcessingError, FileManagerError) as e:
+            app.logger.error(f"File processing error: {str(e)}")
+            results.append({
+                'filename': file.filename,
+                'status': 'error',
+                'error': str(e)
+            })
+        except Exception as e:
+            app.logger.error(f"Unexpected error: {str(e)}")
+            results.append({
+                'filename': file.filename,
+                'status': 'error',
+                'error': 'Internal server error'
+            })
 
-        return {
-            'filename': file.filename,
-            'status': 'success',
-            'message': 'File processed successfully'
-        }
-
-    except ProcessingError as e:
-        # Handle recoverable processing errors
-        PROCESSING_STATUS[file.filename].update({
-            'progress': 0,
-            'status': f'Failed: {str(e)}',
-            'recoverable': True
-        })
-        raise
-
-    except Exception as e:
-        # Handle unrecoverable errors
-        PROCESSING_STATUS[file.filename].update({
-            'progress': 0,
-            'status': 'Failed: System Error',
-            'recoverable': False
-        })
-        raise
-
-def update_processing_progress(filename: str, progress: int):
-    """Update file processing progress"""
-    if filename in PROCESSING_STATUS:
-        PROCESSING_STATUS[filename].update({
-            'progress': progress,
-            'status': 'Processing...' if progress < 100 else 'Complete'
-        })
+    return jsonify({
+        'status': 'success',
+        'results': results
+    })
 
 @app.route('/upload/status/<filename>')
 def get_processing_status(filename):
-    """Get detailed processing status"""
-    if filename not in PROCESSING_STATUS:
+    """Get file processing status"""
+    try:
+        return jsonify(status_tracker.get_status(filename))
+    except FileNotFoundError:
         return jsonify({'status': 'error', 'message': 'File not found'}), 404
-
-    status = PROCESSING_STATUS[filename]
-    error = PROCESSING_ERRORS.get(filename, None)
-
-    return jsonify({
-        'status': status['status'],
-        'progress': status['progress'],
-        'recoverable': status.get('recoverable', False),
-        'error': error['error'] if error else None,
-        'timestamp': error['timestamp'] if error else None
-    })
+    except Exception as e:
+        app.logger.error(f"Status check error: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/upload/retry/<filename>', methods=['POST'])
 def retry_processing(filename):
@@ -587,6 +650,38 @@ def retry_processing(filename):
             'status': 'error',
             'message': f'Retry failed: {str(e)}'
         }), 500
+
+@app.route('/documents/list', methods=['GET'])
+def list_documents():
+    """Get list of uploaded documents"""
+    try:
+        with app.app_context():
+            documents = file_manager.list_documents()
+            stats = file_manager.get_stats()
+            return jsonify({
+                'documents': documents,
+                'stats': stats
+            })
+    except Exception as e:
+        app.logger.error(f"Error listing documents: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/documents/view/<filename>', methods=['GET'])
+def view_document(filename):
+    """Get contents of a specific document"""
+    try:
+        with app.app_context():
+            doc = file_manager.get_document(filename)
+            return jsonify({
+                'content': doc['content'],
+                'timestamp': doc['timestamp'],
+                'preview': doc['content'][:1000] + '...' if len(doc['content']) > 1000 else doc['content']
+            })
+    except KeyError:
+        return jsonify({'error': 'Document not found'}), 404
+    except Exception as e:
+        app.logger.error(f"Error viewing document: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 def home():

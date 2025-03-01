@@ -89,13 +89,17 @@ function appendMessage(message, isUser = false) {
     } else {
         // Handle formatted response
         const content = typeof message === 'object' ? message : { text: message };
+        const markdown = content.text || message;
 
-        // Create main content
-        if (content.html) {
-            messageDiv.innerHTML = content.html;
-        } else {
-            messageDiv.textContent = content.text || message;
-        }
+        // Convert markdown to HTML
+        const html = marked.parse(markdown, {
+            gfm: true,
+            breaks: true,
+            headerIds: false,
+            mangle: false
+        });
+
+        messageDiv.innerHTML = html;
 
         // Add metadata if available
         if (content.metadata) {
@@ -109,13 +113,6 @@ function appendMessage(message, isUser = false) {
             `;
             messageDiv.appendChild(metadataDiv);
         }
-
-        // Add speak button
-        const speakButton = document.createElement('button');
-        speakButton.className = 'btn btn-sm btn-outline-secondary speak-message';
-        speakButton.innerHTML = '<i class="fas fa-volume-up"></i>';
-        speakButton.onclick = () => speakText(content.text || message);
-        messageDiv.appendChild(speakButton);
     }
 
     chatBox.appendChild(messageDiv);
@@ -432,6 +429,25 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
 
         console.log('Sending message:', { provider, model, message: messageToSend });
 
+        // Search for relevant context
+        const contextResponse = await fetch('/search_context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: messageToSend })
+        });
+
+        if (contextResponse.ok) {
+            const contextData = await contextResponse.json();
+            if (contextData.results && contextData.results.length > 0) {
+                // Add visual indicator that context is being used
+                appendMessage('Using context from uploaded files...', false);
+            }
+        }
+
+        // Add timeout to fetch
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 65000); // 65s timeout
+
         const response = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -440,8 +456,11 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
                 provider: provider,
                 model: model,
                 persona: persona
-            })
+            }),
+            signal: controller.signal
         });
+
+        clearTimeout(timeout);
 
         const data = await response.json();
 
@@ -473,7 +492,10 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
         }
     } catch (error) {
         console.error('Send message error:', error);
-        appendMessage(`Error: ${error.message}`, false);
+        const errorMessage = error.name === 'AbortError'
+            ? 'Request timed out. The server is taking too long to respond.'
+            : `Error: ${error.message}`;
+        appendMessage(errorMessage, false);
     } finally {
         showProcessing(false);
     }
@@ -892,43 +914,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function uploadFiles() {
     const fileInput = document.getElementById('file-input');
-    const progressBar = document.getElementById('upload-progress');
     const filesList = document.querySelector('.file-list');
+    const filesCounter = document.querySelector('.files-counter');
     const files = fileInput.files;
 
-    // ...existing validation code...
+    if (!files.length) {
+        alert('Please select files to upload');
+        return;
+    }
 
-    for (let file of files) {
-        const fileItem = createFileItem(file);
-        filesList.appendChild(fileItem);
+    // Show progress bar
+    const progressBar = document.getElementById('upload-progress');
+    progressBar.classList.remove('d-none');
 
-        try {
-            await monitorFileProcessing(file, fileItem);
-        } catch (error) {
-            updateFileItemStatus(fileItem, 'error', error.message);
-            addRetryButton(fileItem, file);
-        }
+    const formData = new FormData();
+    Array.from(files).forEach(file => {
+        formData.append('files[]', file);
+    });
+
+    try {
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        // Update files counter
+        const successCount = result.results.filter(f => f.status === 'success').length;
+        filesCounter.textContent = `${successCount} files uploaded`;
+
+        // Clear existing list
+        filesList.innerHTML = '';
+
+        // Add new files with file type icons
+        result.results.forEach(file => {
+            const ext = file.filename.split('.').pop().toLowerCase();
+            const icon = getFileIcon(ext);
+
+            const item = document.createElement('div');
+            item.className = `file-item ${file.status === 'success' ? 'text-success' : 'text-danger'}`;
+            item.innerHTML = `
+                <i class="${icon}"></i>
+                ${file.filename}
+                ${file.error ? `<small class="text-danger">(${file.error})</small>` : ''}
+            `;
+            filesList.appendChild(item);
+        });
+
+        // Clear file input
+        fileInput.value = '';
+
+        // Hide progress bar
+        progressBar.classList.add('d-none');
+
+        // After successful upload
+        await updateDocumentsList();
+
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Error uploading files');
+        progressBar.classList.add('d-none');
     }
 }
 
-function createFileItem(file) {
-    const item = document.createElement('div');
-    item.className = 'file-item d-flex align-items-center mb-2';
-    item.innerHTML = `
-        <div class="file-icon me-2">
-            <i class="fas fa-spinner fa-spin"></i>
-        </div>
-        <div class="flex-grow-1">
-            <div class="d-flex justify-content-between">
-                <span>${file.name}</span>
-                <small class="text-muted status">Processing...</small>
-            </div>
-            <div class="progress mt-1" style="height: 2px;">
-                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-            </div>
-        </div>
-    `;
-    return item;
+function getFileIcon(ext) {
+    const icons = {
+        pdf: 'fas fa-file-pdf',
+        epub: 'fas fa-book',
+        docx: 'fas fa-file-word',
+        xlsx: 'fas fa-file-excel',
+        csv: 'fas fa-file-csv',
+        md: 'fas fa-file-alt',
+        jpg: 'fas fa-file-image',
+        jpeg: 'fas fa-file-image',
+        png: 'fas fa-file-image'
+    };
+    return icons[ext] || 'fas fa-file';
 }
 
 async function monitorFileProcessing(file, fileItem, isRetry = false) {
@@ -964,6 +1026,26 @@ async function monitorFileProcessing(file, fileItem, isRetry = false) {
             throw error;
         }
     }
+}
+
+function createFileItem(file) {
+    const item = document.createElement('div');
+    item.className = 'file-item d-flex align-items-center mb-2';
+    item.innerHTML = `
+        <div class="file-icon me-2">
+            <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="d-flex justify-content-between">
+                <span>${file.name}</span>
+                <small class="text-muted status">Processing...</small>
+            </div>
+            <div class="progress mt-1" style="height: 2px;">
+                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+    `;
+    return item;
 }
 
 function updateFileItemProgress(fileItem, progress) {
@@ -1022,3 +1104,112 @@ async function retryProcessing(file, fileItem) {
         addRetryButton(fileItem, file);
     }
 }
+
+async function updateDocumentsList() {
+    try {
+        const response = await fetch('/documents/list');
+        const data = await response.json();
+
+        const filesList = document.querySelector('.file-list');
+        const filesCounter = document.querySelector('.files-counter');
+
+        // Update counter
+        filesCounter.textContent = `${data.stats.total_documents} files uploaded (${formatBytes(data.stats.total_size)})`;
+
+        // Update list
+        filesList.innerHTML = '';
+        data.documents.forEach(doc => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            const ext = doc.filename.split('.').pop().toLowerCase();
+            item.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="${getFileIcon(ext)} me-2"></i>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between">
+                            <span>${doc.filename}</span>
+                            <div class="file-actions">
+                                <button class="btn btn-sm btn-outline-primary view-file" onclick="viewFile('${doc.filename}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary use-in-chat" onclick="useInChat('${doc.filename}')">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            ${formatBytes(doc.size)} •
+                            ${new Date(doc.timestamp).toLocaleString()}
+                        </small>
+                    </div>
+                </div>
+            `;
+            filesList.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Error updating documents list:', error);
+    }
+}
+
+async function viewFile(filename) {
+    try {
+        const response = await fetch(`/documents/view/${filename}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to load file');
+        }
+
+        // Create modal with file preview
+        const modal = document.createElement('div');
+        modal.className = 'modal fade show';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${filename}</h5>
+                        <button type="button" class="btn-close" onclick="this.closest('.modal').remove()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="file-preview">
+                            ${marked.parse(data.content)}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
+                        <button class="btn btn-primary" onclick="useInChat('${filename}')">Use in Chat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+    } catch (error) {
+        console.error('Error viewing file:', error);
+        alert('Error viewing file: ' + error.message);
+    }
+}
+
+async function useInChat(filename) {
+    const userInput = document.getElementById('user-input');
+    userInput.value = `Please analyze the content of the file "${filename}" and provide your insights.`;
+    // Close modal if open
+    document.querySelector('.modal')?.remove();
+    // Send message
+    await sendMessage();
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Initialize document list on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // ...existing init code...
+    updateDocumentsList();
+});
