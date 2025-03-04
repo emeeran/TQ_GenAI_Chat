@@ -1,0 +1,314 @@
+/* Additional interaction styles for TQ GenAI Chat */
+
+/* Interactive hover effects */
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Message interaction styles */
+.message-bubble {
+    position: relative;
+}
+
+.message-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+}
+
+.message-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-color);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.message-action-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Code block interactions */
+pre {
+    position: relative;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+pre.collapsible-code {
+    max-height: 300px;
+    overflow: hidden;
+}
+
+pre.collapsible-code.expanded {
+    max-height: none !important;
+}
+
+pre.collapsible-code::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: linear-gradient(transparent, var(--card-bg));
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+pre.collapsible-code.expanded::after {
+    opacity: 0;
+}
+
+.code-collapse-ui {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    color: var(--text-color);
+    opacity: 0.7;
+    font-size: var(--font-size-sm);
+}
+
+.code-collapse-toggle {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 0;
+    font-size: var(--font-size-sm);
+    display: flex;
+}
+
+.code-collapse-toggle .collapse {
+    display: none;
+}
+
+.code-collapse-toggle .expand {
+    display: inline;
+}
+
+.code-collapse-toggle.expanded .collapse {
+    display: inline;
+}
+
+.code-collapse-toggle.expanded .expand {
+    display: none;
+}
+
+.code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+pre:hover .code-copy-btn {
+    opacity: 0.7;
+}
+
+.code-copy-btn:hover {
+    opacity: 1 !important;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.code-copy-btn.copied {
+    background: var(--success-color);
+    color: white;
+    opacity: 1;
+}
+
+/* Citation styles */
+.citation {
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-left: 3px solid var(--primary-color);
+    background-color: rgba(0, 0, 0, 0.03);
+    border-radius: var(--border-radius-sm);
+}
+
+.citation-title {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.citation-meta {
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+    margin-top: var(--spacing-xs);
+}
+
+/* Context info panel */
+.context-info {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translateX(calc(100% + 10px));
+    width: 200px;
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow);
+    padding: var(--spacing-md);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 50;
+}
+
+.message-bubble:hover .context-info {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Input suggestion list */
+.suggestion-list {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transform-origin: bottom center;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.suggestion-list.hidden {
+    transform: scaleY(0);
+    opacity: 0;
+}
+
+.suggestion-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.suggestion-item:hover,
+.suggestion-item.selected {
+    background-color: var(--hover-bg);
+}
+
+/* Voice recording pulse */
+.recording-pulse {
+    position: relative;
+}
+
+.recording-pulse::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+    background-color: var(--danger-color);
+    opacity: 0.5;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+
+    70% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 0;
+    }
+}
+
+/* Enhance message bubbles with more interactive features */
+.message-bubble code {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+}
+
+.message-bubble ol,
+.message-bubble ul {
+    margin: var(--spacing-sm) 0;
+    padding-left: var(--spacing-lg);
+}
+
+.message-bubble blockquote {
+    margin: var(--spacing-sm) 0;
+    padding-left: var(--spacing-md);
+    border-left: 3px solid var(--border-color);
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+.message-bubble a {
+    position: relative;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    transition: all 0.2s ease;
+}
+
+.message-bubble a:hover {
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+/* Advanced tooltip for links */
+.link-preview {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background-color: var(--card-bg);
+    box-shadow: var(--shadow);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-sm);
+    width: 300px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.message-bubble a:hover .link-preview {
+    opacity: 1;
+    transform: translateY(0);
+}

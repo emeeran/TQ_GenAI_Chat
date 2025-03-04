@@ -12,6 +12,10 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/static/styles/modern.css">
+    <link rel="stylesheet" href="/static/styles/interactions.css">
+    <link rel="stylesheet" href="/static/styles/components.css">
+    <link rel="stylesheet" href="/static/styles/file-uploader.css">
+    <link rel="stylesheet" href="/static/styles/sidebar-improvements.css">
 </head>
 
 <body>
@@ -44,23 +48,25 @@
             <aside class="sidebar">
                 <div class="model-selector card">
                     <div class="card-header">
-                        AI Provider
+                        <i class="fas fa-cogs"></i> Controls
                     </div>
                     <div class="card-body">
                         <div class="provider-tabs" id="provider-tabs">
                             <!-- Provider tabs will be populated here -->
                         </div>
-
                         <label for="model-select">Select Model:</label>
-                        <select id="model-select" class="model-select">
-                            <!-- Models will be populated here -->
-                        </select>
+                        <div class="model-select-container">
+                            <select id="model-select" class="model-select">
+                                <!-- Models will be populated here -->
+                            </select>
+                            <div class="model-status"></div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header">
-                        <span>Documents</span>
+                        <i class="fas fa-file-alt"></i> Documents
                         <button id="upload-btn" class="btn btn-outline btn-sm">
                             <i class="fas fa-upload"></i> Upload
                         </button>
@@ -77,12 +83,13 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-header">Chat History</div>
+                    <div class="card-header">
+                        <i class="fas fa-history"></i> Chat History
+                    </div>
                     <div class="card-body">
                         <div id="chat-history">
                             <!-- Chat history will appear here -->
                         </div>
-
                         <div class="flex gap-sm mt-md">
                             <button id="save-chat" class="btn btn-outline">
                                 <i class="fas fa-save"></i> Save
@@ -90,6 +97,29 @@
                             <button id="export-chat" class="btn btn-outline">
                                 <i class="fas fa-file-export"></i> Export
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add a new section for chat settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-sliders-h"></i> Settings
+                    </div>
+                    <div class="card-body">
+                        <div class="setting-item">
+                            <span>Enable context</span>
+                            <label class="switch">
+                                <input type="checkbox" id="context-enabled" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <span>Auto-format code</span>
+                            <label class="switch">
+                                <input type="checkbox" id="code-format" checked>
+                                <span class="slider round"></span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -120,7 +150,6 @@
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </form>
-
                     <div class="flex gap-md mt-sm">
                         <button id="mic-btn" class="btn btn-outline btn-sm">
                             <i class="fas fa-microphone"></i>
@@ -135,30 +164,15 @@
         <div id="document-content" class="document-content hidden"></div>
     </div>
 
-    <!-- File uploader modal -->
-    <div id="upload-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Upload Documents</h3>
-                <button class="close-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="file-uploader">
-                    <div id="drop-zone" class="drop-zone">
-                        <p>Drag files here or click to browse</p>
-                        <p class="drop-zone-info">Max file size: 64MB | Supported formats: PDF, DOCX, TXT, MD, JSON,
-                            CSV, Images</p>
-                        <input type="file" id="file-input" multiple class="hidden">
-                        <button class="btn mt-md">Browse Files</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="/static/js/modern-ui.js"></script>
-    <script src="/static/js/file-uploader.js"></script>
+    <script src="/static/js/keyboard-shortcuts.js"></script>
+    <script src="/static/js/accessibility.js"></script>
+    <script src="/static/js/notification-system.js"></script>
+    <script src="/static/js/loading-indicators.js"></script>
+    <script src="/static/js/chat-enhancements.js"></script>
     <script src="/static/js/chat-client.js"></script>
+    <script src="/static/js/file-uploader.js"></script>
+    <script src="/static/js/ui-preferences.js"></script>
+    <script src="/static/js/modern-ui.js"></script>
 </body>
 
 </html>

@@ -670,3 +670,308 @@ class FileUploader {
 if (typeof module !== 'undefined') {
     module.exports = FileUploader;
 }
+
+/**
+ * File uploader functionality for TQ GenAI Chat
+ */
+
+document.addEventListener('DOMContentLoaded', function () {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileList = document.getElementById('file-list');
+    const docCount = document.getElementById('doc-count');
+    const totalSize = document.getElementById('total-size');
+
+    // Initialize file upload functionality
+    if (dropZone && fileInput) {
+        // Clicking the drop zone triggers file input
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Handle drag events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+
+            if (e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        // Handle file selection via input
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                handleFiles(fileInput.files);
+            }
+        });
+    }
+
+    // Upload files to server
+    function handleFiles(files) {
+        // Check if there are files to upload
+        if (files.length === 0) return;
+
+        // Show upload in progress
+        if (window.toast) {
+            window.toast.info(`Uploading ${files.length} file(s)...`);
+        }
+
+        const formData = new FormData();
+
+        // Add all files to FormData
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files[]', files[i]);
+        }
+
+        // Upload files with fetch API
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Handle successful upload
+                if (data.status === 'success') {
+                    if (window.toast) {
+                        window.toast.success('Files uploaded successfully!');
+                    }
+
+                    // Refresh document list
+                    refreshDocuments();
+
+                    // Reset file input
+                    fileInput.value = '';
+                } else {
+                    // Handle partial or complete failure
+                    const errorFiles = data.results.filter(r => r.status === 'error').map(r => r.filename).join(', ');
+                    if (errorFiles) {
+                        if (window.toast) {
+                            window.toast.warning(`Some files failed to upload: ${errorFiles}`);
+                        }
+                    }
+
+                    // Refresh anyway to show any files that did upload
+                    refreshDocuments();
+
+                    // Reset file input
+                    fileInput.value = '';
+                }
+            })
+            .catch(error => {
+                console.error('Upload failed:', error);
+                if (window.toast) {
+                    window.toast.error(`Upload failed: ${error.message}`);
+                }
+
+                // Reset file input
+                fileInput.value = '';
+            });
+    }
+
+    // Refresh document list
+    function refreshDocuments() {
+        fetch('/documents/list')
+            .then(response => response.json())
+            .then(data => {
+                updateDocumentList(data.documents, data.stats);
+            })
+            .catch(error => {
+                console.error('Error fetching documents:', error);
+                if (window.toast) {
+                    window.toast.error('Failed to refresh document list');
+                }
+            });
+    }
+
+    // Update document list UI
+    function updateDocumentList(documents, stats) {
+        if (!fileList) return;
+
+        // Update counts
+        if (docCount) {
+            docCount.textContent = `${stats.total_documents} document${stats.total_documents !== 1 ? 's' : ''}`;
+        }
+
+        if (totalSize) {
+            totalSize.textContent = formatBytes(stats.total_size);
+        }
+
+        // Clear existing list
+        fileList.innerHTML = '';
+
+        // Add documents to list
+        documents.forEach(doc => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+
+            // Determine file icon based on extension
+            let iconClass = 'fa-file-alt';
+            const ext = doc.filename.split('.').pop().toLowerCase();
+
+            if (['pdf'].includes(ext)) iconClass = 'fa-file-pdf';
+            else if (['doc', 'docx'].includes(ext)) iconClass = 'fa-file-word';
+            else if (['xls', 'xlsx', 'csv'].includes(ext)) iconClass = 'fa-file-excel';
+            else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) iconClass = 'fa-file-image';
+            else if (['md', 'txt'].includes(ext)) iconClass = 'fa-file-lines';
+            else if (['json', 'xml'].includes(ext)) iconClass = 'fa-file-code';
+
+            fileItem.innerHTML = `
+                <div class="file-icon">
+                    <i class="fas ${iconClass}"></i>
+                </div>
+                <div class="file-details">
+                    <div class="file-name">${doc.filename}</div>
+                    <div class="file-meta">
+                        <span class="file-size">${formatBytes(doc.size)}</span>
+                        <span class="file-date">${formatDate(doc.timestamp)}</span>
+                    </div>
+                </div>
+                <div class="file-actions">
+                    <button class="view-btn" data-filename="${doc.filename}" title="View document content">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="delete-btn" data-filename="${doc.filename}" title="Delete document">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `;
+
+            fileList.appendChild(fileItem);
+
+            // Add event listeners
+            const viewBtn = fileItem.querySelector('.view-btn');
+            viewBtn.addEventListener('click', () => {
+                viewDocument(doc.filename);
+            });
+
+            const deleteBtn = fileItem.querySelector('.delete-btn');
+            deleteBtn.addEventListener('click', () => {
+                deleteDocument(doc.filename);
+            });
+        });
+
+        // Show empty state if no documents
+        if (documents.length === 0) {
+            fileList.innerHTML = '<div class="empty-state">No documents uploaded yet</div>';
+        }
+    }
+
+    // View document content
+    function viewDocument(filename) {
+        fetch(`/documents/view/${encodeURIComponent(filename)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Document not found');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Show document in preview area
+                const docContent = document.getElementById('document-content');
+
+                if (docContent) {
+                    docContent.classList.remove('hidden');
+                    docContent.innerHTML = `
+                        <div class="document-header">
+                            <h3>${filename}</h3>
+                            <div class="document-meta">
+                                <span>${formatDate(data.timestamp)}</span>
+                            </div>
+                            <button class="close-document btn btn-sm btn-outline">Close</button>
+                        </div>
+                        <div class="document-body">
+                            <pre>${data.content}</pre>
+                        </div>
+                    `;
+
+                    // Add close button handler
+                    const closeBtn = docContent.querySelector('.close-document');
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', () => {
+                            docContent.classList.add('hidden');
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error viewing document:', error);
+                if (window.toast) {
+                    window.toast.error(`Error viewing document: ${error.message}`);
+                }
+            });
+    }
+
+    // Delete document
+    function deleteDocument(filename) {
+        // Confirm deletion
+        if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+            return;
+        }
+
+        fetch(`/documents/delete/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (window.toast) {
+                        window.toast.success('Document deleted');
+                    }
+                    refreshDocuments();
+                } else {
+                    throw new Error(data.error || 'Failed to delete document');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting document:', error);
+                if (window.toast) {
+                    window.toast.error(`Error: ${error.message}`);
+                }
+            });
+    }
+
+    // Format size in bytes to readable format
+    function formatBytes(bytes, decimals = 2) {
+        if (!bytes) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+    }
+
+    // Format date to readable format
+    function formatDate(timestamp) {
+        if (!timestamp) return '';
+
+        // Check if timestamp is ISO format or Unix timestamp
+        let date;
+        if (typeof timestamp === 'string') {
+            date = new Date(timestamp);
+        } else {
+            date = new Date(timestamp * 1000);
+        }
+
+        // Return formatted date
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    }
+
+    // Load initial document list
+    refreshDocuments();
+});

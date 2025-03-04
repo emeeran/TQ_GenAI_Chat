@@ -1,0 +1,166 @@
+/* Layout-specific styles for TQ GenAI Chat */
+
+/* Container layout adjustments */
+.container {
+    max-width: 100%;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.app-header {
+    flex-shrink: 0;
+    padding: var(--spacing-sm) var(--spacing-xl);
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+}
+
+.app-header .container {
+    height: auto;
+    padding: 0;
+}
+
+/* Content area with left-aligned sidebar */
+.main-layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    height: calc(100vh - 60px);
+}
+
+/* Left-aligned sidebar */
+.sidebar {
+    width: 280px;
+    border-right: 1px solid var(--border-color);
+    background-color: var(--sidebar-bg);
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
+    padding: var(--spacing-md);
+    height: 100%;
+    position: relative;
+}
+
+/* Main content area */
+.content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Chat container */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-xl);
+}
+
+/* Chat messages area */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md) 0;
+    scroll-behavior: smooth;
+}
+
+/* Bottom input container */
+.chat-input-container {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    padding: var(--spacing-md) 0;
+    margin-top: auto;
+}
+
+/* Brand bar in sidebar */
+.brand-bar {
+    padding: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+    margin: calc(-1 * var(--spacing-md));
+    margin-bottom: var(--spacing-md);
+    background-color: var(--card-bg);
+}
+
+.brand-bar .app-title {
+    font-size: var(--font-size-md);
+}
+
+/* Improve card spacing in sidebar */
+.sidebar .card {
+    margin-bottom: var(--spacing-md);
+    border: 1px solid var(--border-color);
+}
+
+.sidebar .card-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+.sidebar .card-body {
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: -280px;
+        top: 60px;
+        bottom: 0;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        width: 280px;
+    }
+
+    .sidebar.active {
+        left: 0;
+    }
+
+    .sidebar-backdrop {
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+
+    .sidebar-backdrop.active {
+        display: block;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .chat-container {
+        padding: 0 var(--spacing-md);
+    }
+}
+
+/* Sidebar scroll indicator */
+.sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(to top, var(--sidebar-bg), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar.has-overflow::after {
+    opacity: 1;
+}

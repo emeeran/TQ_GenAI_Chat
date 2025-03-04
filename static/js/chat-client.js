@@ -151,6 +151,12 @@ class ChatClient {
         this.isGenerating = true;
         this.toggleLoadingState(true);
 
+        // Start progress indication
+        if (window.chatProgress) {
+            window.chatProgress.start();
+            window.chatProgress.updateStatus(`Generating with ${this.selectedProvider}...`);
+        }
+
         try {
             // Send to server
             const response = await fetch('/chat', {
@@ -181,11 +187,31 @@ class ChatClient {
                 content: aiResponse
             });
 
+            // Complete progress indication
+            if (window.chatProgress) {
+                window.chatProgress.complete();
+            }
+
+            // Play notification sound if enabled
+            if (window.uiPreferences?.preferences?.sounds) {
+                this.playSound('message-received');
+            }
+
         } catch (error) {
             console.error('Chat error:', error);
-            this.showNotification(`Error: ${error.message}`, 'error');
+            if (window.toast) {
+                window.toast.error(`Error: ${error.message}`);
+            } else {
+                this.showNotification(`Error: ${error.message}`, 'error');
+            }
             // Add error message to UI
             this.addErrorMessageToUI();
+
+            // Complete progress with error
+            if (window.chatProgress) {
+                window.chatProgress.complete();
+            }
+
         } finally {
             this.isGenerating = false;
             this.toggleLoadingState(false);
@@ -481,6 +507,34 @@ class ChatClient {
 
             this.recognition.start();
         }
+    }
+
+    cancelResponse() {
+        if (!this.isGenerating) return;
+
+        this.isGenerating = false;
+        this.toggleLoadingState(false);
+
+        // Add a system message about cancellation
+        const systemMsg = document.createElement('div');
+        systemMsg.className = 'message message-system';
+        systemMsg.innerHTML = `
+            <div class="message-bubble">
+                <div class="message-text">
+                    <i class="fas fa-ban"></i> Response generation canceled
+                </div>
+            </div>
+        `;
+
+        this.chatMessages.appendChild(systemMsg);
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+
+        // Add to history
+        this.chatHistory.push({
+            isUser: false,
+            isSystem: true,
+            content: "Response generation canceled by user"
+        });
     }
 }
 

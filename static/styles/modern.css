@@ -172,6 +172,8 @@ select:focus {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 var(--spacing-md);
+    margin-left: 0 !important;
+    padding-left: 0 !important;
 }
 
 .row {
@@ -255,11 +257,30 @@ select:focus {
     overflow: hidden;
 }
 
+/* Restore original sidebar behavior */
 .sidebar {
-    background-color: var(--sidebar-bg);
-    border-radius: var(--border-radius-lg);
+    width: 280px;
+    border-right: 1px solid var(--border-color);
     padding: var(--spacing-md);
     overflow-y: auto;
+    height: calc(100vh - 60px);
+    background-color: var(--sidebar-bg);
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        top: 60px;
+        left: -280px;
+        bottom: 0;
+        z-index: 990;
+        transition: left 0.3s ease;
+    }
+
+    .sidebar.active {
+        left: 0;
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+    }
 }
 
 .main-content {
