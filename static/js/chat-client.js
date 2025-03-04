@@ -19,35 +19,79 @@ class ChatClient {
         this.micBtn = document.getElementById('mic-btn');
         this.recordingStatus = document.getElementById('recording-status');
 
-        this.providers = [
-            { id: 'groq', name: 'Groq', icon: 'bolt' },
-            { id: 'openai', name: 'OpenAI', icon: 'brain' },
-            { id: 'anthropic', name: 'Anthropic', icon: 'lightbulb' },
-            { id: 'xai', name: 'xAI (Grok)', icon: 'robot' },
-            { id: 'mistral', name: 'Mistral', icon: 'wind' },
-            { id: 'deepseek', name: 'DeepSeek', icon: 'search' }
-        ];
+        this.providers = [];
 
         this.initUI();
         this.bindEvents();
     }
 
     initUI() {
-        // Create provider tabs
-        let tabsHTML = '';
-        this.providers.forEach(provider => {
-            tabsHTML += `
-                <div class="provider-tab${provider.id === this.selectedProvider ? ' active' : ''}"
-                     data-provider="${provider.id}">
-                    <i class="fas fa-${provider.icon}"></i>
-                    ${provider.name}
-                </div>
-            `;
-        });
-        this.providerTabs.innerHTML = tabsHTML;
+        this.fetchProviders().then(() => {
+            let tabsHTML = '';
+            this.providers.forEach(provider => {
+                tabsHTML += `
+                    <div class="provider-tab${provider.id === this.selectedProvider ? ' active' : ''}"
+                         data-provider="${provider.id}">
+                        <i class="fas fa-${this.getProviderIcon(provider.id)}"></i>
+                        ${provider.name}
+                    </div>
+                `;
+            });
+            if (this.providerTabs) {
+                this.providerTabs.innerHTML = tabsHTML;
+            } else {
+                console.warn('Provider tabs element not found');
+            }
 
-        // Load models for default provider
-        this.loadModels(this.selectedProvider);
+            // Load models for default provider
+            this.loadModels(this.selectedProvider);
+        });
+    }
+
+    async fetchProviders() {
+        try {
+            const response = await fetch('/get_providers');
+            if (!response.ok) throw new Error('Failed to fetch providers');
+
+            const providerIds = await response.json();
+
+            this.providers = providerIds.map(id => ({
+                id: id,
+                name: this.formatProviderName(id),
+                icon: this.getProviderIcon(id)
+            }));
+
+            console.log('Providers loaded:', this.providers);
+        } catch (error) {
+            console.error('Error fetching providers:', error);
+            this.providers = [{ id: 'groq', name: 'Groq', icon: 'bolt' }];
+        }
+    }
+
+    formatProviderName(id) {
+        switch (id) {
+            case 'openai': return 'OpenAI';
+            case 'anthropic': return 'Anthropic';
+            case 'xai': return 'xAI (Grok)';
+            case 'groq': return 'Groq';
+            case 'mistral': return 'Mistral';
+            case 'cohere': return 'Cohere';
+            case 'deepseek': return 'DeepSeek';
+            default: return id.charAt(0).toUpperCase() + id.slice(1);
+        }
+    }
+
+    getProviderIcon(id) {
+        switch (id) {
+            case 'openai': return 'brain';
+            case 'anthropic': return 'lightbulb';
+            case 'xai': return 'robot';
+            case 'groq': return 'bolt';
+            case 'mistral': return 'wind';
+            case 'cohere': return 'layer-group';
+            case 'deepseek': return 'search';
+            default: return 'comment';
+        }
     }
 
     bindEvents() {
