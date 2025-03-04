@@ -1,48 +1,132 @@
 /**
- * Error capture script - Helps diagnose persistent JavaScript errors
+ * Error capture utility for TQ GenAI Chat
+ * Captures and logs client-side errors for better debugging
  */
 
-// Create a safe logging container
-const errorLog = [];
+// Use window.errorLog instead of a global variable to avoid duplicate declaration
+if (!window.errorLog) {
+    window.errorLog = [];
+}
 
-// Setup early error capture
+// Create a global error handler
 window.addEventListener('error', function (event) {
     const error = {
         message: event.message,
-        filename: event.filename,
+        source: event.filename,
         lineno: event.lineno,
         colno: event.colno,
-        stack: event.error && event.error.stack,
+        stack: event.error ? event.error.stack : null,
         timestamp: new Date().toISOString(),
-        elementInfo: getElementStackTrace()
+        userAgent: navigator.userAgent
     };
 
-    errorLog.push(error);
+    // Add to error log
+    window.errorLog.push(error);
 
-    // Log to console with more details
-    console.error("[ERROR CAPTURE]", event.message,
-        `at ${event.filename}:${event.lineno}:${event.colno}`,
-        "\nStack:", error.stack,
-        "\nElements:", error.elementInfo);
+    // Log to console with clear formatting
+    console.error(
+        `%c JS Error: ${error.message}`,
+        'color: #ff3333; font-weight: bold;',
+        `\nSource: ${error.source}:${error.lineno}:${error.colno}`,
+        `\nTimestamp: ${error.timestamp}`,
+        `\nStack trace:`, error.stack
+    );
 
-    return false; // Let other handlers run
+    // You can send errors to server here
+    // sendErrorToServer(error);
+
+    // Return false to allow the error to appear in the console
+    return false;
 });
 
-// Capture unhandled promise rejections
+// Unhandled promise rejection handler
 window.addEventListener('unhandledrejection', function (event) {
     const error = {
-        type: 'unhandled promise rejection',
-        reason: event.reason,
-        message: event.reason?.message || 'Unknown reason',
-        stack: event.reason?.stack,
-        timestamp: new Date().toISOString()
+        message: event.reason.message || 'Unhandled Promise rejection',
+        reason: event.reason.toString(),
+        stack: event.reason.stack,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent
     };
 
-    errorLog.push(error);
-    console.error("[PROMISE ERROR]", error.message, error.stack);
+    // Add to error log
+    window.errorLog.push(error);
 
-    return false; // Let other handlers run
+    // Log to console with clear formatting
+    console.error(
+        `%c Promise Error: ${error.message}`,
+        'color: #ff8800; font-weight: bold;',
+        `\nReason: ${error.reason}`,
+        `\nTimestamp: ${error.timestamp}`,
+        `\nStack trace:`, error.stack
+    );
 });
+
+// Function to send error to server
+function sendErrorToServer(error) {
+    const url = '/api/log-error';
+
+    // Don't block the UI thread with error reporting
+    setTimeout(() => {
+        try {
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(error)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        console.warn('Failed to send error to server:', response.statusText);
+                    }
+                })
+                .catch(sendError => {
+                    console.warn('Error sending error to server:', sendError);
+                });
+        } catch (e) {
+            // Silently fail if we can't report the error
+            console.warn('Failed to send error:', e);
+        }
+    }, 0);
+}
+
+// Export a function to get the error log
+function getErrorLog() {
+    return window.errorLog;
+}
+
+// Function to clear the error log
+function clearErrorLog() {
+    window.errorLog = [];
+}
+
+// Console overrides to capture logs
+if (!window.originalConsole) {
+    window.originalConsole = {
+        log: console.log,
+        warn: console.warn,
+        error: console.error,
+        info: console.info
+    };
+
+    // Override console methods to capture logs
+    console.log = function () {
+        window.originalConsole.log.apply(console, arguments);
+    };
+
+    console.warn = function () {
+        window.originalConsole.warn.apply(console, arguments);
+    };
+
+    console.error = function () {
+        window.originalConsole.error.apply(console, arguments);
+    };
+
+    console.info = function () {
+        window.originalConsole.info.apply(console, arguments);
+    };
+}
 
 // Get a stack trace of the DOM elements at the point of error
 function getElementStackTrace() {
@@ -73,9 +157,9 @@ function getElementStackTrace() {
 document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () {
         // Create error viewer button only if errors exist
-        if (errorLog.length > 0) {
+        if (window.errorLog.length > 0) {
             const viewerBtn = document.createElement('button');
-            viewerBtn.textContent = `Errors (${errorLog.length})`;
+            viewerBtn.textContent = `Errors (${window.errorLog.length})`;
             viewerBtn.id = 'error-viewer-btn';
             viewerBtn.style.cssText = `
                 position: fixed;
@@ -141,12 +225,12 @@ function showErrorViewer() {
 
     // Add header
     const header = document.createElement('h3');
-    header.textContent = `JavaScript Errors (${errorLog.length})`;
+    header.textContent = `JavaScript Errors (${window.errorLog.length})`;
     viewer.appendChild(header);
 
     // Add error log
     const logContainer = document.createElement('div');
-    errorLog.forEach((error, index) => {
+    window.errorLog.forEach((error, index) => {
         const errorDiv = document.createElement('div');
         errorDiv.style.cssText = `
             margin-bottom: 10px;
@@ -158,7 +242,7 @@ function showErrorViewer() {
 
         errorDiv.innerHTML = `
             <strong>${index + 1}. ${error.message}</strong>
-            <div>Location: ${error.filename}:${error.lineno}:${error.colno}</div>
+            <div>Location: ${error.source}:${error.lineno}:${error.colno}</div>
             <div>Time: ${new Date(error.timestamp).toLocaleTimeString()}</div>
             ${error.elementInfo?.activeElement ?
                 `<div>Active Element: ${error.elementInfo.activeElement.tagName}
@@ -177,7 +261,7 @@ function showErrorViewer() {
 // Expose API for manual error logging
 window.errorCapture = {
     log: function (message, source) {
-        errorLog.push({
+        window.errorLog.push({
             message,
             source,
             timestamp: new Date().toISOString(),
@@ -185,7 +269,7 @@ window.errorCapture = {
         });
     },
     getLog: function () {
-        return [...errorLog];
+        return [...window.errorLog];
     },
     showViewer: showErrorViewer
 };

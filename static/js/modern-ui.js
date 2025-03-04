@@ -1,679 +1,586 @@
 /**
  * Modern UI interactions for TQ GenAI Chat
+ * Enhances the UI with modern interactions and animations
  */
 
+// Initialize when document is loaded
 document.addEventListener('DOMContentLoaded', function () {
-    // Theme toggle functionality
-    initThemeToggle();
-
-    // Mobile sidebar toggle
-    initSidebarToggle();
-
-    // Modal functionality
-    initModals();
-
-    // Auto-resize textarea
-    initTextareaResize();
-
-    // Initialize tooltips
-    initTooltips();
-
-    // Initialize animations for messages
-    initMessageAnimations();
-
-    // Add scroll animation for messages
-    initMessageScroll();
-
-    // Code highlight functionality
-    highlightCode();
-
-    // Initialize keyboard navigation
-    initKeyboardNavigation();
-
-    // Initialize command palette
-    initCommandPalette();
-
-    // Initialize provider selector dropdown
-    initializeProvidersDropdown();
-    setupProviderModelEvents();
+    console.log('Modern UI initializing...');
+    initializeUI();
+    setupThemeToggle();
+    setupCopyCodeButtons();
+    setupTooltips();
+    setupModals();
+    setupHighlighting();
+    setupDropdowns();
+    initializeCommandPalette();
 });
 
-// Theme Toggle
-function initThemeToggle() {
-    const themeToggle = document.getElementById('theme-toggle-input');
-
-    // Check for saved theme preference or respect OS preference
-    const prefersDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const savedTheme = localStorage.getItem('theme');
-
-    // Apply theme
-    if (savedTheme === 'dark' || (!savedTheme && prefersDarkMode)) {
-        document.body.classList.add('dark-theme');
-        themeToggle.checked = true;
-    }
-
-    // Handle theme toggle click
-    themeToggle.addEventListener('change', function () {
-        if (this.checked) {
-            document.body.classList.add('dark-theme');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            document.body.classList.remove('dark-theme');
-            localStorage.setItem('theme', 'light');
-        }
-    });
-}
-
-// Mobile Sidebar Toggle
-function initSidebarToggle() {
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    const sidebar = document.querySelector('.sidebar');
-
-    if (sidebarToggle && sidebar) {
-        sidebarToggle.addEventListener('click', function () {
-            sidebar.classList.toggle('active');
-        });
-
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function (event) {
-            if (window.innerWidth <= 768 &&
-                sidebar.classList.contains('active') &&
-                !sidebar.contains(event.target) &&
-                event.target !== sidebarToggle) {
-                sidebar.classList.remove('active');
-            }
-        });
-    }
-}
-
-// Modal functionality
-function initModals() {
-    // Upload modal
-    const uploadBtn = document.getElementById('upload-btn');
-    const uploadModal = document.getElementById('upload-modal');
-    const closeModalBtns = document.querySelectorAll('.close-modal');
-
-    if (uploadBtn && uploadModal) {
-        uploadBtn.addEventListener('click', function () {
-            uploadModal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden'; // Prevent scrolling
-        });
-    }
-
-    closeModalBtns.forEach(btn => {
-        btn.addEventListener('click', closeModal);
-    });
-
-    // Close modal when clicking outside
-    document.addEventListener('click', function (event) {
-        if (event.target.classList.contains('modal')) {
-            closeModal();
-        }
-    });
-
-    // Close modal with ESC key
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            closeModal();
-        }
-    });
-
-    function closeModal() {
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            modal.classList.add('hidden');
-        });
-        document.body.style.overflow = '';
-    }
-}
-
-// Auto-resize textarea
-function initTextareaResize() {
+/**
+ * Initialize base UI components
+ */
+function initializeUI() {
+    // Auto-resize textarea on input
     const chatInput = document.getElementById('chat-input');
     if (chatInput) {
         chatInput.addEventListener('input', function () {
             this.style.height = 'auto';
-            this.style.height = Math.min(200, this.scrollHeight) + 'px';
+            this.style.height = (this.scrollHeight) + 'px';
         });
 
-        // Initialize height on page load
-        setTimeout(() => {
-            chatInput.style.height = 'auto';
-            chatInput.style.height = Math.min(200, chatInput.scrollHeight) + 'px';
-        }, 100);
+        // Initial sizing
+        chatInput.style.height = 'auto';
+        chatInput.style.height = (chatInput.scrollHeight) + 'px';
+    }
+
+    // Add timestamp to messages
+    document.querySelectorAll('.message').forEach(function (message) {
+        if (!message.querySelector('.message-time')) {
+            const timeEl = document.createElement('div');
+            timeEl.className = 'message-time';
+            timeEl.textContent = new Date().toLocaleTimeString();
+            message.querySelector('.message-bubble').appendChild(timeEl);
+        }
+    });
+
+    // Add scroll shadow to message container
+    const msgContainer = document.getElementById('chat-messages');
+    if (msgContainer) {
+        msgContainer.addEventListener('scroll', function () {
+            const hasScrollShadow = this.scrollTop > 0;
+            this.classList.toggle('has-shadow', hasScrollShadow);
+        });
+
+        // Initial check
+        msgContainer.dispatchEvent(new Event('scroll'));
     }
 }
 
-// Tooltips
-function initTooltips() {
-    const tooltipElements = document.querySelectorAll('[data-tooltip]');
+/**
+ * Setup theme toggle functionality
+ */
+function setupThemeToggle() {
+    const themeToggle = document.getElementById('theme-toggle-input');
 
-    tooltipElements.forEach(element => {
+    // Set initial theme based on preference
+    const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedTheme = localStorage.getItem('theme');
+
+    // Apply the saved theme or system preference
+    if (savedTheme === 'dark' || (savedTheme !== 'light' && prefersDarkMode)) {
+        document.body.classList.add('dark-theme');
+        if (themeToggle) themeToggle.checked = true;
+    }
+
+    // Handle theme toggle
+    if (themeToggle) {
+        themeToggle.addEventListener('change', function () {
+            document.body.classList.toggle('dark-theme', this.checked);
+            localStorage.setItem('theme', this.checked ? 'dark' : 'light');
+
+            // Dispatch theme change event
+            window.dispatchEvent(new CustomEvent('themechange', {
+                detail: { theme: this.checked ? 'dark' : 'light' }
+            }));
+        });
+    }
+
+    // Listen for system preference changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        if (localStorage.getItem('theme') === null) {
+            document.body.classList.toggle('dark-theme', e.matches);
+            if (themeToggle) themeToggle.checked = e.matches;
+        }
+    });
+}
+
+/**
+ * Setup code copy buttons
+ */
+function setupCopyCodeButtons() {
+    document.querySelectorAll('pre code').forEach(function (codeBlock) {
+        if (!codeBlock.parentNode.querySelector('.copy-btn')) {
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+            copyBtn.title = 'Copy to clipboard';
+
+            copyBtn.addEventListener('click', function () {
+                const codeToCopy = codeBlock.textContent;
+
+                // Copy to clipboard
+                navigator.clipboard.writeText(codeToCopy).then(function () {
+                    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                    copyBtn.classList.add('copied');
+
+                    // Reset after 2 seconds
+                    setTimeout(function () {
+                        copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+
+            codeBlock.parentNode.appendChild(copyBtn);
+        }
+    });
+}
+
+/**
+ * Setup tooltips for elements
+ */
+function setupTooltips() {
+    document.querySelectorAll('[data-tooltip]').forEach(function (element) {
         const tooltipText = element.getAttribute('data-tooltip');
-        const tooltip = document.createElement('div');
-        tooltip.className = 'tooltip';
-        tooltip.textContent = tooltipText;
 
-        element.addEventListener('mouseenter', () => {
-            document.body.appendChild(tooltip);
-            const rect = element.getBoundingClientRect();
-            tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
-            tooltip.style.left = `${rect.left + window.scrollX + rect.width / 2 - tooltip.offsetWidth / 2}px`;
-            tooltip.style.opacity = '1';
-        });
-
-        element.addEventListener('mouseleave', () => {
-            tooltip.style.opacity = '0';
-            setTimeout(() => {
-                if (tooltip.parentNode) {
-                    tooltip.parentNode.removeChild(tooltip);
-                }
-            }, 300);
-        });
-    });
-}
-
-// Code highlight functionality
-function highlightCode() {
-    document.querySelectorAll('pre code').forEach((block) => {
-        // If using a library like highlight.js
-        // hljs.highlightBlock(block);
-
-        // Simple syntax highlighting
-        if (block.classList.contains('language-javascript')) {
-            const keywords = ['function', 'return', 'if', 'else', 'for', 'while', 'let', 'const', 'var', 'async', 'await', 'class', 'import', 'export'];
-            keywords.forEach(word => {
-                const regex = new RegExp(`\\b${word}\\b`, 'g');
-                block.innerHTML = block.innerHTML.replace(
-                    regex,
-                    `<span class="keyword">${word}</span>`
-                );
-            });
-        }
-    });
-}
-
-// Add scroll animation for messages
-function initMessageScroll() {
-    const chatMessages = document.getElementById('chat-messages');
-    if (chatMessages) {
-        // Scroll to bottom when new messages arrive
-        const observer = new MutationObserver(() => {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        });
-
-        observer.observe(chatMessages, { childList: true });
-    }
-}
-
-// Initialize animations for messages
-function initMessageAnimations() {
-    const messages = document.querySelectorAll('.message');
-
-    messages.forEach((message, index) => {
-        // Add staggered fade-in animation
-        message.style.opacity = '0';
-        message.style.transform = 'translateY(20px)';
-
-        setTimeout(() => {
-            message.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            message.style.opacity = '1';
-            message.style.transform = 'translateY(0)';
-        }, 100 * index);
-    });
-}
-
-// Add keyboard navigation support
-function initKeyboardNavigation() {
-    // Navigation between provider tabs using keyboard
-    const providerTabs = document.getElementById('provider-tabs');
-    if (providerTabs) {
-        // Make tabs keyboard navigable
-        providerTabs.setAttribute('role', 'tablist');
-        const tabs = providerTabs.querySelectorAll('.provider-tab');
-
-        tabs.forEach((tab, index) => {
-            tab.setAttribute('role', 'tab');
-            tab.setAttribute('tabindex', '0');
-            tab.setAttribute('id', `provider-${tab.dataset.provider}`);
-            tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
-
-            // Add keyboard navigation
-            tab.addEventListener('keydown', (e) => {
-                let nextTab;
-
-                // Handle arrow keys
-                switch (e.key) {
-                    case 'ArrowRight':
-                        nextTab = index < tabs.length - 1 ? tabs[index + 1] : tabs[0];
-                        break;
-                    case 'ArrowLeft':
-                        nextTab = index > 0 ? tabs[index - 1] : tabs[tabs.length - 1];
-                        break;
-                    case 'Home':
-                        nextTab = tabs[0];
-                        break;
-                    case 'End':
-                        nextTab = tabs[tabs.length - 1];
-                        break;
-                    case ' ':
-                    case 'Enter':
-                        tab.click();
-                        return;
-                    default:
-                        return; // Exit for other keys
-                }
-
-                if (nextTab) {
-                    e.preventDefault();
-                    nextTab.focus();
-                }
-            });
-        });
-    }
-
-    // Add command palette (Ctrl+K)
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-            e.preventDefault();
-            toggleCommandPalette();
-        }
-        // Add Escape key handler for modals
-        if (e.key === 'Escape') {
-            const modals = document.querySelectorAll('.modal:not(.hidden)');
-            if (modals.length > 0) {
-                e.preventDefault();
-                modals.forEach(modal => modal.classList.add('hidden'));
+        element.addEventListener('mouseenter', function (e) {
+            // Create tooltip element if it doesn't exist
+            let tooltip = document.getElementById('tooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'tooltip';
+                tooltip.className = 'tooltip';
+                document.body.appendChild(tooltip);
             }
-        }
+
+            // Position tooltip and show it
+            tooltip.textContent = tooltipText;
+            tooltip.style.top = (e.target.getBoundingClientRect().top - tooltip.offsetHeight - 10) + 'px';
+            tooltip.style.left = (e.target.getBoundingClientRect().left + e.target.offsetWidth / 2 - tooltip.offsetWidth / 2) + 'px';
+            tooltip.classList.add('visible');
+        });
+
+        element.addEventListener('mouseleave', function () {
+            const tooltip = document.getElementById('tooltip');
+            if (tooltip) tooltip.classList.remove('visible');
+        });
     });
 }
 
-// Add command palette feature for quick actions
-function initCommandPalette() {
-    // Create command palette UI if not exists
+/**
+ * Setup modal functionality
+ */
+function setupModals() {
+    // Modal triggers
+    document.querySelectorAll('[data-modal-target]').forEach(function (trigger) {
+        trigger.addEventListener('click', function () {
+            const targetId = this.getAttribute('data-modal-target');
+            const modal = document.getElementById(targetId);
+
+            if (modal) {
+                modal.classList.add('open');
+
+                // Find and focus first focusable element
+                const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if (focusable.length) focusable[0].focus();
+
+                // Trap focus in the modal
+                modal.addEventListener('keydown', trapFocus);
+            }
+        });
+    });
+
+    // Close modal buttons
+    document.querySelectorAll('.close-modal, [data-modal-close]').forEach(function (closeButton) {
+        closeButton.addEventListener('click', function () {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.classList.remove('open');
+                modal.removeEventListener('keydown', trapFocus);
+            }
+        });
+    });
+
+    // Close modal when clicking on backdrop
+    document.querySelectorAll('.modal').forEach(function (modal) {
+        modal.addEventListener('click', function (e) {
+            // Only close if clicking the backdrop (modal itself), not its children
+            if (e.target === modal) {
+                modal.classList.remove('open');
+                modal.removeEventListener('keydown', trapFocus);
+            }
+        });
+    });
+
+    // Helper for trapping focus in modals
+    function trapFocus(e) {
+        if (e.key !== 'Tab') return;
+
+        const modal = e.currentTarget;
+        const focusable = Array.from(
+            modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+        ).filter(element => element.offsetWidth > 0 && element.offsetHeight > 0);
+
+        const firstFocusable = focusable[0];
+        const lastFocusable = focusable[focusable.length - 1];
+
+        // Shift+Tab on first element should focus last element
+        if (e.shiftKey && document.activeElement === firstFocusable) {
+            e.preventDefault();
+            lastFocusable.focus();
+        }
+
+        // Tab on last element should focus first element
+        else if (!e.shiftKey && document.activeElement === lastFocusable) {
+            e.preventDefault();
+            firstFocusable.focus();
+        }
+    }
+}
+
+/**
+ * Setup syntax highlighting
+ */
+function setupHighlighting() {
+    // If highlight.js is loaded
+    if (window.hljs) {
+        document.querySelectorAll('pre code').forEach(function (block) {
+            hljs.highlightBlock(block);
+        });
+    } else {
+        // Simple syntax highlight for code blocks
+        document.querySelectorAll('pre code').forEach(function (block) {
+            // Skip if already highlighted
+            if (block.classList.contains('highlighted')) return;
+
+            // Apply simple highlighting based on language
+            const language = Array.from(block.classList)
+                .find(cls => cls.startsWith('language-'))?.replace('language-', '') || '';
+
+            // Add class for styling
+            block.parentNode.classList.add('code-block');
+            block.classList.add('highlighted');
+
+            // Add language label if available
+            if (language && !block.parentNode.querySelector('.code-language')) {
+                const langLabel = document.createElement('div');
+                langLabel.className = 'code-language';
+                langLabel.textContent = language;
+                block.parentNode.appendChild(langLabel);
+            }
+
+            // Apply basic syntax highlighting for common tokens
+            let html = block.innerHTML;
+
+            // Highlight strings
+            html = html.replace(/"([^"]*)"/g, '<span class="string">"$1"</span>');
+            html = html.replace(/'([^']*)'/g, '<span class="string">\'$1\'</span>');
+
+            // Highlight numbers
+            html = html.replace(/\b(\d+)\b/g, '<span class="number">$1</span>');
+
+            // Highlight comments
+            html = html.replace(/(\/\/[^\n]*)/g, '<span class="comment">$1</span>');
+            html = html.replace(/(#[^\n]*)/g, '<span class="comment">$1</span>');
+
+            // Highlight keywords based on language
+            if (language === 'javascript' || language === 'js') {
+                const keywords = ['function', 'return', 'if', 'else', 'for', 'while', 'let', 'const', 'var', 'class', 'new', 'this', 'import', 'export'];
+                keywords.forEach(function (keyword) {
+                    const regex = new RegExp(`\\b${keyword}\\b`, 'g');
+                    html = html.replace(regex, `<span class="keyword">${keyword}</span>`);
+                });
+            } else if (language === 'python' || language === 'py') {
+                const keywords = ['def', 'class', 'import', 'from', 'return', 'if', 'else', 'for', 'while', 'in', 'as', 'with', 'try', 'except', 'finally'];
+                keywords.forEach(function (keyword) {
+                    const regex = new RegExp(`\\b${keyword}\\b`, 'g');
+                    html = html.replace(regex, `<span class="keyword">${keyword}</span>`);
+                });
+            }
+
+            block.innerHTML = html;
+        });
+    }
+}
+
+/**
+ * Setup dropdown menus
+ */
+function setupDropdowns() {
+    document.querySelectorAll('.dropdown-toggle').forEach(function (toggle) {
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dropdown = this.nextElementSibling;
+            if (!dropdown || !dropdown.classList.contains('dropdown-menu')) return;
+
+            // Close all other dropdowns
+            document.querySelectorAll('.dropdown-menu.open').forEach(function (menu) {
+                if (menu !== dropdown) menu.classList.remove('open');
+            });
+
+            // Toggle this dropdown
+            dropdown.classList.toggle('open');
+
+            // Add click outside handler
+            if (dropdown.classList.contains('open')) {
+                document.addEventListener('click', closeDropdownsOnClickOutside);
+            }
+        });
+    });
+
+    function closeDropdownsOnClickOutside(e) {
+        if (!e.target.closest('.dropdown-menu') && !e.target.closest('.dropdown-toggle')) {
+            document.querySelectorAll('.dropdown-menu.open').forEach(function (menu) {
+                menu.classList.remove('open');
+            });
+            document.removeEventListener('click', closeDropdownsOnClickOutside);
+        }
+    }
+}
+
+/**
+ * Initialize command palette
+ */
+function initializeCommandPalette() {
+    // Create command palette if it doesn't exist yet
     if (!document.getElementById('command-palette')) {
         const palette = document.createElement('div');
         palette.id = 'command-palette';
         palette.className = 'command-palette hidden';
-        palette.setAttribute('role', 'dialog');
-        palette.setAttribute('aria-modal', 'true');
-        palette.setAttribute('aria-label', 'Command Palette');
 
         palette.innerHTML = `
             <div class="command-header">
                 <div class="command-search">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="command-input" placeholder="Type a command or search..."
-                        autocomplete="off" spellcheck="false">
+                    <input id="command-input" type="text" placeholder="Search commands...">
                 </div>
-                <button class="close-command" aria-label="Close command palette">&times;</button>
+                <button class="close-command" id="close-command">&times;</button>
             </div>
             <div class="command-results">
-                <div class="command-group">
-                    <div class="command-group-title">Commands</div>
-                    <div class="command-list" id="command-list"></div>
-                </div>
+                <div id="command-groups"></div>
             </div>
             <div class="command-footer">
                 <div class="command-help">
-                    <span><kbd>↑</kbd><kbd>↓</kbd> to navigate</span>
-                    <span><kbd>Enter</kbd> to select</span>
-                    <span><kbd>Esc</kbd> to close</span>
+                    <span>↑↓ to navigate</span>
+                    <span>↵ to select</span>
+                    <span>esc to close</span>
                 </div>
             </div>
         `;
 
         document.body.appendChild(palette);
-    }
 
-    // Define available commands
-    const commands = [
-        {
-            id: 'toggle-theme',
-            name: 'Toggle Dark/Light Mode',
-            icon: 'fas fa-moon',
-            shortcut: 'Ctrl+Shift+L',
-            action: () => {
-                const themeToggle = document.getElementById('theme-toggle-input');
-                if (themeToggle) {
-                    themeToggle.click();
-                }
-            }
-        },
-        {
-            id: 'clear-chat',
-            name: 'Clear Current Chat',
-            icon: 'fas fa-eraser',
-            action: () => {
-                if (window.chatClient && typeof window.chatClient.clearChat === 'function') {
-                    window.chatClient.clearChat();
-                } else {
-                    const chatMessages = document.getElementById('chat-messages');
-                    if (chatMessages) {
-                        chatMessages.innerHTML = '';
+        // Set up event handlers for the command palette
+        const commandInput = document.getElementById('command-input');
+        // Fix here: Don't redeclare closeBtn, use a different variable name
+        const closeCommandButton = document.getElementById('close-command');
+
+        // Define commands
+        const commands = [
+            {
+                name: 'Toggle Dark Mode',
+                description: 'Switch between light and dark theme',
+                group: 'Appearance',
+                action: () => {
+                    const themeToggle = document.getElementById('theme-toggle-input');
+                    if (themeToggle) {
+                        themeToggle.checked = !themeToggle.checked;
+                        themeToggle.dispatchEvent(new Event('change'));
                     }
+                    hideCommandPalette();
+                }
+            },
+            {
+                name: 'Clear Chat',
+                description: 'Clear all messages in the current chat',
+                group: 'Chat',
+                action: () => {
+                    const clearBtn = document.getElementById('clear-chat-btn');
+                    if (clearBtn) clearBtn.click();
+                    hideCommandPalette();
+                }
+            },
+            {
+                name: 'Save Chat',
+                description: 'Save the current chat to your history',
+                group: 'Chat',
+                action: () => {
+                    const saveBtn = document.getElementById('save-chat');
+                    if (saveBtn) saveBtn.click();
+                    hideCommandPalette();
+                }
+            },
+            {
+                name: 'Export Chat',
+                description: 'Export the current chat as markdown',
+                group: 'Chat',
+                action: () => {
+                    const exportBtn = document.getElementById('export-chat');
+                    if (exportBtn) exportBtn.click();
+                    hideCommandPalette();
                 }
             }
-        },
-        {
-            id: 'save-chat',
-            name: 'Save Current Chat',
-            icon: 'fas fa-save',
-            shortcut: 'Ctrl+S',
-            action: () => {
-                if (window.chatClient && typeof window.chatClient.saveChat === 'function') {
-                    window.chatClient.saveChat();
-                }
-            }
-        },
-        {
-            id: 'export-chat',
-            name: 'Export Chat as Markdown',
-            icon: 'fas fa-file-export',
-            action: () => {
-                if (window.chatClient && typeof window.chatClient.exportChat === 'function') {
-                    window.chatClient.exportChat();
-                }
-            }
-        },
-        {
-            id: 'upload-files',
-            name: 'Upload Document',
-            icon: 'fas fa-upload',
-            action: () => {
-                const uploadBtn = document.getElementById('upload-btn');
-                if (uploadBtn) {
-                    uploadBtn.click();
-                }
-            }
-        },
-        {
-            id: 'toggle-preferences',
-            name: 'Open Preferences',
-            icon: 'fas fa-cog',
-            shortcut: 'Ctrl+,',
-            action: () => {
-                const preferencesBtn = document.getElementById('preferences-btn');
-                if (preferencesBtn) {
-                    preferencesBtn.click();
-                }
-            }
-        },
-        {
-            id: 'voice-input',
-            name: 'Toggle Voice Input',
-            icon: 'fas fa-microphone',
-            action: () => {
-                const micBtn = document.getElementById('mic-btn');
-                if (micBtn) {
-                    micBtn.click();
-                }
-            }
-        }
-    ];
+        ];
 
-    // Setup command palette functionality
-    const commandInput = document.getElementById('command-input');
-    const commandList = document.getElementById('command-list');
-    const palette = document.getElementById('command-palette');
-    const closeBtn = palette.querySelector('.close-command');
+        let selectedCommandIndex = -1;
 
-    function renderCommands(filterText = '') {
-        // Filter commands based on input
-        const filtered = filterText.length > 0
-            ? commands.filter(cmd =>
-                cmd.name.toLowerCase().includes(filterText.toLowerCase()) ||
-                (cmd.tags && cmd.tags.some(tag => tag.toLowerCase().includes(filterText.toLowerCase())))
-            )
-            : commands;
+        // Group commands by category
+        function renderCommandGroups(filterText = '') {
+            const commandGroupsEl = document.getElementById('command-groups');
 
-        // Render commands to list
-        commandList.innerHTML = filtered.length > 0
-            ? filtered.map((cmd, index) => `
-                <div class="command-item" data-id="${cmd.id}" tabindex="0" ${index === 0 ? 'aria-selected="true"' : ''}>
-                    <div class="command-icon"><i class="${cmd.icon}"></i></div>
-                    <div class="command-name">${cmd.name}</div>
-                    ${cmd.shortcut ? `<div class="command-shortcut">${cmd.shortcut}</div>` : ''}
-                </div>
-            `).join('')
-            : '<div class="command-empty">No commands found</div>';
+            // Group by category
+            const groups = {};
 
-        // Add click handlers
-        commandList.querySelectorAll('.command-item').forEach(item => {
-            item.addEventListener('click', () => {
-                executeCommand(item.dataset.id);
+            // Filter and group commands
+            commands.forEach(cmd => {
+                if (!filterText || cmd.name.toLowerCase().includes(filterText.toLowerCase())) {
+                    if (!groups[cmd.group]) {
+                        groups[cmd.group] = [];
+                    }
+                    groups[cmd.group].push(cmd);
+                }
             });
 
-            item.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    executeCommand(item.dataset.id);
-                }
-            });
-        });
-    }
+            // Clear previous results
+            commandGroupsEl.innerHTML = '';
 
-    function executeCommand(id) {
-        const command = commands.find(cmd => cmd.id === id);
-        if (command && typeof command.action === 'function') {
-            command.action();
-            toggleCommandPalette(false); // Hide palette after executing command
-        }
-    }
-
-    // Input handling
-    if (commandInput) {
-        commandInput.addEventListener('input', () => {
-            renderCommands(commandInput.value);
-        });
-
-        commandInput.addEventListener('keydown', (e) => {
-            const items = commandList.querySelectorAll('.command-item');
-            const selectedItem = commandList.querySelector('[aria-selected="true"]');
-            let selectedIndex = Array.from(items).indexOf(selectedItem);
-
-            switch (e.key) {
-                case 'ArrowDown':
-                    e.preventDefault();
-                    if (selectedIndex < items.length - 1) {
-                        selectedIndex++;
-                    } else {
-                        selectedIndex = 0; // Cycle to first item
-                    }
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    if (selectedIndex > 0) {
-                        selectedIndex--;
-                    } else {
-                        selectedIndex = items.length - 1; // Cycle to last item
-                    }
-                    break;
-                case 'Enter':
-                    e.preventDefault();
-                    if (selectedItem) {
-                        executeCommand(selectedItem.dataset.id);
-                    }
-                    break;
-                case 'Escape':
-                    e.preventDefault();
-                    toggleCommandPalette(false);
-                    break;
+            // If no results
+            if (Object.keys(groups).length === 0) {
+                commandGroupsEl.innerHTML = '<div class="command-empty">No commands found</div>';
+                return;
             }
 
-            // Update selected state
-            items.forEach((item, idx) => {
-                item.setAttribute('aria-selected', idx === selectedIndex ? 'true' : 'false');
-                if (idx === selectedIndex) {
-                    item.focus();
+            // Reset selected index
+            selectedCommandIndex = -1;
+
+            // Render each group
+            Object.keys(groups).sort().forEach(groupName => {
+                const groupEl = document.createElement('div');
+                groupEl.className = 'command-group';
+
+                const titleEl = document.createElement('div');
+                titleEl.className = 'command-group-title';
+                titleEl.textContent = groupName;
+                groupEl.appendChild(titleEl);
+
+                const listEl = document.createElement('div');
+                listEl.className = 'command-list';
+
+                groups[groupName].forEach(cmd => {
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'command-item';
+                    itemEl.setAttribute('role', 'option');
+                    itemEl.dataset.action = commands.indexOf(cmd);
+                    itemEl.tabIndex = 0;
+
+                    itemEl.innerHTML = `
+                        <div class="command-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div class="command-name">${cmd.name}</div>
+                    `;
+
+                    itemEl.addEventListener('click', () => {
+                        cmd.action();
+                    });
+
+                    listEl.appendChild(itemEl);
+                });
+
+                groupEl.appendChild(listEl);
+                commandGroupsEl.appendChild(groupEl);
+            });
+        }
+
+        // Show command palette
+        function showCommandPalette() {
+            const commandPalette = document.getElementById('command-palette');
+            commandPalette.classList.remove('hidden');
+
+            // Focus search input
+            setTimeout(() => {
+                const commandInput = document.getElementById('command-input');
+                if (commandInput) {
+                    commandInput.focus();
+                    renderCommandGroups();
+                }
+            }, 10);
+        }
+
+        // Hide command palette
+        function hideCommandPalette() {
+            const commandPalette = document.getElementById('command-palette');
+            commandPalette.classList.add('hidden');
+
+            // Clear search
+            const commandInput = document.getElementById('command-input');
+            if (commandInput) {
+                commandInput.value = '';
+            }
+        }
+
+        // Command input listener
+        if (commandInput) {
+            commandInput.addEventListener('input', () => {
+                renderCommandGroups(commandInput.value);
+            });
+
+            // Handle keyboard navigation
+            commandInput.addEventListener('keydown', (e) => {
+                const commands = document.querySelectorAll('.command-item');
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedCommandIndex = Math.min(selectedCommandIndex + 1, commands.length - 1);
+                    updateSelectedCommand();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedCommandIndex = Math.max(selectedCommandIndex - 1, -1);
+                    updateSelectedCommand();
+                } else if (e.key === 'Enter' && selectedCommandIndex >= 0) {
+                    e.preventDefault();
+                    const selectedCommand = commands[selectedCommandIndex];
+                    if (selectedCommand) {
+                        const actionIndex = selectedCommand.dataset.action;
+                        if (actionIndex && commands[actionIndex]) {
+                            commands[actionIndex].action();
+                        }
+                    }
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    hideCommandPalette();
                 }
             });
-        });
-    }
-
-    // Close button handler
-    const closeBtn = document.querySelector('.close-command');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            toggleCommandPalette(false);
-        });
-    }
-
-    // Render initial commands
-    renderCommands();
-}
-
-// Toggle command palette visibility
-function toggleCommandPalette(show = null) {
-    const palette = document.getElementById('command-palette');
-    const input = document.getElementById('command-input');
-
-    if (!palette) return;
-
-    const isHidden = palette.classList.contains('hidden');
-    const shouldShow = show !== null ? show : isHidden;
-
-    if (shouldShow) {
-        palette.classList.remove('hidden');
-        if (input) {
-            input.value = '';
-            setTimeout(() => input.focus(), 10);
-            renderCommands();
-        }
-    } else {
-        palette.classList.add('hidden');
-    }
-}
-
-// Create ripple effect for buttons
-function createRipple(event) {
-    const button = event.currentTarget;
-    const circle = document.createElement('span');
-    const diameter = Math.max(button.clientWidth, button.clientHeight);
-    const radius = diameter / 2;
-
-    // Position the ripple
-    circle.style.width = circle.style.height = `${diameter}px`;
-    circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
-    circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
-    circle.classList.add('ripple');
-
-    // Clean up existing ripples
-    const ripple = button.querySelector('.ripple');
-    if (ripple) {
-        ripple.remove();
-    }
-
-    // Add the new ripple
-    button.appendChild(circle);
-}
-
-// Apply ripple effect to all buttons
-function initRippleEffect() {
-    const buttons = document.querySelectorAll('.btn, .provider-tab, .command-item');
-    buttons.forEach(button => {
-        button.addEventListener('click', createRipple);
-    });
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    initMessageAnimations();
-    initMessageScroll();
-    highlightCode();
-    initKeyboardNavigation();
-    initCommandPalette();
-    initRippleEffect();
-});
-
-async function initializeProvidersDropdown() {
-    const providerSelect = document.getElementById('provider-select');
-
-    if (!providerSelect) return;
-
-    try {
-        // Add loading state
-        providerSelect.innerHTML = '<option value="">Loading providers...</option>';
-
-        // Fetch providers
-        const response = await fetch('/get_providers');
-        if (!response.ok) throw new Error('Failed to fetch providers');
-
-        const providers = await response.json();
-
-        // Build options
-        let options = '';
-        providers.forEach(providerId => {
-            const displayName = formatProviderName(providerId);
-            options += `<option value="${providerId}">${displayName}</option>`;
-        });
-
-        providerSelect.innerHTML = options;
-
-        // Set default or selected provider
-        const defaultProvider = 'groq';
-        if (providerSelect.querySelector(`option[value="${defaultProvider}"]`)) {
-            providerSelect.value = defaultProvider;
         }
 
-        // Trigger change to load models
-        providerSelect.dispatchEvent(new Event('change'));
+        function updateSelectedCommand() {
+            const commands = document.querySelectorAll('.command-item');
 
-    } catch (error) {
-        console.error('Error loading providers:', error);
-        providerSelect.innerHTML = '<option value="">Error loading providers</option>';
-    }
-}
-
-function formatProviderName(id) {
-    const nameMap = {
-        'openai': 'OpenAI',
-        'anthropic': 'Anthropic',
-        'xai': 'xAI (Grok)',
-        'groq': 'Groq',
-        'mistral': 'Mistral',
-        'cohere': 'Cohere',
-        'deepseek': 'DeepSeek'
-    };
-
-    return nameMap[id] || id.charAt(0).toUpperCase() + id.slice(1);
-}
-
-// Add listener for the provider select that will trigger loading models
-function setupProviderModelEvents() {
-    const providerSelect = document.getElementById('provider-select');
-    const modelSelect = document.getElementById('model-select');
-
-    if (!providerSelect || !modelSelect) return;
-
-    providerSelect.addEventListener('change', async () => {
-        const selectedProvider = providerSelect.value;
-
-        if (!selectedProvider) return;
-
-        try {
-            modelSelect.innerHTML = '<option value="">Loading models...</option>';
-            modelSelect.disabled = true;
-
-            const response = await fetch(`/get_models/${selectedProvider}`);
-            if (!response.ok) throw new Error('Failed to load models');
-
-            const data = await response.json();
-
-            let options = '';
-            data.models.forEach(model => {
-                const selected = model === data.default ? 'selected' : '';
-                options += `<option value="${model}" ${selected}>${model}</option>`;
+            // Remove selected from all
+            commands.forEach((item, i) => {
+                item.setAttribute('aria-selected', i === selectedCommandIndex ? 'true' : 'false');
             });
 
-            modelSelect.innerHTML = options;
-            modelSelect.disabled = false;
-
-        } catch (error) {
-            console.error('Error loading models:', error);
-            modelSelect.innerHTML = '<option value="">Error loading models</option>';
-            modelSelect.disabled = true;
+            // Scroll selected into view
+            if (selectedCommandIndex >= 0 && commands[selectedCommandIndex]) {
+                commands[selectedCommandIndex].scrollIntoView({
+                    block: 'nearest'
+                });
+            }
         }
-    });
+
+        // Close button listener
+        if (closeCommandButton) {
+            closeCommandButton.addEventListener('click', hideCommandPalette);
+        }
+
+        // Keyboard shortcut for command palette
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                showCommandPalette();
+            }
+        });
+
+        // Make functions available on window
+        window.commandPalette = {
+            show: showCommandPalette,
+            hide: hideCommandPalette
+        };
+    }
 }
+
+// Add any additional functions from modern-ui.js if needed
+// ...
