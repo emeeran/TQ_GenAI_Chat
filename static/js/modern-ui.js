@@ -32,6 +32,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initialize command palette
     initCommandPalette();
+
+    // Initialize provider selector dropdown
+    initializeProvidersDropdown();
+    setupProviderModelEvents();
 });
 
 // Theme Toggle
@@ -582,3 +586,94 @@ document.addEventListener('DOMContentLoaded', () => {
     initCommandPalette();
     initRippleEffect();
 });
+
+async function initializeProvidersDropdown() {
+    const providerSelect = document.getElementById('provider-select');
+
+    if (!providerSelect) return;
+
+    try {
+        // Add loading state
+        providerSelect.innerHTML = '<option value="">Loading providers...</option>';
+
+        // Fetch providers
+        const response = await fetch('/get_providers');
+        if (!response.ok) throw new Error('Failed to fetch providers');
+
+        const providers = await response.json();
+
+        // Build options
+        let options = '';
+        providers.forEach(providerId => {
+            const displayName = formatProviderName(providerId);
+            options += `<option value="${providerId}">${displayName}</option>`;
+        });
+
+        providerSelect.innerHTML = options;
+
+        // Set default or selected provider
+        const defaultProvider = 'groq';
+        if (providerSelect.querySelector(`option[value="${defaultProvider}"]`)) {
+            providerSelect.value = defaultProvider;
+        }
+
+        // Trigger change to load models
+        providerSelect.dispatchEvent(new Event('change'));
+
+    } catch (error) {
+        console.error('Error loading providers:', error);
+        providerSelect.innerHTML = '<option value="">Error loading providers</option>';
+    }
+}
+
+function formatProviderName(id) {
+    const nameMap = {
+        'openai': 'OpenAI',
+        'anthropic': 'Anthropic',
+        'xai': 'xAI (Grok)',
+        'groq': 'Groq',
+        'mistral': 'Mistral',
+        'cohere': 'Cohere',
+        'deepseek': 'DeepSeek'
+    };
+
+    return nameMap[id] || id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+// Add listener for the provider select that will trigger loading models
+function setupProviderModelEvents() {
+    const providerSelect = document.getElementById('provider-select');
+    const modelSelect = document.getElementById('model-select');
+
+    if (!providerSelect || !modelSelect) return;
+
+    providerSelect.addEventListener('change', async () => {
+        const selectedProvider = providerSelect.value;
+
+        if (!selectedProvider) return;
+
+        try {
+            modelSelect.innerHTML = '<option value="">Loading models...</option>';
+            modelSelect.disabled = true;
+
+            const response = await fetch(`/get_models/${selectedProvider}`);
+            if (!response.ok) throw new Error('Failed to load models');
+
+            const data = await response.json();
+
+            let options = '';
+            data.models.forEach(model => {
+                const selected = model === data.default ? 'selected' : '';
+                options += `<option value="${model}" ${selected}>${model}</option>`;
+            });
+
+            modelSelect.innerHTML = options;
+            modelSelect.disabled = false;
+
+        } catch (error) {
+            console.error('Error loading models:', error);
+            modelSelect.innerHTML = '<option value="">Error loading models</option>';
+            modelSelect.disabled = true;
+        }
+    });
+}
