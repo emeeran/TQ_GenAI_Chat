@@ -25,6 +25,8 @@ logging.basicConfig(level=logging.DEBUG)
 class FileManager:
     """Manages the storage and retrieval of uploaded files and their contents."""
 
+    _file_contents: Dict[str, str] = {}
+
     def __init__(self, storage_dir: str = None, max_files: int = 100):
         """Initialize FileManager.
 
@@ -396,3 +398,16 @@ class FileManager:
         except Exception as e:
             self.logger.error(f"Error clearing documents: {str(e)}")
             return False
+
+    def store_file_content(self, filename: str, content: str) -> None:
+        """Store file content in memory for quick access."""
+        logging.debug(f"Storing content for {filename}")
+        self._file_contents[filename] = content
+
+    def list_files(self) -> List[str]:
+        """List all uploaded files."""
+        return list(self._file_contents.keys())
+
+    def get_file_content(self, filename: str) -> Optional[str]:
+        """Get file content by filename."""
+        return self._file_contents.get(filename)

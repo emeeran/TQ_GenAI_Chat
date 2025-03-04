@@ -88,7 +88,15 @@ load_dotenv(dotenv_path=env_path, verbose=True)
 app.logger.info(f"Loaded env from: {env_path.absolute()}")
 
 # Verify all env vars at startup
-for key in ["OPENAI_API_KEY", "GROQ_API_KEY", "XAI_API_KEY"]:
+for key in [
+    "OPENAI_API_KEY",
+    "GROQ_API_KEY",
+    "XAI_API_KEY",
+    "COHERE_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "MISTRAL_API_KEY",
+    "DEEPSEEK_API_KEY"
+]:
     value = os.getenv(key, "").strip()
     app.logger.info(f"{key} at startup: '{value[:6] if value else 'EMPTY'}...'")
 
@@ -129,6 +137,12 @@ API_CONFIGS = {
         "key": os.getenv("DEEPSEEK_API_KEY", ""),
         "default": "deepseek-r1-distill-llama-70b",
         "fallback": "deepseek-chat"
+    },
+    "cohere": {
+        "endpoint": "https://api.cohere.ai/v1/generate",
+        "key": os.getenv("COHERE_API_KEY", ""),
+        "default": "command-xlarge-nightly",
+        "fallback": "command-base"
     }
 }
 
@@ -139,7 +153,14 @@ MODEL_CONFIGS = {
     "mistral": ['codestral-latest', 'mistral-large-latest', 'pixtral-large-latest', 'mistral-saba-latest', 'ministral-3b-latest', 'ministral-8b-latest', 'mistral-embed', 'mistral-moderation-latest', 'mistral-small-latest', 'pixtral-12b-2409', 'open-mistral-nemo', 'open-codestral-mamba', 'mathstral', 'open-mixtral-8x7b', 'open-mistral-7b', 'open-mixtral-8x22b', 'mistral-small-2402', 'mistral-large-2402', 'mistral-large-2407'],
     "anthropic": ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest'],
     "xai": ['grok-2-vision-1212', 'grok-2-vision', 'grok-2-vision-latest', 'grok-2-1212', 'grok-2', 'grok-2-latest', 'grok-vision-beta', 'grok-beta'],
-    "deepseek": ['deepseek-chat', 'deepseek-reasoner']
+    "deepseek": ['deepseek-chat', 'deepseek-reasoner'],
+    "cohere": [
+        "command-xlarge-nightly",
+        "command-base",
+        "command-xlarge-latest",
+        "command-medium",
+        "command-light"
+    ]
 }
 
 # Initialize paths
@@ -591,7 +612,8 @@ def generate_chat_topic(messages: list) -> str:
 
 ALLOWED_EXTENSIONS = {
     'pdf', 'epub', 'docx', 'xlsx',
-    'csv', 'md', 'jpg', 'jpeg', 'png'
+    'csv', 'md', 'jpg', 'jpeg', 'png',
+    'txt'
 }
 
 def allowed_file(filename: str) -> bool:
@@ -600,102 +622,19 @@ def allowed_file(filename: str) -> bool:
 # Convert async upload_files to a synchronous function
 @app.route('/upload', methods=['POST'])
 def upload_files():
-    """Handle file uploads with improved error handling"""
+    """Handle file uploads and store contents for chat context."""
     try:
-        if 'files[]' not in request.files:
-            return jsonify({'error': 'No files provided'}), 400
-
-        uploaded_files = request.files.getlist('files[]')
-
-        # Check number of files
-        if len(uploaded_files) > app.config['MAX_FILES']:
-            return jsonify({
-                'error': f'Too many files. Maximum {app.config["MAX_FILES"]} files allowed'
-            }), 400
-
-        results = []
-        temp_dir = Path(app.config['UPLOAD_FOLDER']) / 'temp'
-        temp_dir.mkdir(exist_ok=True)
-
-        for file in uploaded_files:
-            if not file or not file.filename:
-                continue
-
-            try:
-                # Clean and validate filename
-                filename = secure_filename(file.filename)
-                if not filename:
-                    continue
-
-                # Validate file type
-                if not allowed_file(filename):
-                    results.append({
-                        'filename': filename,
-                        'status': 'error',
-                        'error': 'Invalid file type'
-                    })
-                    continue
-
-                # Check file size
-                file.seek(0, os.SEEK_END)
-                size = file.tell()
-                file.seek(0)
-
-                if size > app.config['MAX_CONTENT_LENGTH']:
-                    results.append({
-                        'filename': filename,
-                        'status': 'error',
-                        'error': f'File too large. Maximum size is {app.config["MAX_CONTENT_LENGTH"] // (1024*1024)}MB'
-                    })
-                    continue
-
-                # Save and process file
-                temp_path = temp_dir / filename
-                file.save(str(temp_path))
-
-                try:
-                    with open(temp_path, 'rb') as f:
-                        # Use synchronous version of processing
-                        content = process_file_sync(f, filename)
-
-                    # Use helper function instead of app context
-                    fm = get_file_manager()
-                    success = fm.add_document(filename, content)
-
-                    if not success:
-                        raise Exception("Failed to add document to file manager")
-
-                    app.logger.info(f"Successfully added document: {filename}")
-
-                    results.append({
-                        'filename': filename,
-                        'status': 'success',
-                        'size': len(content)
-                    })
-
-                finally:
-                    # Clean up temp file
-                    if temp_path.exists():
-                        temp_path.unlink()
-
-            except Exception as e:
-                app.logger.error(f"Error processing {file.filename}: {str(e)}")
-                results.append({
-                    'filename': file.filename,
-                    'status': 'error',
-                    'error': str(e)
-                })
-
-        return jsonify({
-            'status': 'success' if any(r['status'] == 'success' for r in results) else 'error',
-            'results': results
-        })
-
+        files = request.files.getlist('files')
+        for file in files:
+            filename = secure_filename(file.filename)
+            if allowed_file(filename):
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                content = file.read().decode('utf-8', errors='replace')
+                get_file_manager().store_file_content(filename, content)
+                # ...existing code...
+        return jsonify({"status": "ok"}), 200
     except Exception as e:
-        app.logger.error(f"Upload error: {str(e)}")
-        return jsonify({
-            'error': str(e)
-        }), 500
+        return jsonify({"error": str(e)}), 400
 
 # Add a synchronous version of the file processing function
 def process_file_sync(file, filename):
@@ -1097,6 +1036,11 @@ def upload_page():
 @app.route('/')
 def home():
     return render_template('index.html', default_provider='groq')
+
+@app.route('/get_providers', methods=['GET'])
+def get_providers():
+    """Return a list of available providers."""
+    return jsonify(sorted(MODEL_CONFIGS.keys()))
 
 if __name__ == '__main__':
     app.run(debug=False, threaded=True)
