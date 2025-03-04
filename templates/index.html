@@ -147,29 +147,26 @@
 
                 <div class="chat-input-container">
                     <form id="chat-form" class="chat-input-form">
+                        <button id="mic-btn" class="btn btn-icon btn-mic" type="button">
+                            <i class="fas fa-microphone"></i>
+                        </button>
                         <textarea id="chat-input" class="chat-input" placeholder="Type your message here..."
-                            rows="2"></textarea>
-                        <button type="submit" class="btn">
+                            rows="1"></textarea>
+                        <button type="submit" class="btn btn-send">
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </form>
-                    <div class="flex gap-md mt-sm">
-                        <button id="mic-btn" class="btn btn-outline btn-sm">
-                            <i class="fas fa-microphone"></i>
+                    <div id="recording-status" class="recording-status"></div>
+
+                    <!-- Quick Action Buttons -->
+                    <div class="quick-actions">
+                        <button id="retry-btn" class="btn btn-action" disabled>
+                            <i class="fas fa-redo-alt"></i> Retry
                         </button>
-                        <div id="recording-status"></div>
-                    </div>
-                </div>
-            </main>
-        </div>
-
-        <!-- Document preview area -->
-        <div id="document-content" class="document-content hidden"></div>
-    </div>
-
-    <script src="/static/js/keyboard-shortcuts.js"></script>
-    <script src="/static/js/accessibility.js"></script>
-    <script src="/static/js/notification-system.js"></script>
+                        <button id="retry-options-btn" class="btn btn-icon retry-options-toggle" disabled>
+                            <i class="fas fa-caret-down"></i>
+                        </button>
+                        <div class="retry-options hidden">
     <script src="/static/js/loading-indicators.js"></script>
     <script src="/static/js/chat-enhancements.js"></script>
     <script src="/static/js/chat-client.js"></script>

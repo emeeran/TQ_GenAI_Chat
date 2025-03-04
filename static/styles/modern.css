@@ -169,11 +169,11 @@ select:focus {
 
 /* Layout Components */
 .container {
-    max-width: 1200px;
+    width: 100%;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 0 var(--spacing-md);
-    margin-left: 0 !important;
-    padding-left: 0 !important;
+    height: 100%;
 }
 
 .row {
@@ -250,21 +250,37 @@ select:focus {
 
 /* Main chat interface */
 .chat-container {
-    display: grid;
-    grid-template-columns: 1fr 3fr;
-    gap: var(--spacing-md);
+    display: flex;
     height: calc(100vh - 60px);
+    /* Account for header */
     overflow: hidden;
+    position: relative;
+    gap: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
 }
 
 /* Restore original sidebar behavior */
 .sidebar {
-    width: 280px;
-    border-right: 1px solid var(--border-color);
-    padding: var(--spacing-md);
+    width: 300px;
+    flex-shrink: 0;
     overflow-y: auto;
-    height: calc(100vh - 60px);
-    background-color: var(--sidebar-bg);
+    padding-right: var(--spacing-sm);
+    height: 100%;
+    scrollbar-width: thin;
+    transition: transform 0.3s ease;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
 }
 
 @media (max-width: 768px) {
@@ -284,9 +300,14 @@ select:focus {
 }
 
 .main-content {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    border-radius: var(--border-radius-md);
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
 }
 
 .chat-messages {
@@ -564,10 +585,19 @@ select:focus {
 
 /* Document preview styles */
 .document-content {
-    background-color: var(--card-bg);
-    border-radius: var(--border-radius-lg);
+    width: 450px;
+    border-left: 1px solid var(--border-color);
+    overflow-y: auto;
     padding: var(--spacing-md);
-    margin-top: var(--spacing-md);
+    flex-shrink: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.document-content.hidden {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    opacity: 0;
 }
 
 .document-header {
