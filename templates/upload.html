@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Upload - TQ GenAI Chat</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/file-uploader.css') }}">
+</head>
+
+<body>
+    <header>
+        <nav>
+            <div class="nav-wrapper">
+                <a href="/" class="brand-logo">TQ GenAI Chat</a>
+                <ul class="right">
+                    <li><a href="/">Chat</a></li>
+                    <li class="active"><a href="/upload">Documents</a></li>
+                    <li><a href="/settings">Settings</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div class="upload-container">
+            <div class="upload-header">
+                <h2 class="upload-title">Upload Documents</h2>
+                <div class="stats">
+                    <span id="doc-count">0 documents</span> |
+                    <span id="total-size">0 KB</span>
+                </div>
+            </div>
+
+            <div id="drop-zone" class="drop-zone">
+                <p class="drop-zone-text">
+                    <i class="fas fa-cloud-upload-alt fa-2x"></i><br>
+                    Drag & drop files here or
+                    <label for="file-input" class="browse-btn">Browse</label>
+                </p>
+                <input type="file" id="file-input" class="file-input" multiple>
+            </div>
+
+            <div id="upload-controls">
+                <button id="upload-btn" class="upload-btn">Upload Files</button>
+                <span class="file-types">Supported formats: PDF, DOCX, TXT, MD, JSON, CSV, Images</span>
+            </div>
+
+            <div id="file-list" class="file-list">
+                <!-- File items will be added here dynamically -->
+            </div>
+        </div>
+
+        <div class="document-viewer" id="document-viewer">
+            <h3>Document Preview</h3>
+            <div class="document-content" id="document-content">
+                <p class="placeholder-text">Select a document to preview its contents here.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 TQ GenAI Chat. All rights reserved.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/file-uploader.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialize the file uploader
+            const uploader = new FileUploader({
+                uploadUrl: '/upload',
+                statusUrl: '/upload/status',
+                documentListUrl: '/documents/list',
+                documentViewUrl: '/documents/view',
+                dropZoneId: 'drop-zone',
+                fileInputId: 'file-input',
+                fileListId: 'file-list',
+                uploadBtnId: 'upload-btn'
+            });
+
+            // Update document stats
+            function updateDocumentStats() {
+                fetch('/documents/list')
+                    .then(response => response.json())
+                    .then(data => {
+                        const docCount = data.stats.total_documents || 0;
+                        const totalSize = formatFileSize(data.stats.total_size || 0);
+
+                        document.getElementById('doc-count').textContent = `${docCount} document${docCount !== 1 ? 's' : ''}`;
+                        document.getElementById('total-size').textContent = totalSize;
+                    })
+                    .catch(error => {
+                        console.error('Error loading document stats:', error);
+                    });
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+                else return (bytes / 1073741824).toFixed(1) + ' GB';
+            }
+
+            // Set up document preview
+            function setupDocumentPreview() {
+                document.addEventListener('click', function (e) {
+                    if (e.target && e.target.classList.contains('view-btn')) {
+                        const filename = e.target.dataset.filename;
+                        loadDocumentPreview(filename);
+                    }
+                });
+            }
+
+            function loadDocumentPreview(filename) {
+                document.getElementById('document-content').innerHTML = '<p class="loading">Loading document...</p>';
+
+                fetch(`/documents/view/${encodeURIComponent(filename)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            document.getElementById('document-content').innerHTML =
+                                `<p class="error">Error: ${data.error}</p>`;
+                        } else {
+                            // Create a formatted preview with syntax highlighting
+                            const ext = filename.split('.').pop().toLowerCase();
+                            let contentHtml;
+
+                            if (['md', 'markdown'].includes(ext)) {
+                                // For markdown files, use a markdown renderer
+                                contentHtml = `<div class="markdown-content">${markdownToHtml(data.content)}</div>`;
+                            } else if (['json'].includes(ext)) {
+                                // For JSON files, format with syntax highlighting
+                                contentHtml = `<pre class="code-block json">${syntaxHighlight(data.content)}</pre>`;
+                            } else {
+                                // For other text files, preserve formatting
+                                contentHtml = `<pre class="text-content">${escapeHtml(data.content)}</pre>`;
+                            }
+
+                            document.getElementById('document-content').innerHTML = `
+                                <div class="document-header">
+                                    <h4>${filename}</h4>
+                                    <div class="document-meta">
+                                        <span class="timestamp">Uploaded: ${new Date(data.timestamp).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div class="document-body">
+                                    ${contentHtml}
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('document-content').innerHTML =
+                            `<p class="error">Error loading document: ${error.message}</p>`;
+                    });
+            }
+
+            function escapeHtml(text) {
+                return text
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            function syntaxHighlight(json) {
+                if (typeof json !== 'string') {
+                    json = JSON.stringify(json, null, 2);
+                }
+
+                return escapeHtml(json);
+            }
+
+            // Simple markdown to HTML converter (you might want to use a proper library)
+            function markdownToHtml(markdown) {
+                // This is a very basic implementation
+                return escapeHtml(markdown);
+            }
+
+            // Initialize
+            updateDocumentStats();
+            setupDocumentPreview();
+
+            // Set up periodic refresh of document stats
+            setInterval(updateDocumentStats, 30000);
+        });
+    </script>
+</body>
+
+</html>

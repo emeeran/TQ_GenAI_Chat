@@ -128,26 +128,156 @@ class FileProcessor:
         except ImportError:
             raise ProcessingError("PDF processing requires PyPDF2 or pdfminer.six")
         except Exception as e:
-            df = pd.read_csv(io.BytesIO(content))
-            return df.to_string()
-        except Exception as e:
-            raise ProcessingError(f'CSV processing error: {str(e)}')
+            cls.logger.error(f"Error processing PDF file {filename}: {str(e)}")
+            raise ProcessingError(f"Failed to process PDF: {str(e)}")
 
-    @staticmethod
-    async def _process_excel(content: bytes) -> str:
+    @classmethod
+    async def _process_markdown(cls, file: BinaryIO, filename: str) -> str:
+        """Process a Markdown file."""
+        status_tracker[filename]['status'] = 'processing Markdown'
+
         try:
-            df = pd.read_excel(io.BytesIO(content))
-            return df.to_string()
-        except Exception as e:
-            raise ProcessingError(f'Excel processing error: {str(e)}')
+            # Read the markdown content
+            md_content = file.read().decode('utf-8')
 
-    @staticmethod
-    async def _process_image(content: bytes) -> str:
+            # Return the raw markdown and the HTML version
+            html_content = markdown.markdown(md_content)
+
+            # Extract text from HTML (simple approach)
+            text_content = re.sub(r'<[^>]+>', ' ', html_content)
+            text_content = re.sub(r'\s+', ' ', text_content).strip()
+
+            return f"{md_content}\n\n--- Rendered Content ---\n\n{text_content}"
+
+        except Exception as e:
+            cls.logger.error(f"Error processing Markdown file {filename}: {str(e)}")
+            raise ProcessingError(f"Failed to process Markdown: {str(e)}")
+
+    @classmethod
+    async def _process_text(cls, file: BinaryIO, filename: str) -> str:
+        """Process a plain text file."""
+        status_tracker[filename]['status'] = 'processing text'
+
         try:
-            img = Image.open(io.BytesIO(content))
-            return f"Image: {img.format} {img.size}x{img.size} {img.mode}"
-        except Exception as e:
-            raise ProcessingError(f'Image processing error: {str(e)}')
+            # Read the text content
+            text_content = file.read().decode('utf-8')
+            return text_content
 
-# Make sure status_tracker is available for import
-__all__ = ['FileProcessor', 'ProcessingError', 'status_tracker']
+        except UnicodeDecodeError:
+            # Try with different encodings
+            for encoding in ['latin1', 'cp1252', 'iso-8859-1']:
+                try:
+                    file.seek(0)
+                    text_content = file.read().decode(encoding)
+                    return text_content
+                except:
+                    pass
+
+            raise ProcessingError("Could not decode text file with any supported encoding")
+        except Exception as e:
+            cls.logger.error(f"Error processing text file {filename}: {str(e)}")
+            raise ProcessingError(f"Failed to process text file: {str(e)}")
+
+    @classmethod
+    async def _process_json(cls, file: BinaryIO, filename: str) -> str:
+        """Process a JSON file."""
+        status_tracker[filename]['status'] = 'processing JSON'
+
+        try:
+            # Read the JSON content
+            json_content = file.read().decode('utf-8')
+
+            # Parse JSON to validate and format it
+            parsed = json.loads(json_content)
+
+            # Format JSON for readability
+            formatted_json = json.dumps(parsed, indent=2)
+
+            # For large JSON files, also include a summary
+            summary = cls._summarize_json(parsed)
+
+            return f"{formatted_json}\n\n--- JSON Summary ---\n\n{summary}"
+
+        except Exception as e:
+            cls.logger.error(f"Error processing JSON file {filename}: {str(e)}")
+            raise ProcessingError(f"Failed to process JSON: {str(e)}")
+
+    @classmethod
+    def _summarize_json(cls, data: Any, max_items: int = 3) -> str:
+        """Create a summary of a JSON structure."""
+        if isinstance(data, dict):
+            keys = list(data.keys())[:max_items]
+            if len(data) > max_items:
+                keys_str = ', '.join(repr(k) for k in keys)
+                return f"Dictionary with {len(data)} keys, including: {keys_str}, ..."
+            else:
+                return f"Dictionary with keys: {', '.join(repr(k) for k in keys)}"
+        elif isinstance(data, list):
+            if len(data) > max_items:
+                types = set(type(x).__name__ for x in data[:max_items])
+                return f"List with {len(data)} items of type(s): {', '.join(types)}"
+            elif data:
+                types = set(type(x).__name__ for x in data)
+                return f"List with {len(data)} items of type(s): {', '.join(types)}"
+            else:
+                return "Empty list"
+        else:
+            return f"Value of type: {type(data).__name__}"
+
+    @classmethod
+    async def _process_csv(cls, file: BinaryIO, filename: str) -> str:
+        """Process a CSV file."""
+        status_tracker[filename]['status'] = 'processing CSV'
+
+        try:
+            # Read the CSV content
+            csv_content = file.read().decode('utf-8')
+
+            # Parse CSV
+            csv_reader = csv.reader(io.StringIO(csv_content))
+            rows = list(csv_reader)
+
+            if not rows:
+                return "Empty CSV file"
+
+            # Get header row
+            header = rows[0]
+
+            # Format as markdown table
+            md_table = []
+            md_table.append("| " + " | ".join(header) + " |")
+            md_table.append("| " + " | ".join(["-" * len(col) for col in header]) + " |")
+
+            # Add data rows (limit to 100 for large files)
+            max_rows = min(100, len(rows) - 1)
+            for i in range(1, max_rows + 1):
+                # Ensure the row has the correct number of columns
+                row = rows[i]
+                while len(row) < len(header):
+                    row.append("")
+                row = [cell.replace("|", "\\|") for cell in row]  # Escape pipe characters
+                md_table.append("| " + " | ".join(row) + " |")
+
+            # Add indicator if rows were truncated
+            if len(rows) - 1 > max_rows:
+                md_table.append(f"\n*CSV file truncated. Showing {max_rows} of {len(rows) - 1} rows.*")
+
+            return "\n".join(md_table)
+
+        except Exception as e:
+            cls.logger.error(f"Error processing CSV file {filename}: {str(e)}")
+            raise ProcessingError(f"Failed to process CSV: {str(e)}")
+
+    @classmethod
+    async def _process_image(cls, file: BinaryIO, filename: str) -> str:
+        """Process an image file (placeholder - would need OCR)."""
+        status_tracker[filename]['status'] = 'processing image'
+
+        # For real image processing, you'd need an OCR library like pytesseract
+        # This is just a placeholder
+        return f"[Image File: {filename}]\n\nImage processing requires OCR capabilities which are not currently enabled."
+
+# Add synchronous versions of the processing methods
+def process_file_sync(file, filename):
+    """Process a file synchronously and extract its text content."""
+    return asyncio.run(FileProcessor.process_file(file, filename))

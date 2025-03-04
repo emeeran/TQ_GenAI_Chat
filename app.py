@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, current_app
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from functools import lru_cache, wraps  # Add this import
@@ -39,9 +39,22 @@ app.config['MAX_FILES'] = 10
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Initialize services with app context
-with app.app_context():
-    file_manager = FileManager()
+# Ensure storage directory exists and create a global file_manager
+storage_dir = Path(__file__).parent / 'storage'
+storage_dir.mkdir(exist_ok=True)
+
+# Make file_manager a global variable correctly initialized outside app context
+file_manager = FileManager(storage_dir=str(storage_dir))
+
+# Making file_manager available within app context
+app.config['file_manager'] = file_manager
+
+# Add this helper function to fix file_manager access
+def get_file_manager():
+    """Helper function to get the file manager, either from app context or global variable"""
+    if hasattr(current_app, 'config') and 'file_manager' in current_app.config:
+        return current_app.config['file_manager']
+    return file_manager
 
 # Optimization settings
 CACHE_TTL = 300
@@ -584,8 +597,9 @@ ALLOWED_EXTENSIONS = {
 def allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Convert async upload_files to a synchronous function
 @app.route('/upload', methods=['POST'])
-async def upload_files():
+def upload_files():
     """Handle file uploads with improved error handling"""
     try:
         if 'files[]' not in request.files:
@@ -641,11 +655,17 @@ async def upload_files():
 
                 try:
                     with open(temp_path, 'rb') as f:
-                        content = await FileProcessor.process_file(f, filename)
+                        # Use synchronous version of processing
+                        content = process_file_sync(f, filename)
 
-                    # Store in file manager
-                    with app.app_context():
-                        file_manager.add_document(filename, content)
+                    # Use helper function instead of app context
+                    fm = get_file_manager()
+                    success = fm.add_document(filename, content)
+
+                    if not success:
+                        raise Exception("Failed to add document to file manager")
+
+                    app.logger.info(f"Successfully added document: {filename}")
 
                     results.append({
                         'filename': filename,
@@ -676,6 +696,295 @@ async def upload_files():
         return jsonify({
             'error': str(e)
         }), 500
+
+# Add a synchronous version of the file processing function
+def process_file_sync(file, filename):
+    """Synchronous version of file processing"""
+    # Update status to processing
+    status_tracker[filename] = {'status': 'processing', 'progress': 0}
+
+    try:
+        # Determine file type from extension
+        ext = Path(filename).suffix.lower()
+
+        # Process based on file type
+        if ext in ['.docx', '.doc']:
+            content = _process_docx_sync(file, filename)
+        elif ext in ['.pdf']:
+            content = _process_pdf_sync(file, filename)
+        elif ext in ['.md', '.markdown']:
+            content = _process_markdown_sync(file, filename)
+        elif ext in ['.txt']:
+            content = _process_text_sync(file, filename)
+        elif ext in ['.json']:
+            content = _process_json_sync(file, filename)
+        elif ext in ['.csv']:
+            content = _process_csv_sync(file, filename)
+        elif ext in ['.jpg', '.jpeg', '.png']:
+            content = _process_image_sync(file, filename)
+        else:
+            raise ProcessingError(f"Unsupported file type: {ext}")
+
+        # Update status to complete
+        status_tracker[filename] = {'status': 'complete', 'progress': 100}
+        return content
+
+    except Exception as e:
+        # Update status to failed
+        app.logger.error(f"Error processing file {filename}: {str(e)}")
+        status_tracker[filename] = {
+            'status': 'failed',
+            'error': str(e),
+            'progress': 0
+        }
+        raise ProcessingError(f"Failed to process {filename}: {str(e)}")
+
+# Add synchronous versions of file processing functions
+def _process_docx_sync(file, filename):
+    """Process a DOCX file synchronously."""
+    status_tracker[filename]['status'] = 'extracting text from DOCX'
+
+    try:
+        # Read the file into memory
+        file_bytes = io.BytesIO(file.read())
+
+        # Use python-docx to extract text
+        doc = docx.Document(file_bytes)
+
+        # Extract text from paragraphs
+        paragraphs = []
+        total_paras = len(doc.paragraphs)
+
+        for i, para in enumerate(doc.paragraphs):
+            if para.text.strip():
+                paragraphs.append(para.text)
+
+            # Update progress every 10 paragraphs or at the end
+            if i % 10 == 0 or i == total_paras - 1:
+                progress = min(95, int((i / total_paras) * 100))
+                status_tracker[filename]['progress'] = progress
+                status_tracker[filename]['status'] = f'extracting text ({progress}%)'
+
+        # Extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = ' | '.join(cell.text for cell in row.cells)
+                if row_text.strip():
+                    paragraphs.append(row_text)
+
+        return '\n\n'.join(paragraphs)
+
+    except Exception as e:
+        app.logger.error(f"Error processing DOCX file {filename}: {str(e)}")
+        raise ProcessingError(f"Failed to process DOCX: {str(e)}")
+
+# Add other synchronous file processing functions as needed
+def _process_text_sync(file, filename):
+    """Process a plain text file synchronously."""
+    status_tracker[filename]['status'] = 'processing text'
+
+    try:
+        # Read the text content
+        text_content = file.read().decode('utf-8')
+        return text_content
+
+    except UnicodeDecodeError:
+        # Try with different encodings
+        for encoding in ['latin1', 'cp1252', 'iso-8859-1']:
+            try:
+                file.seek(0)
+                text_content = file.read().decode(encoding)
+                return text_content
+            except:
+                pass
+
+        raise ProcessingError("Could not decode text file with any supported encoding")
+    except Exception as e:
+        app.logger.error(f"Error processing text file {filename}: {str(e)}")
+        raise ProcessingError(f"Failed to process text file: {str(e)}")
+
+def _process_markdown_sync(file, filename):
+    """Process a Markdown file synchronously."""
+    status_tracker[filename]['status'] = 'processing Markdown'
+
+    try:
+        # Read the markdown content
+        md_content = file.read().decode('utf-8')
+
+        # Return the raw markdown and the HTML version
+        html_content = markdown.markdown(md_content)
+
+        # Extract text from HTML (simple approach)
+        text_content = re.sub(r'<[^>]+>', ' ', html_content)
+        text_content = re.sub(r'\s+', ' ', text_content).strip()
+
+        return f"{md_content}\n\n--- Rendered Content ---\n\n{text_content}"
+
+    except Exception as e:
+        app.logger.error(f"Error processing Markdown file {filename}: {str(e)}")
+        raise ProcessingError(f"Failed to process Markdown: {str(e)}")
+
+# Add other synchronous processing functions for JSON, CSV, PDF, images
+# ...
+
+# Add the missing synchronous file processing functions
+
+def _process_pdf_sync(file, filename):
+    """Process a PDF file synchronously."""
+    status_tracker[filename]['status'] = 'processing PDF'
+
+    try:
+        # Import required modules for PDF processing
+        try:
+            from pypdf import PdfReader  # Try using pypdf first
+        except ImportError:
+            try:
+                from PyPDF2 import PdfReader  # Fall back to PyPDF2
+            except ImportError:
+                raise ProcessingError("PDF processing requires PyPDF2 or pypdf to be installed")
+
+        # Read the file into memory
+        file_bytes = io.BytesIO(file.read())
+
+        try:
+            # Use PdfReader to extract text
+            pdf = PdfReader(file_bytes)
+            num_pages = len(pdf.pages)
+
+            text_content = []
+            for i, page in enumerate(pdf.pages):
+                # Update progress for each page
+                progress = min(95, int((i / num_pages) * 100))
+                status_tracker[filename]['progress'] = progress
+                status_tracker[filename]['status'] = f'extracting PDF text page {i+1}/{num_pages} ({progress}%)'
+
+                # Extract text from the page
+                page_text = page.extract_text()
+                if page_text:
+                    text_content.append(f"--- Page {i+1} ---\n\n{page_text}")
+
+            return "\n\n".join(text_content)
+        except Exception as e:
+            raise ProcessingError(f"Error reading PDF: {str(e)}")
+
+    except Exception as e:
+        app.logger.error(f"Error processing PDF file {filename}: {str(e)}")
+        raise ProcessingError(f"Failed to process PDF: {str(e)}")
+
+def _process_json_sync(file, filename):
+    """Process a JSON file synchronously."""
+    status_tracker[filename]['status'] = 'processing JSON'
+
+    try:
+        # Read the JSON content
+        json_content = file.read().decode('utf-8')
+
+        # Parse JSON to validate and format it
+        parsed = json.loads(json_content)
+
+        # Format JSON for readability
+        formatted_json = json.dumps(parsed, indent=2)
+
+        # For large JSON files, also include a summary using the existing function from FileProcessor
+        from utils.file_processor import FileProcessor
+        summary = FileProcessor._summarize_json(parsed)
+
+        return f"{formatted_json}\n\n--- JSON Summary ---\n\n{summary}"
+
+    except Exception as e:
+        app.logger.error(f"Error processing JSON file {filename}: {str(e)}")
+        raise ProcessingError(f"Failed to process JSON: {str(e)}")
+
+def _process_csv_sync(file, filename):
+    """Process a CSV file synchronously."""
+    status_tracker[filename]['status'] = 'processing CSV'
+
+    try:
+        # Read the CSV content
+        csv_content = file.read().decode('utf-8')
+
+        # Parse CSV
+        csv_reader = csv.reader(io.StringIO(csv_content))
+        rows = list(csv_reader)
+
+        if not rows:
+            return "Empty CSV file"
+
+        # Get header row
+        header = rows[0]
+
+        # Format as markdown table
+        md_table = []
+        md_table.append("| " + " | ".join(header) + " |")
+        md_table.append("| " + " | ".join(["-" * len(col) for col in header]) + " |")
+
+        # Add data rows (limit to 100 for large files)
+        max_rows = min(100, len(rows) - 1)
+        for i in range(1, max_rows + 1):
+            # Ensure the row has the correct number of columns
+            row = rows[i]
+            while len(row) < len(header):
+                row.append("")
+            row = [cell.replace("|", "\\|") for cell in row]  # Escape pipe characters
+            md_table.append("| " + " | ".join(row) + " |")
+
+        # Add indicator if rows were truncated
+        if len(rows) - 1 > max_rows:
+            md_table.append(f"\n*CSV file truncated. Showing {max_rows} of {len(rows) - 1} rows.*")
+
+        return "\n".join(md_table)
+
+    except Exception as e:
+        app.logger.error(f"Error processing CSV file {filename}: {str(e)}")
+        raise ProcessingError(f"Failed to process CSV: {str(e)}")
+
+def _process_image_sync(file, filename):
+    """Process an image file synchronously."""
+    status_tracker[filename]['status'] = 'processing image'
+
+    # For real image processing, you'd need an OCR library like pytesseract
+    # This is a placeholder
+    image_info = f"[Image File: {filename}]\n\n"
+
+    try:
+        # Try to get basic image info if PIL is installed
+        from PIL import Image
+        from PIL.ExifTags import TAGS
+
+        # Read the image file
+        file_bytes = io.BytesIO(file.read())
+        img = Image.open(file_bytes)
+
+        # Get basic image info
+        width, height = img.size
+        img_format = img.format
+        img_mode = img.mode
+
+        image_info += f"Format: {img_format}\n"
+        image_info += f"Size: {width} x {height} pixels\n"
+        image_info += f"Color Mode: {img_mode}\n\n"
+
+        # Try to get EXIF data
+        try:
+            exif_data = img._getexif()
+            if exif_data:
+                image_info += "EXIF Metadata:\n"
+                for tag_id, value in exif_data.items():
+                    tag = TAGS.get(tag_id, tag_id)
+                    image_info += f"  - {tag}: {value}\n"
+        except:
+            pass
+
+        image_info += "\nImage processing requires OCR capabilities which are not currently enabled."
+
+        return image_info
+
+    except ImportError:
+        # PIL not installed
+        return image_info + "Image processing requires the Pillow library for additional metadata extraction."
+    except Exception as e:
+        app.logger.error(f"Error processing image file {filename}: {str(e)}")
+        return image_info + f"Error extracting image metadata: {str(e)}"
 
 @app.route('/upload/status/<filename>')
 def get_processing_status(filename):
@@ -727,22 +1036,20 @@ def retry_processing(filename):
 def list_documents():
     """Get list of uploaded documents with better error handling"""
     try:
-        with app.app_context():
-            # Ensure file_manager exists
-            if not hasattr(app, 'file_manager'):
-                return jsonify({
-                    'documents': [],
-                    'stats': {'total_documents': 0, 'total_size': 0}
-                })
+        # Use helper function instead of app context
+        fm = get_file_manager()
 
-            documents = app.file_manager.list_documents()
-            stats = app.file_manager.get_stats()
+        app.logger.info(f"Listing documents using FileManager at {fm.storage_dir}")
+        documents = fm.list_documents()
+        stats = fm.get_stats()
 
-            # Ensure we always return valid data structure
-            return jsonify({
-                'documents': documents or [],
-                'stats': stats or {'total_documents': 0, 'total_size': 0}
-            })
+        # Debug output
+        app.logger.debug(f"Found {len(documents)} documents")
+
+        return jsonify({
+            'documents': documents or [],
+            'stats': stats or {'total_documents': 0, 'total_size': 0}
+        })
     except Exception as e:
         app.logger.error(f"Error listing documents: {str(e)}")
         return jsonify({
@@ -755,18 +1062,37 @@ def list_documents():
 def view_document(filename):
     """Get contents of a specific document"""
     try:
-        with app.app_context():
-            doc = file_manager.get_document(filename)
-            return jsonify({
-                'content': doc['content'],
-                'timestamp': doc['timestamp'],
-                'preview': doc['content'][:1000] + '...' if len(doc['content']) > 1000 else doc['content']
-            })
+        fm = get_file_manager()
+        doc = fm.get_document(filename)
+        return jsonify({
+            'content': doc['content'],
+            'timestamp': doc['timestamp'],
+            'preview': doc['content'][:1000] + '...' if len(doc['content']) > 1000 else doc['content']
+        })
     except KeyError:
         return jsonify({'error': 'Document not found'}), 404
     except Exception as e:
         app.logger.error(f"Error viewing document: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/documents/delete/<filename>', methods=['DELETE'])
+def delete_document(filename):
+    """Delete a document from storage"""
+    try:
+        fm = get_file_manager()
+        success = fm._remove_document(filename)
+        if success:
+            return jsonify({'status': 'success', 'message': 'Document deleted successfully'})
+        else:
+            return jsonify({'status': 'error', 'error': 'Document not found or could not be deleted'}), 404
+    except Exception as e:
+        app.logger.error(f"Error deleting document: {str(e)}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+@app.route('/upload', methods=['GET'])
+def upload_page():
+    """Render the upload page"""
+    return render_template('upload.html')
 
 @app.route('/')
 def home():

@@ -19,6 +19,9 @@ class FileManagerError(Exception):
     """Exception raised for FileManager errors."""
     pass
 
+# Add debugging to file_manager to fix listing issues
+logging.basicConfig(level=logging.DEBUG)
+
 class FileManager:
     """Manages the storage and retrieval of uploaded files and their contents."""
 
@@ -347,15 +350,26 @@ class FileManager:
         Returns:
             list: List of document metadata
         """
-        return [
-            {
-                'filename': filename,
-                'timestamp': doc.get('timestamp'),
-                'size': doc.get('size', 0),
-                'metadata': doc.get('metadata', {})
-            }
-            for filename, doc in self.documents.items()
-        ]
+        try:
+            documents = [
+                {
+                    'filename': filename,
+                    'timestamp': doc.get('timestamp'),
+                    'size': doc.get('size', 0),
+                    'metadata': doc.get('metadata', {})
+                }
+                for filename, doc in self.documents.items()
+            ]
+
+            # Add debugging
+            self.logger.info(f"Listing {len(documents)} documents")
+            for doc in documents:
+                self.logger.debug(f"Document: {doc['filename']}, size: {doc['size']}")
+
+            return documents
+        except Exception as e:
+            self.logger.error(f"Error listing documents: {str(e)}")
+            return []
 
     def get_stats(self) -> Dict:
         """Get statistics about the document collection.

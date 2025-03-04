@@ -1,0 +1,18 @@
+{
+  "total_documents": 2,
+  "total_size": 886785,
+  "documents": {
+    "00_python-for-everybody.pdf": {
+      "timestamp": "2025-03-04T18:42:06.478943",
+      "metadata": {},
+      "size": 443362,
+      "hash": "657b06311684095ed01661f17ec77aea"
+    },
+    "test_document.txt": {
+      "timestamp": "2025-03-04T18:45:51.494260",
+      "metadata": {},
+      "size": 61,
+      "hash": "2cc39aac5b0507628dfded482454bac7"
+    }
+  }
+}
