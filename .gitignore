@@ -11,7 +11,7 @@ build/
 # Custom build directories
 saved_chats/
 exports/
-
+scripts/
 
 # Ignore environment variable files
 .env

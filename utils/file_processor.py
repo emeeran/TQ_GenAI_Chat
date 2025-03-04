@@ -1,133 +1,133 @@
-import asyncio
-from typing import Dict, Callable
-from datetime import datetime
-import traceback
-import PyPDF2
-import docx
-import pandas as pd
+import os
 import io
-from PIL import Image
+import re
+import logging
 from pathlib import Path
+import docx
+import markdown
+import json
+import csv
+from typing import Dict, Any, Tuple, List, Union, BinaryIO
+import asyncio
+import time
+
+# Global status tracking dictionary
+status_tracker = {}
 
 class ProcessingError(Exception):
+    """Exception raised for file processing errors."""
     pass
 
-class FileStatus:
-    def __init__(self):
-        self._statuses = {}
-
-    def start(self, filename: str):
-        self._statuses[filename] = {
-            'status': 'Processing',
-            'progress': 0,
-            'error': None,
-            'timestamp': datetime.now().isoformat()
-        }
-
-    def update(self, filename: str, progress: int):
-        if filename in self._statuses:
-            self._statuses[filename].update({
-                'progress': progress,
-                'timestamp': datetime.now().isoformat()
-            })
-
-    def complete(self, filename: str):
-        if filename in self._statuses:
-            self._statuses[filename].update({
-                'status': 'Complete',
-                'progress': 100,
-                'timestamp': datetime.now().isoformat()
-            })
-
-    def error(self, filename: str, error: str):
-        if filename in self._statuses:
-            self._statuses[filename].update({
-                'status': 'Error',
-                'error': str(error),
-                'timestamp': datetime.now().isoformat()
-            })
-
-    def get(self, filename: str) -> Dict:
-        return self._statuses.get(filename, {
-            'status': 'Not Found',
-            'progress': 0,
-            'error': None
-        })
-
-# Global status tracker
-status_tracker = FileStatus()
-
-ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt', 'md', 'csv', 'xlsx', 'jpg', 'jpeg', 'png'}
-
 class FileProcessor:
-    """Handle different file types with proper error handling"""
+    """Process uploaded files into text content."""
 
-    @staticmethod
-    async def process_file(file_obj, filename: str) -> str:
-        """Process uploaded file and return its content"""
+    logger = logging.getLogger(__name__)
+
+    @classmethod
+    async def process_file(cls, file: BinaryIO, filename: str) -> str:
+        """Process a file and extract its text content.
+
+        Args:
+            file: File object
+            filename: Name of the file
+
+        Returns:
+            str: Extracted text content
+
+        Raises:
+            ProcessingError: If file processing fails
+        """
+        # Update status to processing
+        status_tracker[filename] = {'status': 'processing', 'progress': 0}
+
         try:
-            status_tracker.start(filename)
-            ext = filename.rsplit('.', 1)[1].lower()
-
-            if ext not in ALLOWED_EXTENSIONS:
-                raise ProcessingError(f'Unsupported file type: {ext}')
-
-            content = file_obj.read()
-            if not content:
-                raise ProcessingError('Empty file')
+            # Determine file type from extension
+            ext = Path(filename).suffix.lower()
 
             # Process based on file type
-            if ext == 'pdf':
-                text = await FileProcessor._process_pdf(content)
-            elif ext == 'docx':
-                text = await FileProcessor._process_docx(content)
-            elif ext in ['txt', 'md']:
-                text = await FileProcessor._process_text(content)
-            elif ext == 'csv':
-                text = await FileProcessor._process_csv(content)
-            elif ext == 'xlsx':
-                text = await FileProcessor._process_excel(content)
-            elif ext in ['jpg', 'jpeg', 'png']:
-                text = await FileProcessor._process_image(content)
+            if ext in ['.docx', '.doc']:
+                content = await cls._process_docx(file, filename)
+            elif ext in ['.pdf']:
+                content = await cls._process_pdf(file, filename)
+            elif ext in ['.md', '.markdown']:
+                content = await cls._process_markdown(file, filename)
+            elif ext in ['.txt']:
+                content = await cls._process_text(file, filename)
+            elif ext in ['.json']:
+                content = await cls._process_json(file, filename)
+            elif ext in ['.csv']:
+                content = await cls._process_csv(file, filename)
+            elif ext in ['.jpg', '.jpeg', '.png']:
+                content = await cls._process_image(file, filename)
             else:
-                raise ProcessingError(f'Unexpected file type: {ext}')
+                raise ProcessingError(f"Unsupported file type: {ext}")
 
-            status_tracker.complete(filename)
-            return text
+            # Update status to complete
+            status_tracker[filename] = {'status': 'complete', 'progress': 100}
+            return content
 
         except Exception as e:
-            status_tracker.error(filename, str(e))
-            raise ProcessingError(f'Error processing {filename}: {str(e)}')
+            # Update status to failed
+            cls.logger.error(f"Error processing file {filename}: {str(e)}")
+            status_tracker[filename] = {
+                'status': 'failed',
+                'error': str(e),
+                'progress': 0
+            }
+            raise ProcessingError(f"Failed to process {filename}: {str(e)}")
 
-    @staticmethod
-    async def _process_pdf(content: bytes) -> str:
+    @classmethod
+    async def _process_docx(cls, file: BinaryIO, filename: str) -> str:
+        """Process a DOCX file."""
+        status_tracker[filename]['status'] = 'extracting text from DOCX'
+
         try:
-            pdf = PyPDF2.PdfReader(io.BytesIO(content))
-            return '\n\n'.join(page.extract_text() for page in pdf.pages)
+            # Read the file into a BytesIO object
+            file_bytes = io.BytesIO(file.read())
+
+            # Use python-docx to extract text
+            doc = docx.Document(file_bytes)
+
+            # Extract text from paragraphs with progress updates
+            paragraphs = []
+            total_paras = len(doc.paragraphs)
+
+            for i, para in enumerate(doc.paragraphs):
+                if para.text.strip():
+                    paragraphs.append(para.text)
+
+                # Update progress every 10 paragraphs or at the end
+                if i % 10 == 0 or i == total_paras - 1:
+                    progress = min(95, int((i / total_paras) * 100))
+                    status_tracker[filename]['progress'] = progress
+                    status_tracker[filename]['status'] = f'extracting text ({progress}%)'
+                    await asyncio.sleep(0.01)  # Yield to event loop
+
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = ' | '.join(cell.text for cell in row.cells)
+                    if row_text.strip():
+                        paragraphs.append(row_text)
+
+            return '\n\n'.join(paragraphs)
+
         except Exception as e:
-            raise ProcessingError(f'PDF processing error: {str(e)}')
+            cls.logger.error(f"Error processing DOCX file {filename}: {str(e)}")
+            raise ProcessingError(f"Failed to process DOCX: {str(e)}")
 
-    @staticmethod
-    async def _process_docx(content: bytes) -> str:
+    @classmethod
+    async def _process_pdf(cls, file: BinaryIO, filename: str) -> str:
+        """Process a PDF file."""
+        status_tracker[filename]['status'] = 'extracting text from PDF'
+
         try:
-            doc = docx.Document(io.BytesIO(content))
-            return '\n\n'.join(paragraph.text for paragraph in doc.paragraphs)
+            # For PDF processing, we'll need PyPDF2 or pdfminer.six
+            # This is a placeholder - install the required package first
+            raise ProcessingError("PDF processing requires additional packages. Install PyPDF2 or pdfminer.six")
+        except ImportError:
+            raise ProcessingError("PDF processing requires PyPDF2 or pdfminer.six")
         except Exception as e:
-            raise ProcessingError(f'DOCX processing error: {str(e)}')
-
-    @staticmethod
-    async def _process_text(content: bytes) -> str:
-        try:
-            return content.decode('utf-8')
-        except UnicodeDecodeError:
-            try:
-                return content.decode('latin-1')
-            except Exception as e:
-                raise ProcessingError(f'Text decoding error: {str(e)}')
-
-    @staticmethod
-    async def _process_csv(content: bytes) -> str:
-        try:
             df = pd.read_csv(io.BytesIO(content))
             return df.to_string()
         except Exception as e:
