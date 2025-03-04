@@ -414,7 +414,246 @@ class ChatEnhancer {
     }
 }
 
-// Initialize chat enhancer on page load
-document.addEventListener('DOMContentLoaded', () => {
-    window.chatEnhancer = new ChatEnhancer();
-});
+// Replace the initialization function to include both clear chat and retry functionality
+(function () {
+    // Safer initialization with deduplication checks
+    function safeInitialize() {
+        console.log('Safely initializing chat enhancements');
+
+        // Only create chat enhancer once
+        if (!window.chatEnhancer) {
+            window.chatEnhancer = new ChatEnhancer();
+            console.log('Chat enhancer created');
+        } else {
+            console.log('Chat enhancer already exists');
+        }
+
+        // Initialize quick actions (clear chat and retry)
+        initializeQuickActions();
+
+        // Initialize retry options
+        initializeRetryOptions();
+    }
+
+    // Wait until DOM is fully loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            // Use timeout to ensure everything else has loaded
+            setTimeout(safeInitialize, 1000);
+        });
+    } else {
+        // DOM already loaded
+        setTimeout(safeInitialize, 1000);
+    }
+
+    // Initialize quick actions
+    function initializeQuickActions() {
+        console.log('Initializing quick actions');
+
+        // Set up clear chat button
+        const clearBtn = document.getElementById('clear-chat-btn');
+        const chatMessages = document.getElementById('chat-messages');
+
+        // Only add event if element exists
+        if (clearBtn && chatMessages) {
+            clearBtn.onclick = function () {
+                if (confirm('Are you sure you want to clear the current chat?')) {
+                    const welcomeMessage = document.querySelector('.welcome-message');
+                    chatMessages.innerHTML = '';
+                    if (welcomeMessage) {
+                        chatMessages.appendChild(welcomeMessage);
+                    }
+
+                    // Reset client history
+                    if (window.chatClient) {
+                        window.chatClient.chatHistory = [];
+                    }
+
+                    // Update retry buttons
+                    updateRetryButtonState();
+                }
+            };
+        }
+
+        // Initialize retry button state
+        updateRetryButtonState();
+
+        // Watch for changes to chat messages container
+        if (chatMessages) {
+            const observer = new MutationObserver(updateRetryButtonState);
+            observer.observe(chatMessages, { childList: true });
+        }
+    }
+
+    // Update the state of retry buttons based on chat content
+    function updateRetryButtonState() {
+        const retryBtn = document.getElementById('retry-btn');
+        const retryOptionsBtn = document.getElementById('retry-options-btn');
+        const chatMessages = document.getElementById('chat-messages');
+
+        if (!retryBtn || !retryOptionsBtn || !chatMessages) return;
+
+        const messages = chatMessages.querySelectorAll('.message');
+        const welcomeMessage = document.querySelector('.welcome-message');
+        const hasMessages = messages.length > (welcomeMessage ? 1 : 0);
+
+        retryBtn.disabled = !hasMessages;
+        retryOptionsBtn.disabled = !hasMessages;
+    }
+
+    // Set up retry functionality
+    function initializeRetryOptions() {
+        console.log('Initializing retry options');
+
+        const retryBtn = document.getElementById('retry-btn');
+        const retryOptionsBtn = document.getElementById('retry-options-btn');
+        const retryOptions = document.querySelector('.retry-options');
+
+        if (retryBtn && retryOptionsBtn && retryOptions) {
+            // Direct retry with same provider/model
+            retryBtn.onclick = function () {
+                console.log('Retry button clicked');
+                if (window.chatClient && typeof window.chatClient.retryLastMessage === 'function') {
+                    window.chatClient.retryLastMessage();
+                }
+            };
+
+            // Show options menu for retry with different provider/model
+            retryOptionsBtn.onclick = function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                retryOptions.classList.toggle('visible');
+
+                // Initialize provider/model selectors
+                if (retryOptions.classList.contains('visible')) {
+                    populateRetryProviders();
+                }
+
+                // Handle clicking outside to close
+                const handleOutsideClick = (event) => {
+                    if (!retryOptions.contains(event.target) && event.target !== retryOptionsBtn) {
+                        retryOptions.classList.remove('visible');
+                        document.removeEventListener('click', handleOutsideClick);
+                    }
+                };
+
+                document.addEventListener('click', handleOutsideClick);
+            };
+
+            // Handle retry with selected provider/model
+            const retryConfirm = document.getElementById('retry-confirm');
+            if (retryConfirm) {
+                retryConfirm.onclick = function () {
+                    const provider = document.getElementById('retry-provider').value;
+                    const model = document.getElementById('retry-model').value;
+
+                    if (window.chatClient && typeof window.chatClient.retryLastMessage === 'function') {
+                        window.chatClient.retryLastMessage(provider, model);
+                        retryOptions.classList.remove('visible');
+                    }
+                };
+            }
+        }
+    }
+
+    // Populate provider dropdown in retry options
+    function populateRetryProviders() {
+        const retryProviderSelect = document.getElementById('retry-provider');
+
+        if (retryProviderSelect) {
+            // Show loading state
+            retryProviderSelect.innerHTML = '<option value="">Loading...</option>';
+
+            // Get providers from API
+            fetch('/get_providers')
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to fetch providers');
+                    return response.json();
+                })
+                .then(providers => {
+                    // Populate provider select
+                    retryProviderSelect.innerHTML = '';
+                    providers.forEach(provider => {
+                        const option = document.createElement('option');
+                        option.value = provider;
+                        option.textContent = formatProviderName(provider);
+                        retryProviderSelect.appendChild(option);
+                    });
+
+                    // Set current provider if available
+                    if (window.chatClient?.selectedProvider) {
+                        retryProviderSelect.value = window.chatClient.selectedProvider;
+                    }
+
+                    // Load models when provider changes
+                    retryProviderSelect.onchange = function () {
+                        loadRetryModels(retryProviderSelect.value);
+                    };
+
+                    // Load models for current provider
+                    loadRetryModels(retryProviderSelect.value);
+                })
+                .catch(error => {
+                    console.error('Error loading providers:', error);
+                    retryProviderSelect.innerHTML = '<option value="">Error loading providers</option>';
+                });
+        }
+    }
+
+    // Load models for selected provider in retry options
+    function loadRetryModels(provider) {
+        const retryModelSelect = document.getElementById('retry-model');
+
+        if (retryModelSelect && provider) {
+            // Show loading state
+            retryModelSelect.innerHTML = '<option value="">Loading models...</option>';
+
+            // Get models from API
+            fetch(`/get_models/${provider}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to load models');
+                    return response.json();
+                })
+                .then(data => {
+                    // Populate model select
+                    retryModelSelect.innerHTML = '';
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        retryModelSelect.appendChild(option);
+                    });
+
+                    // Set default model or try to match current one
+                    if (window.chatClient?.selectedModel &&
+                        data.models.includes(window.chatClient.selectedModel)) {
+                        retryModelSelect.value = window.chatClient.selectedModel;
+                    } else if (data.default && data.models.includes(data.default)) {
+                        retryModelSelect.value = data.default;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading models:', error);
+                    retryModelSelect.innerHTML = '<option value="">Error loading models</option>';
+                });
+        }
+    }
+
+    // Helper to format provider names
+    function formatProviderName(provider) {
+        const nameMap = {
+            'openai': 'OpenAI',
+            'anthropic': 'Anthropic',
+            'xai': 'xAI (Grok)',
+            'groq': 'Groq',
+            'mistral': 'Mistral',
+            'cohere': 'Cohere',
+            'deepseek': 'DeepSeek'
+        };
+
+        return nameMap[provider] || provider.charAt(0).toUpperCase() + provider.slice(1);
+    }
+})();
+
+// ...rest of the chat enhancer class implementation...

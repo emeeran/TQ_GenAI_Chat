@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TQ GenAI Chat</title>
+    <!-- Add these scripts before any other scripts -->
+    <script src="/static/js/error-capture.js"></script>
+    <script src="/static/js/dom-utilities.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -16,6 +19,8 @@
     <link rel="stylesheet" href="/static/styles/components.css">
     <link rel="stylesheet" href="/static/styles/file-uploader.css">
     <link rel="stylesheet" href="/static/styles/sidebar-improvements.css">
+    <link rel="stylesheet" href="/static/styles/error-handling.css">
+    <link rel="stylesheet" href="/static/styles/retry-modal.css">
 </head>
 
 <body>
@@ -160,14 +165,53 @@
 
                     <!-- Quick Action Buttons -->
                     <div class="quick-actions">
-                        <button id="retry-btn" class="btn btn-action" disabled>
-                            <i class="fas fa-redo-alt"></i> Retry
+                        <div class="quick-action-group">
+                            <button id="retry-btn" class="btn btn-action" disabled>
+                                <i class="fas fa-redo-alt"></i> Retry
+                            </button>
+                            <button id="retry-options-btn" class="btn btn-icon btn-action-icon" disabled>
+                                <i class="fas fa-caret-down"></i>
+                            </button>
+                            <div class="retry-options">
+                                <div class="retry-options-header">
+                                    <h4>Retry with Different Model</h4>
+                                </div>
+                                <div class="retry-options-content">
+                                    <div class="form-group">
+                                        <label for="retry-provider">Provider:</label>
+                                        <select id="retry-provider" class="retry-select"></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="retry-model">Model:</label>
+                                        <select id="retry-model" class="retry-select"></select>
+                                    </div>
+                                    <button id="retry-confirm" class="btn btn-primary">
+                                        <i class="fas fa-check"></i> Retry with Selected
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="clear-chat-btn" class="btn btn-action">
+                            <i class="fas fa-broom"></i> Clear Chat
                         </button>
-                        <button id="retry-options-btn" class="btn btn-icon retry-options-toggle" disabled>
-                            <i class="fas fa-caret-down"></i>
-                        </button>
-                        <div class="retry-options hidden">
+                    </div>
+                </div>
+            </main>
+
+            <!-- Document preview area -->
+            <div id="document-content" class="document-content hidden"></div>
+        </div>
+    </div>
+    <script src="/static/js/error-capture.js"></script>
+    <script src="/static/js/dom-utilities.js"></script>
+    <script src="/static/js/error-handler.js"></script>
+    <script src="/static/js/modal-manager.js"></script>
+    <script src="/static/js/keyboard-shortcuts.js"></script>
+    <script src="/static/js/accessibility.js"></script>
+    <script src="/static/js/notification-system.js"></script>
     <script src="/static/js/loading-indicators.js"></script>
+    <script src="/static/js/api-diagnostics.js"></script>
+    <script src="/static/js/chat-debug.js"></script>
     <script src="/static/js/chat-enhancements.js"></script>
     <script src="/static/js/chat-client.js"></script>
     <script src="/static/js/file-uploader.js"></script>

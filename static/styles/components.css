@@ -1146,3 +1146,324 @@
     align-items: center;
     margin-left: 50px;
 }
+
+/* Quick Action Buttons */
+.quick-actions {
+    display: flex;
+    justify-content: flex-end;
+    /* Right-align the buttons */
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.btn-action {
+    font-size: 0.85em;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: var(--btn-secondary-bg);
+    color: var(--btn-secondary-color);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-action:hover {
+    background-color: var(--btn-secondary-hover);
+}
+
+.btn-action:active {
+    transform: scale(0.98);
+}
+
+.btn-action:focus {
+    outline: 2px solid var(--primary-light);
+    outline-offset: 2px;
+}
+
+.retry-options-toggle {
+    padding: 6px;
+    height: 34px;
+    width: 34px;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+}
+
+.retry-options-toggle:hover:not(:disabled) {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.retry-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 10px;
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    z-index: 100;
+    width: 300px;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.retry-options.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.retry-options-content {
+    padding: var(--spacing-md);
+}
+
+.retry-select {
+    width: 100%;
+    padding: 8px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    margin-top: 4px;
+    color: var(--text-color);
+}
+
+#retry-confirm {
+    margin-top: var(--spacing-md);
+    width: 100%;
+}
+
+/* Quick Action Buttons - Improved */
+.quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    position: relative;
+}
+
+.quick-action-group {
+    display: flex;
+    position: relative;
+}
+
+.btn-action {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    height: 36px;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    transition: all 0.2s ease;
+}
+
+.btn-action-icon {
+    border-left: none;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    padding: 6px 8px;
+    width: 30px;
+}
+
+.quick-action-group .btn-action:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.btn-action:hover:not(:disabled) {
+    background-color: var(--hover-bg);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-send {
+    height: 40px;
+    width: 40px;
+    min-width: 40px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--primary-color);
+    color: white;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-send:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-2px);
+}
+
+.btn-send:active {
+    transform: translateY(0);
+}
+
+.retry-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 8px;
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    width: 300px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+}
+
+.retry-options.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.retry-options-header {
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.retry-options-header h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-color);
+}
+
+.retry-options-content {
+    padding: 15px;
+}
+
+.retry-select {
+    width: 100%;
+    padding: 8px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    margin-top: 4px;
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+#retry-confirm {
+    margin-top: var(--spacing-md);
+    width: 100%;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    padding: 8px 0;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+#retry-confirm:hover {
+    background-color: var(--secondary-color);
+}
+
+/* Retry Modal Styles */
+.retry-modal-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+.retry-option {
+    padding: 15px;
+    border-radius: var(--border-radius-md);
+    background-color: var(--bg-color);
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+}
+
+.retry-option h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.retry-option p {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.retry-option button {
+    width: 100%;
+}
+
+.retry-separator {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 15px 0;
+    color: var(--text-muted);
+}
+
+.retry-separator::before,
+.retry-separator::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.retry-separator span {
+    padding: 0 10px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.modal-select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+.retry-option .btn {
+    margin-top: 10px;
+}
+
+#retry-same {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: var(--border-radius-sm);
+}
+
+#retry-same:hover {
+    background-color: var(--secondary-color);
+}
+
+#retry-with-selected {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: var(--border-radius-sm);
+}
+
+#retry-with-selected:hover {
+    background-color: var(--secondary-color);
+}

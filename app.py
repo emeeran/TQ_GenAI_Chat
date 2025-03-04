@@ -24,6 +24,8 @@ from services.file_manager import FileManager, FileManagerError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from services.xai_service import XAIService
+import re
+from pathlib import Path
 
 # Initialize Flask app
 app = Flask(__name__,
@@ -240,6 +242,41 @@ def initialize_llm_services():
     return llm_services
 
 llm_services = initialize_llm_services()
+
+def check_template_integrity():
+    """Check if the HTML templates are intact and not malformed."""
+    try:
+        template_dir = Path(app.root_path) / 'templates'
+        index_path = template_dir / 'index.html'
+
+        if not index_path.exists():
+            app.logger.error(f"Index template not found at {index_path}")
+            return False
+
+        with open(index_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check for common malformations
+        duplicate_tags = re.findall(r'<body>.*<body>|</body>.*</body>|</html>.*</html>', content, re.DOTALL)
+        malformed_script_tags = re.findall(r'<script[^>]*>.*?</script>[^<]*?ript>', content, re.DOTALL)
+
+        if duplicate_tags or malformed_script_tags:
+            app.logger.warning("HTML template appears to be malformed. Will attempt repair.")
+
+            # Try to fix using our utility
+            try:
+                from utils.fix_html import fix_index_html
+                fix_index_html()
+                app.logger.info("HTML template repair attempted.")
+            except Exception as e:
+                app.logger.error(f"Failed to repair HTML template: {str(e)}")
+
+        return True
+    except Exception as e:
+        app.logger.error(f"Error checking template integrity: {str(e)}")
+        return False
+
+check_template_integrity()
 
 @app.route('/chat', methods=['POST'])
 def chat():

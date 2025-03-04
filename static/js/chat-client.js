@@ -95,41 +95,68 @@ class ChatClient {
     }
 
     bindEvents() {
-        // Chat form submission
-        this.chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.sendMessage();
-        });
+        console.log("Binding ChatClient events");
 
-        // Provider selection
-        this.providerTabs.addEventListener('click', (e) => {
-            const tab = e.target.closest('.provider-tab');
-            if (tab) {
-                const provider = tab.dataset.provider;
-                this.changeProvider(provider);
-            }
-        });
+        // Get all required elements and add safe null checks
+        const elements = {
+            chatForm: document.getElementById('chat-form'),
+            chatInput: document.getElementById('chat-input'),
+            chatMessages: document.getElementById('chat-messages'),
+            providerSelect: document.getElementById('provider-select'),
+            modelSelect: document.getElementById('model-select'),
+            micButton: document.getElementById('mic-btn'),
+            recordingStatus: document.getElementById('recording-status')
+        };
 
-        // Model selection
-        this.modelSelect.addEventListener('change', () => {
-            this.selectedModel = this.modelSelect.value;
-        });
-
-        // Save chat
-        this.saveBtn.addEventListener('click', () => {
-            this.saveChat();
-        });
-
-        // Export chat
-        this.exportBtn.addEventListener('click', () => {
-            this.exportChat();
-        });
-
-        // Voice input
-        if (this.micBtn) {
-            this.micBtn.addEventListener('click', () => {
-                this.toggleVoiceInput();
+        // Check if elements exist before binding events
+        if (elements.chatForm) {
+            elements.chatForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.sendMessage();
             });
+            console.log("Chat form submit event bound");
+        } else {
+            console.error("Chat form element not found");
+        }
+
+        // Add similar checks for other elements
+        if (elements.chatInput) {
+            elements.chatInput.addEventListener('keydown', (e) => {
+                // Handle Shift+Enter for new line
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    document.getElementById('chat-form')?.dispatchEvent(new Event('submit'));
+                }
+
+                // Auto-resize textarea
+                setTimeout(() => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                }, 0);
+            });
+            console.log("Chat input events bound");
+        } else {
+            console.error("Chat input element not found");
+        }
+
+        // Provider and model selection handling with null checks
+        if (elements.providerSelect) {
+            elements.providerSelect.addEventListener('change', () => {
+                const provider = elements.providerSelect.value;
+                this.selectedProvider = provider;
+                this.loadModels(provider);
+            });
+            console.log("Provider select event bound");
+        } else {
+            console.error("Provider select element not found");
+        }
+
+        // Add safe check for other elements and their event handlers
+        // ...
+
+        // Initialize provider/model lists if elements exist
+        if (elements.providerSelect) {
+            this.loadProviders();
         }
     }
 
@@ -580,9 +607,175 @@ class ChatClient {
             content: "Response generation canceled by user"
         });
     }
+
+    // Add the missing loadProviders method
+    async loadProviders() {
+        try {
+            const response = await fetch('/get_providers');
+            if (!response.ok) throw new Error('Failed to fetch providers');
+
+            const providerIds = await response.json();
+
+            this.providers = providerIds.map(id => ({
+                id: id,
+                name: this.formatProviderName(id),
+                icon: this.getProviderIcon(id)
+            }));
+
+            // Populate provider select dropdown if it exists
+            const providerSelect = document.getElementById('provider-select');
+            if (providerSelect) {
+                providerSelect.innerHTML = '';
+                this.providers.forEach(provider => {
+                    const option = document.createElement('option');
+                    option.value = provider.id;
+                    option.textContent = provider.name;
+                    if (provider.id === this.selectedProvider) {
+                        option.selected = true;
+                    }
+                    providerSelect.appendChild(option);
+                });
+
+                // Load models for the selected provider
+                this.loadModels(this.selectedProvider);
+            }
+
+            console.log('Providers loaded:', this.providers);
+        } catch (error) {
+            console.error('Error loading providers:', error);
+        }
+    }
+
+    // Add back the retryLastMessage function
+    retryLastMessage(newProvider = null, newModel = null) {
+        console.log("⟳ Retry request initiated");
+
+        // Find the last user message
+        let lastUserMessage = null;
+        let lastUserMessageIndex = -1;
+
+        for (let i = this.chatHistory.length - 1; i >= 0; i--) {
+            if (this.chatHistory[i].isUser) {
+                lastUserMessage = this.chatHistory[i].content;
+                lastUserMessageIndex = i;
+                break;
+            }
+        }
+
+        if (!lastUserMessage) {
+            console.warn("⚠ No user message found to retry");
+            return;
+        }
+
+        // Log useful information for debugging
+        console.log(`⟳ Found last user message at index ${lastUserMessageIndex}: "${lastUserMessage.substring(0, 50)}..."`);
+        console.log(`⟳ Current provider: ${this.selectedProvider}, model: ${this.selectedModel}`);
+        console.log(`⟳ Requested provider: ${newProvider || 'current'}, model: ${newModel || 'current'}`);
+
+        // Store original provider and model
+        const originalProvider = this.selectedProvider;
+        const originalModel = this.selectedModel;
+
+        // If new provider or model is specified, update them for this request
+        let providerChanged = false;
+        let modelChanged = false;
+
+        if (newProvider) {
+            providerChanged = (newProvider !== this.selectedProvider);
+            this.selectedProvider = newProvider;
+            console.log(`⟳ Changed provider to: ${newProvider}`);
+
+            // Update UI to reflect the change
+            if (providerChanged) {
+                const providerSelect = document.getElementById('provider-select');
+                if (providerSelect) {
+                    providerSelect.value = newProvider;
+                }
+            }
+        }
+
+        if (newModel) {
+            modelChanged = (newModel !== this.selectedModel);
+            this.selectedModel = newModel;
+            console.log(`⟳ Changed model to: ${newModel}`);
+        }
+
+        // Remove the last AI response from the UI
+        if (!this.isGenerating && this.chatMessages.lastElementChild &&
+            !this.chatMessages.lastElementChild.classList.contains('message-user')) {
+            console.log(`⟳ Removing last AI response from UI`);
+            this.chatMessages.removeChild(this.chatMessages.lastElementChild);
+
+            // Also remove from history
+            if (this.chatHistory.length > 0 && !this.chatHistory[this.chatHistory.length - 1].isUser) {
+                console.log(`⟳ Removing last AI response from history`);
+                this.chatHistory.pop();
+            }
+        }
+
+        // Set the message
+        this.chatInput.value = lastUserMessage;
+        console.log(`⟳ Set input field with last message`);
+
+        // Create a temporary flag to prevent restoring provider/model too early
+        this._isRetryingWithDifferent = providerChanged || modelChanged;
+        console.log(`⟳ Retry with different config: ${this._isRetryingWithDifferent}`);
+
+        // Send the message
+        console.log(`⟳ Sending message for retry`);
+        this.sendMessage();
+
+        // Create a handler to restore original provider and model after sending is complete
+        if (this._isRetryingWithDifferent) {
+            console.log(`⟳ Setting up restoration of original provider/model`);
+
+            const checkGeneratingState = () => {
+                if (!this.isGenerating) {
+                    // Request completed, now we can restore
+                    console.log(`⟳ Restoring original provider (${originalProvider}) and model (${originalModel})`);
+                    this.selectedProvider = originalProvider;
+                    this.selectedModel = originalModel;
+
+                    // Update UI to reflect the restored provider
+                    const providerSelect = document.getElementById('provider-select');
+                    if (providerSelect) {
+                        providerSelect.value = originalProvider;
+                    }
+
+                    this._isRetryingWithDifferent = false;
+                    console.log(`⟳ Retry completed successfully`);
+                } else {
+                    // Still generating, check again later
+                    console.log(`⟳ Still generating, will check again later`);
+                    setTimeout(checkGeneratingState, 500);
+                }
+            };
+
+            // Start checking after a short delay
+            setTimeout(checkGeneratingState, 500);
+        }
+    }
 }
 
 // Initialize the chat client when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function () {
+    console.log("DOM content loaded for ChatClient initialization");
+
+    // Check if required elements exist before creating ChatClient
+    const requiredElements = [
+        'chat-form',
+        'chat-input',
+        'chat-messages'
+    ];
+
+    const missingElements = requiredElements.filter(id => !document.getElementById(id));
+
+    if (missingElements.length > 0) {
+        console.error(`Cannot initialize ChatClient. Missing elements: ${missingElements.join(', ')}`);
+        return;
+    }
+
+    // Create chat client if all required elements exist
     window.chatClient = new ChatClient();
+    console.log("ChatClient initialized");
 });
