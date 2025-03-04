@@ -23,6 +23,7 @@ from utils.file_processor import FileProcessor, ProcessingError, status_tracker
 from services.file_manager import FileManager, FileManagerError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from services.xai_service import XAIService
 
 # Initialize Flask app
 app = Flask(__name__,
@@ -189,6 +190,23 @@ def async_response(func):
         return executor.submit(func, *args, **kwargs).result()
     return wrapper
 
+def initialize_llm_services():
+    llm_services = {}
+
+    # Initialize other LLM services
+    # ...existing code...
+
+    # Initialize XAI if configured
+    try:
+        if XAIService.is_configured():
+            llm_services['xai'] = XAIService()
+    except Exception as e:
+        print(f"Warning: Failed to initialize XAI service: {str(e)}")
+
+    return llm_services
+
+llm_services = initialize_llm_services()
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -199,6 +217,10 @@ def chat():
         provider = data.get('provider')
         if not provider:
             return jsonify({'error': 'Provider is required'}), 400
+
+        # For XAI, check if the service is initialized
+        if provider == 'xai' and ('xai' not in llm_services):
+            return jsonify({'error': 'API key not configured for xai'}), 401
 
         config = API_CONFIGS.get(provider)
         if not config or not config['key']:
@@ -361,33 +383,29 @@ def process_anthropic_request(model: str, message: str, system_prompt: str) -> D
     }
 
 def process_xai_request(model: str, message: str, persona: str) -> Dict:
-    xai_key = API_CONFIGS['xai']['key']
-    app.logger.info(f"XAI_API_KEY in process_xai_request: '{xai_key[:6] if xai_key else 'EMPTY'}...'")
+    # Get the API key from the services dict rather than the config
+    if 'xai' not in llm_services:
+        app.logger.error("XAI service not initialized")
+        raise ValueError("API key not configured for xai")
 
-    if not xai_key:
-        raise ValueError("X AI API key not found in configuration")
+    xai_service = llm_services['xai']
 
-    if not xai_key.startswith('xai-'):
-        app.logger.error(f"X AI key format invalid - missing xai- prefix. Loaded: '{xai_key[:6]}...'")
-        raise ValueError("Invalid X AI key format - must start with 'xai-'")
-
-    client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
-
-    system_prompt = f"{PERSONAS.get(persona, '')} You are Grok, inspired by Hitchhiker's Guide to the Galaxy.\n{markdown_instruction}"
     try:
-        response = client.chat.completions.create(
+        # Use the XAI service to generate a response
+        response_data = xai_service.generate_response(
+            prompt=message,
             model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ]
+            max_tokens=4000
         )
-        if not response.choices:
+
+        # Extract text from the response
+        response_text = response_data.get('text', '')
+        if not response_text:
             raise ValueError("Empty response from X AI API")
 
         return {
             'response': {
-                'text': response.choices[0].message.content,
+                'text': response_text,
                 'metadata': {'provider': 'xai', 'model': model, 'response_time': '1s'}
             }
         }
