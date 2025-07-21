@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from functools import lru_cache, wraps  # Add this import
@@ -13,14 +13,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
-from openai import OpenAI
+import asyncio
+# Removed unused OpenAI import
 from persona import PERSONAS
 import anthropic
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
-import traceback
+# Removed unused traceback import
 from utils.file_processor import FileProcessor, ProcessingError, status_tracker
-from services.file_manager import FileManager, FileManagerError
+PROCESSING_STATUS = status_tracker._statuses
+PROCESSING_ERRORS = {}
+from services.file_manager import FileManager
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from services.xai_service import XAIService
@@ -585,7 +587,7 @@ def allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/upload', methods=['POST'])
-async def upload_files():
+def upload_files():
     """Handle file uploads with improved error handling"""
     try:
         if 'files[]' not in request.files:
@@ -641,7 +643,7 @@ async def upload_files():
 
                 try:
                     with open(temp_path, 'rb') as f:
-                        content = await FileProcessor.process_file(f, filename)
+                        content = asyncio.run(FileProcessor.process_file(f, filename))
 
                     # Store in file manager
                     with app.app_context():
@@ -714,7 +716,13 @@ def retry_processing(filename):
         if not file:
             return jsonify({'status': 'error', 'message': 'No file provided'}), 400
 
-        result = process_file_safely(file)
+        # Use FileProcessor to process the file
+        try:
+            content = asyncio.run(FileProcessor.process_file(file, filename))
+            result = {'status': 'success', 'content': content}
+        except ProcessingError as e:
+            result = {'status': 'error', 'message': str(e)}
+        
         return jsonify(result)
 
     except Exception as e:
@@ -760,7 +768,10 @@ def view_document(filename):
             return jsonify({
                 'content': doc['content'],
                 'timestamp': doc['timestamp'],
-                'preview': doc['content'][:1000] + '...' if len(doc['content']) > 1000 else doc['content']
+                'preview': (
+                    doc['content'][:1000] + '...' if len(doc['content']) > 1000
+                    else doc['content']
+                )
             })
     except KeyError:
         return jsonify({'error': 'Document not found'}), 404
