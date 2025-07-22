@@ -1,13 +1,14 @@
-from typing import Dict, List
-import numpy as np
+import concurrent.futures
 from datetime import datetime
-from pathlib import Path
+from functools import lru_cache
+
+import numpy as np
+from flask import current_app
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import concurrent.futures
-from flask import current_app
+
 from utils.caching import LRUCache
-from functools import lru_cache
+
 
 class FileManagerError(Exception):
     """Custom exception for FileManager errors"""
@@ -39,7 +40,7 @@ class FileManager:
         current_app.file_manager = self
         current_app.logger.info("FileManager initialized and registered with app")
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get current document store statistics"""
         return {
             'total_documents': self.total_documents,
@@ -79,7 +80,7 @@ class FileManager:
             current_app.logger.error(f"Error adding document {filename}: {str(e)}")
             raise FileManagerError(f"Failed to add document: {str(e)}")
 
-    def list_documents(self) -> List[Dict]:
+    def list_documents(self) -> list[dict]:
         """Get list of available documents with previews"""
         return [
             {
@@ -111,7 +112,7 @@ class FileManager:
         """Cached similarity computation"""
         return float(cosine_similarity(query_vector, doc_vector)[0, 0])
 
-    def search_documents(self, query: str, top_n: int = 3) -> List[Dict]:
+    def search_documents(self, query: str, top_n: int = 3) -> list[dict]:
         """Optimized vector search with caching"""
         cache_key = f"{query}:{top_n}"
 
@@ -164,7 +165,7 @@ class FileManager:
             current_app.logger.error(f"Search error: {str(e)}")
             return []
 
-    def get_document(self, filename: str) -> Dict:
+    def get_document(self, filename: str) -> dict:
         """Get a document by filename"""
         if filename not in self.document_store:
             raise KeyError(f"Document not found: {filename}")

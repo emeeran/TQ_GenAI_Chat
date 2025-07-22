@@ -1,13 +1,11 @@
-import asyncio
-from typing import Dict, Callable
+import io
 from datetime import datetime
-import traceback
-import PyPDF2
+
 import docx
 import pandas as pd
-import io
+import PyPDF2
 from PIL import Image
-from pathlib import Path
+
 
 class ProcessingError(Exception):
     pass
@@ -47,7 +45,7 @@ class FileStatus:
                 'timestamp': datetime.now().isoformat()
             })
 
-    def get(self, filename: str) -> Dict:
+    def get(self, filename: str) -> dict:
         return self._statuses.get(filename, {
             'status': 'Not Found',
             'progress': 0,

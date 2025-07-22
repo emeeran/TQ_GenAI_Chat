@@ -2,10 +2,9 @@
 """
 This script helps identify and fix issues with the XAI API key configuration.
 """
-import os
-import re
-import sys
 import argparse
+import os
+
 
 def find_xai_references():
     """Find files that reference XAI API"""
@@ -20,7 +19,7 @@ def find_xai_references():
         for file in files:
             if file.endswith('.py'):
                 filepath = os.path.join(root, file)
-                with open(filepath, 'r') as f:
+                with open(filepath) as f:
                     try:
                         content = f.read()
                         if 'xai' in content.lower() and ('api' in content.lower() or 'key' in content.lower()):
@@ -40,7 +39,7 @@ def check_env_file():
         print(f"⚠️ .env file not found at {env_path}")
         return False
 
-    with open(env_path, 'r') as f:
+    with open(env_path) as f:
         content = f.read()
         if 'XAI_API_KEY' not in content:
             print("⚠️ XAI_API_KEY not found in .env file")
@@ -54,7 +53,7 @@ def ensure_env_file():
     env_path = os.path.join(project_dir, '.env')
 
     if os.path.exists(env_path):
-        with open(env_path, 'r') as f:
+        with open(env_path) as f:
             content = f.read()
 
         if 'XAI_API_KEY' not in content:
@@ -64,7 +63,7 @@ def ensure_env_file():
         # Create new .env file based on example
         env_example_path = os.path.join(project_dir, '.env.example')
         if os.path.exists(env_example_path):
-            with open(env_example_path, 'r') as f:
+            with open(env_example_path) as f:
                 content = f.read()
 
             with open(env_path, 'w') as f:

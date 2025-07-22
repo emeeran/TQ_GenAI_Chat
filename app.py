@@ -1,30 +1,34 @@
-from flask import Flask, request, jsonify, render_template
-from flask_cors import CORS
-from werkzeug.utils import secure_filename
-from functools import lru_cache, wraps  # Add this import
-import os
+import asyncio
 import io
-import time
 import json
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from functools import lru_cache, wraps  # Add this import
+from pathlib import Path
+
+import anthropic
 import requests
 import speech_recognition as sr
-from pydub import AudioSegment
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, Any
 from dotenv import load_dotenv
-import asyncio
+from flask import Flask, jsonify, render_template, request
+from flask_cors import CORS
+from pydub import AudioSegment
+from werkzeug.utils import secure_filename
+
 # Removed unused OpenAI import
 from persona import PERSONAS
-import anthropic
-from concurrent.futures import ThreadPoolExecutor
+
 # Removed unused traceback import
 from utils.file_processor import FileProcessor, ProcessingError, status_tracker
+
 PROCESSING_STATUS = status_tracker._statuses
 PROCESSING_ERRORS = {}
-from services.file_manager import FileManager
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+from services.file_manager import FileManager
 from services.xai_service import XAIService
 
 # Initialize Flask app
@@ -116,19 +120,54 @@ API_CONFIGS = {
     "deepseek": {
         "endpoint": "https://api.deepseek.com/v1/chat/completions",
         "key": os.getenv("DEEPSEEK_API_KEY", ""),
-        "default": "deepseek-r1-distill-llama-70b",
+        "default": "deepseek-chat",
         "fallback": "deepseek-chat"
+    },
+    "gemini": {
+        "endpoint": "https://generativelanguage.googleapis.com/v1/models/",
+        "key": os.getenv("GEMINI_API_KEY", ""),
+        "default": "gemini-1.5-flash",
+        "fallback": "gemini-1.5-flash"
+    },
+    "cohere": {
+        "endpoint": "https://api.cohere.com/v1/chat",
+        "key": os.getenv("COHERE_API_KEY", ""),
+        "default": "command-r",
+        "fallback": "command"
+    },
+    "alibaba": {
+        "endpoint": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+        "key": os.getenv("ALIBABA_API_KEY", ""),
+        "default": "qwen-2.5-72b-instruct",
+        "fallback": "qwen-2.5-32b-instruct"
+    },
+    "openrouter": {
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "key": os.getenv("OPENROUTER_API_KEY", ""),
+        "default": "moonshot/moonshot-v1-32k",
+        "fallback": "moonshot/moonshot-v1-8k"
+    },
+    "huggingface": {
+        "endpoint": "https://api-inference.huggingface.co/models/",
+        "key": os.getenv("HF_API_KEY", ""),
+        "default": "meta-llama/Llama-2-70b-chat-hf",
+        "fallback": "microsoft/DialoGPT-large"
     }
 }
 
 # Model configurations
 MODEL_CONFIGS = {
     "openai": ['gpt-4o', 'chatgpt-4o-latest', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o1-preview', 'gpt-4o-realtime-preview', 'gpt-4o-mini-realtime-preview', 'gpt-4o-audio-preview'],
-    "groq": ['distil-whisper-large-v3-en', 'gemma2-9b-it', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama-guard-3-8b', 'llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'whisper-large-v3', 'whisper-large-v3-turbo', 'qwen-2.5-coder-32b', 'qwen-2.5-32b', 'deepseek-r1-distill-qwen-32b', 'deepseek-r1-distill-llama-70b-specdec', 'deepseek-r1-distill-llama-70b', 'llama-3.3-70b-specdec'],
-    "mistral": ['codestral-latest', 'mistral-large-latest', 'pixtral-large-latest', 'mistral-saba-latest', 'ministral-3b-latest', 'ministral-8b-latest', 'mistral-embed', 'mistral-moderation-latest', 'mistral-small-latest', 'pixtral-12b-2409', 'open-mistral-nemo', 'open-codestral-mamba', 'mathstral', 'open-mixtral-8x7b', 'open-mistral-7b', 'open-mixtral-8x22b', 'mistral-small-2402', 'mistral-large-2402', 'mistral-large-2407'],
+    "groq": ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'deepseek-r1-distill-llama-70b', 'deepseek-r1-distill-qwen-32b', 'qwen-2.5-coder-32b', 'qwen-2.5-32b', 'deepseek-r1-distill-llama-70b-specdec', 'llama-3.3-70b-specdec', 'llama-3.2-1b-preview', 'llama-3.2-3b-preview', 'llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'],
+    "mistral": ['codestral-latest', 'mistral-large-latest', 'pixtral-large-latest', 'mistral-saba-latest', 'ministral-3b-latest', 'ministral-8b-latest', 'mistral-embed', 'mistral-moderation-latest', 'mistral-small-latest', 'pixtral-12b-2409', 'open-mistral-nemo', 'open-codestral-mamba', 'mathstral', 'open-mixtral-8x7b', 'open-mistral-7b', 'open-mixtral-8x22b', 'mistral-small-2402', 'mistral-large-2402', 'mistral-large-2407', 'codestral-2405'],
     "anthropic": ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest'],
     "xai": ['grok-2-vision-1212', 'grok-2-vision', 'grok-2-vision-latest', 'grok-2-1212', 'grok-2', 'grok-2-latest', 'grok-vision-beta', 'grok-beta'],
-    "deepseek": ['deepseek-chat', 'deepseek-reasoner']
+    "deepseek": ['deepseek-chat', 'deepseek-reasoner'],
+    "gemini": ['gemini-1.5-pro', 'gemini-1.5-pro-002', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-flash-8b', 'gemini-2.0-flash-exp'],
+    "cohere": ['command-r-plus', 'command-r', 'command', 'command-light'],
+    "alibaba": ['qwen-2.5-72b-instruct', 'qwen-2.5-32b-instruct', 'qwen-2.5-14b-instruct', 'qwen-2.5-7b-instruct', 'qwen-2.5-coder-32b-instruct', 'qwen-2.5-math-72b-instruct'],
+    "openrouter": ['moonshot/moonshot-v1-8k', 'moonshot/moonshot-v1-32k', 'moonshot/moonshot-v1-128k', 'anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'google/gemini-2.0-flash-exp', 'meta-llama/llama-3.1-405b-instruct', 'qwen/qwen-2.5-72b-instruct'],
+    "huggingface": ['microsoft/DialoGPT-large', 'meta-llama/Llama-2-70b-chat-hf', 'mistralai/Mixtral-8x7B-Instruct-v0.1', 'microsoft/phi-2']
 }
 
 # Initialize paths
@@ -153,7 +192,7 @@ def rate_limit_check(key: str) -> bool:
     return True
 
 @lru_cache(maxsize=100)
-def get_cached_response(provider: str, model: str, message: str, persona: str) -> Dict:
+def get_cached_response(provider: str, model: str, message: str, persona: str) -> dict:
     return process_chat_request({"provider": provider, "model": model, "message": message, "persona": persona})
 
 # Add response caching with TTL
@@ -264,7 +303,7 @@ def search_context():
 
 @cache_response
 @async_response
-def process_chat_request(data: Dict) -> Dict:
+def process_chat_request(data: dict) -> dict:
     provider = data['provider']
     model = data['model']
     message = data['message']
@@ -354,7 +393,7 @@ When using context from documents, format the references like this:
         app.logger.error(f"{error_msg}\nEndpoint: {endpoint}")
         raise ValueError(error_msg)
 
-def process_anthropic_request(model: str, message: str, system_prompt: str) -> Dict:
+def process_anthropic_request(model: str, message: str, system_prompt: str) -> dict:
     api_key = API_CONFIGS['anthropic']['key']
     if not api_key:
         raise ValueError("Anthropic API key not found")
@@ -373,7 +412,7 @@ def process_anthropic_request(model: str, message: str, system_prompt: str) -> D
         raise ValueError("Empty response from Anthropic API")
 
     # Ensure response is properly formatted
-    if not '```' in response_text and not '#' in response_text:
+    if '```' not in response_text and '#' not in response_text:
         response_text = f"""### Response
 {response_text}"""
 
@@ -384,7 +423,7 @@ def process_anthropic_request(model: str, message: str, system_prompt: str) -> D
         }
     }
 
-def process_xai_request(model: str, message: str, persona: str) -> Dict:
+def process_xai_request(model: str, message: str, persona: str) -> dict:
     # Get the API key from the services dict rather than the config
     if 'xai' not in llm_services:
         app.logger.error("XAI service not initialized")
@@ -722,7 +761,7 @@ def retry_processing(filename):
             result = {'status': 'success', 'content': content}
         except ProcessingError as e:
             result = {'status': 'error', 'message': str(e)}
-        
+
         return jsonify(result)
 
     except Exception as e:

@@ -2,6 +2,7 @@
 Configuration utilities for API services including XAI.
 """
 import os
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file

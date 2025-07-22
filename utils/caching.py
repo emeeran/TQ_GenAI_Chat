@@ -1,6 +1,7 @@
-from collections import OrderedDict
-from typing import Any, Optional
 import time
+from collections import OrderedDict
+from typing import Any
+
 
 class LRUCache:
     """Thread-safe LRU cache with TTL support"""

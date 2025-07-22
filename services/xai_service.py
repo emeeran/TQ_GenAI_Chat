@@ -1,9 +1,10 @@
 """
 Service for interacting with XAI (Grok) API.
 """
-import os
 import requests
+
 from utils.api_config import APIConfig
+
 
 class XAIService:
     """Service for making requests to XAI API"""

@@ -1,11 +1,10 @@
-from typing import Dict, Any
-import aiohttp
 import asyncio
-from functools import lru_cache
 import time
-from urllib3.util.retry import Retry
+from functools import lru_cache
+
+import aiohttp
 from aiohttp import ClientTimeout
-from flask import current_app
+
 
 class RequestManager:
     """Optimized request handling with connection pooling"""
@@ -26,7 +25,7 @@ class RequestManager:
         )
 
     @lru_cache(maxsize=100)
-    async def make_request(self, endpoint: str, headers: Dict, payload: Dict) -> Dict:
+    async def make_request(self, endpoint: str, headers: dict, payload: dict) -> dict:
         """Make API request with caching and retries"""
         retry_count = 0
         max_retries = 3
