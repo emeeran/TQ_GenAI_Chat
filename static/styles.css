@@ -33,48 +33,29 @@ body {
 
 .sidebar-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     width: 100%;
+    gap: 12px;
 }
 
 .sidebar-title h3 {
     font-size: 1.5rem;
     font-weight: 600;
     margin: 0;
-    flex: 1;
+    color: var(--primary-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .sidebar-icon {
-    width: 25%;
-    max-width: 60px;
-    height: auto;
-    border-radius: 8px;
-    /* Pencil sketch effect */
-    filter: 
-        grayscale(100%) 
-        contrast(150%) 
-        brightness(110%) 
-        sepia(20%) 
-        hue-rotate(180deg) 
-        saturate(50%)
-        drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
-    /* Additional sketch-like effects */
-    mix-blend-mode: multiply;
-    opacity: 0.9;
+    width: 32px;
+    height: 32px;
+    color: var(--primary-color);
     transition: all 0.3s ease;
 }
 
 .sidebar-icon:hover {
-    filter: 
-        grayscale(80%) 
-        contrast(130%) 
-        brightness(105%) 
-        sepia(15%) 
-        hue-rotate(180deg) 
-        saturate(60%)
-        drop-shadow(3px 3px 6px rgba(0, 0, 0, 0.4));
-    opacity: 1;
+    opacity: 0.8;
     transform: scale(1.05);
 }
 
