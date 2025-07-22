@@ -10,5 +10,9 @@
   "alibaba": {
     "default_model": "qwen3-32b",
     "last_updated": "2025-07-22T22:18:53.026510"
+  },
+  "openrouter": {
+    "default_model": "qwen/qwen3-32b",
+    "last_updated": "2025-07-23T00:16:46.844167"
   }
 }

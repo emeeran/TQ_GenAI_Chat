@@ -52,26 +52,36 @@
   },
   "groq": {
     "models": [
+      "moonshotai/kimi-k2-instruct",
+      "llama3-70b-8192",
+      "llama3-8b-8192",
+      "deepseek-r1-distill-llama-70b",
+      "allam-2-7b",
+      "playai-tts",
+      "llama-3.1-8b-instant",
+      "meta-llama/llama-4-scout-17b-16e-instruct",
       "gemma2-9b-it",
       "mistral-saba-24b",
       "qwen/qwen3-32b",
-      "playai-tts",
-      "moonshotai/kimi-k2-instruct",
-      "meta-llama/llama-guard-4-12b",
-      "compound-beta",
       "meta-llama/llama-prompt-guard-2-86m",
-      "compound-beta-mini",
-      "llama3-8b-8192",
-      "deepseek-r1-distill-llama-70b",
-      "llama-3.3-70b-versatile",
       "meta-llama/llama-4-maverick-17b-128e-instruct",
+      "llama-3.3-70b-versatile",
+      "meta-llama/llama-prompt-guard-2-22m",
+      "meta-llama/llama-guard-4-12b",
+      "compound-beta-mini",
       "playai-tts-arabic",
-      "llama-3.1-8b-instant",
-      "meta-llama/llama-4-scout-17b-16e-instruct",
-      "llama3-70b-8192",
-      "allam-2-7b",
-      "meta-llama/llama-prompt-guard-2-22m"
+      "compound-beta"
     ],
-    "last_updated": "2025-07-22T22:50:48.350508"
+    "last_updated": "2025-07-23T00:23:15.390544"
+  },
+  "openrouter": {
+    "models": [
+      "google/gemini-2.5-pro-preview",
+      "openai/gpt-4o",
+      "moonshotai/kimi-k2-instruct",
+      "meta-llama/llama-3.3-70b-versatile",
+      "qwen/qwen3-32b"
+    ],
+    "last_updated": "2025-07-23T00:16:18.388364"
   }
 }
