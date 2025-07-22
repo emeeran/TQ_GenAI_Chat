@@ -405,6 +405,96 @@ function provideFeedback(isPositive) {
     alert(`Thank you for your ${isPositive ? 'positive' : 'negative'} feedback!`);
 }
 
+async function updateModelsFromProvider() {
+    const provider = document.getElementById('provider').value;
+    
+    if (!provider) {
+        alert('Please select a provider first');
+        return;
+    }
+
+    const updateBtn = document.getElementById('update-models-btn');
+    const originalText = updateBtn.innerHTML;
+    
+    try {
+        // Show loading state
+        updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        updateBtn.disabled = true;
+
+        const response = await fetch(`/update_models/${provider}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Refresh the model dropdown
+            await updateModels();
+            
+            alert(`✅ ${data.message}\n\nFound ${data.models.length} models:\n${data.models.slice(0, 5).join(', ')}${data.models.length > 5 ? '...' : ''}`);
+        } else {
+            throw new Error(data.error || 'Failed to update models');
+        }
+    } catch (error) {
+        console.error('Model update error:', error);
+        alert(`❌ Error updating models: ${error.message}`);
+    } finally {
+        // Restore button state
+        updateBtn.innerHTML = originalText;
+        updateBtn.disabled = false;
+    }
+}
+
+async function setDefaultModel() {
+    const provider = document.getElementById('provider').value;
+    const model = document.getElementById('model').value;
+    
+    if (!provider) {
+        alert('Please select a provider first');
+        return;
+    }
+    
+    if (!model) {
+        alert('Please select a model first');
+        return;
+    }
+
+    const setDefaultBtn = document.getElementById('set-default-btn');
+    const originalText = setDefaultBtn.innerHTML;
+    
+    try {
+        // Show loading state
+        setDefaultBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting...';
+        setDefaultBtn.disabled = true;
+
+        const response = await fetch(`/set_default_model/${provider}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ model: model })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`✅ ${data.message}\n\nDefault model for ${provider} is now: ${model}`);
+        } else {
+            throw new Error(data.error || 'Failed to set default model');
+        }
+    } catch (error) {
+        console.error('Set default model error:', error);
+        alert(`❌ Error setting default model: ${error.message}`);
+    } finally {
+        // Restore button state
+        setDefaultBtn.innerHTML = originalText;
+        setDefaultBtn.disabled = false;
+    }
+}
+
 const sendMessage = debounce(async (message = null, isRetry = false) => {
     try {
         const userInput = document.getElementById('user-input');

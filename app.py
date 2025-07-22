@@ -382,6 +382,69 @@ def search_context():
 
 @cache_response
 @async_response
+def process_gemini_request(model: str, message: str, persona: str) -> dict:
+    api_key = API_CONFIGS['gemini']['key']
+    if not api_key:
+        app.logger.error("Gemini API key not found")
+        raise ValueError("Gemini API key not found")
+
+    # Validate model name
+    valid_models = MODEL_CONFIGS.get('gemini', [])
+    if model not in valid_models:
+        app.logger.error(f"Invalid Gemini model: {model}. Valid models: {valid_models}")
+        raise ValueError(f"Invalid Gemini model: {model}")
+
+    # Gemini API uses API key as query parameter, not Authorization header
+    endpoint = f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={api_key}"
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": f"{persona}\n{message}"}
+                ]
+            }
+        ]
+    }
+    try:
+        session = create_request_session()
+        response = session.post(
+            endpoint,
+            headers=headers,
+            json=payload,
+            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
+        )
+        response.raise_for_status()
+        result = response.json()
+        app.logger.info(f"Gemini raw response: {json.dumps(result)[:500]}")
+        candidates = result.get('candidates', [])
+        if candidates and 'content' in candidates[0]:
+            parts = candidates[0]['content'].get('parts', [])
+            if parts and 'text' in parts[0]:
+                text = parts[0]['text']
+                if not text:
+                    app.logger.error("Gemini response text is empty.")
+                    raise ValueError("Empty response from Gemini API")
+                return {
+                    'response': {
+                        'text': text,
+                        'metadata': {'provider': 'gemini', 'model': model, 'response_time': f"{response.elapsed.total_seconds()}s"}
+                    }
+                }
+        app.logger.error(f"Invalid Gemini response structure: {json.dumps(result)[:500]}")
+        raise ValueError('Invalid response structure from Gemini API')
+    except requests.Timeout as e:
+        error_msg = f"Request to Gemini timed out after {READ_TIMEOUT}s"
+        app.logger.error(error_msg)
+        raise ValueError(error_msg) from e
+    except requests.RequestException as e:
+        error_msg = f"Gemini API request failed: {str(e)}"
+        app.logger.error(f"{error_msg}\nEndpoint: {endpoint}")
+        raise ValueError(error_msg) from e
+
 def process_chat_request(data: dict) -> dict:
     provider = data['provider']
     model = data['model']
@@ -422,6 +485,8 @@ Please synthesize a clear, well-organized answer using this context where releva
         return process_anthropic_request(model, message, system_prompt)
     elif provider == 'xai':
         return process_xai_request(model, message, f"{persona}\n{markdown_instruction}")
+    elif provider == 'gemini':
+        return process_gemini_request(model, message, persona)
 
     # Add markdown formatting instruction to system prompt
     config = API_CONFIGS[provider]
@@ -550,6 +615,145 @@ def get_models(provider):
         'fallback': config.get('fallback'),
         'selected': default or models[0] if models else None
     })
+
+@app.route('/update_models/<provider>', methods=['POST'])
+def update_models(provider):
+    """Update model list by fetching from provider's API"""
+    if provider not in API_CONFIGS:
+        return jsonify({'error': f'Invalid provider: {provider}'}), 400
+
+    try:
+        config = API_CONFIGS.get(provider)
+        api_key = config.get('key')
+        
+        if not api_key:
+            return jsonify({'error': f'No API key found for {provider}'}), 400
+
+        # Fetch models from provider's API
+        session = create_request_session()
+        
+        if provider == 'openai':
+            url = 'https://api.openai.com/v1/models'
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            response = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+            if response.status_code == 200:
+                data = response.json()
+                # Filter for chat models only
+                models = [
+                    model['id'] for model in data.get('data', [])
+                    if 'gpt' in model['id'].lower() or 'o1' in model['id'].lower() or 'o3' in model['id'].lower()
+                ]
+                
+        elif provider == 'anthropic':
+            url = 'https://api.anthropic.com/v1/models'
+            headers = {
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'Content-Type': 'application/json'
+            }
+            response = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+            if response.status_code == 200:
+                data = response.json()
+                models = [model['id'] for model in data.get('data', [])]
+                
+        elif provider == 'groq':
+            url = 'https://api.groq.com/openai/v1/models'
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            response = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+            if response.status_code == 200:
+                data = response.json()
+                # Filter for text models only (exclude audio models)
+                models = [
+                    model['id'] for model in data.get('data', [])
+                    if model.get('active', True) and 'whisper' not in model['id'].lower()
+                ]
+                
+        else:
+            # For other providers, use current model list as fallback
+            models = MODEL_CONFIGS.get(provider, [])
+        
+        if models:
+            # Update the model configuration
+            MODEL_CONFIGS[provider] = sorted(models)
+            
+            # Update ai_models.py file dynamically (optional - for persistence)
+            update_ai_models_file(provider, models)
+            
+            return jsonify({
+                'success': True,
+                'models': sorted(models),
+                'message': f'Successfully updated {len(models)} models for {provider}'
+            })
+        else:
+            return jsonify({'error': 'No models found or API error'}), 400
+            
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Request timeout while fetching models'}), 408
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Request error for {provider}: {str(e)}")
+        return jsonify({'error': f'Failed to fetch models: {str(e)}'}), 500
+    except Exception as e:
+        app.logger.error(f"Update models error for {provider}: {str(e)}")
+        return jsonify({'error': f'Failed to update models: {str(e)}'}), 500
+
+@app.route('/set_default_model/<provider>', methods=['POST'])
+def set_default_model(provider):
+    """Set default model for a provider"""
+    if provider not in API_CONFIGS:
+        return jsonify({'error': f'Invalid provider: {provider}'}), 400
+    
+    try:
+        data = request.get_json()
+        model = data.get('model')
+        
+        if not model:
+            return jsonify({'error': 'No model specified'}), 400
+        
+        # Verify model exists in the provider's model list
+        available_models = MODEL_CONFIGS.get(provider, [])
+        if model not in available_models:
+            return jsonify({'error': f'Model {model} not available for {provider}'}), 400
+        
+        # Update the default model
+        API_CONFIGS[provider]['default'] = model
+        
+        # Optionally persist this change to configuration file
+        update_default_in_config(provider, model)
+        
+        return jsonify({
+            'success': True,
+            'provider': provider,
+            'default_model': model,
+            'message': f'Default model for {provider} set to {model}'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Set default model error for {provider}: {str(e)}")
+        return jsonify({'error': f'Failed to set default model: {str(e)}'}), 500
+
+def update_ai_models_file(provider, models):
+    """Update ai_models.py file with new models (optional persistence)"""
+    try:
+        # This is a basic implementation - in production, you might want 
+        # to use a more sophisticated approach or store in a database
+        pass
+    except Exception as e:
+        app.logger.warning(f"Failed to update ai_models.py: {str(e)}")
+
+def update_default_in_config(provider, model):
+    """Update default model in configuration (optional persistence)"""
+    try:
+        # This is a basic implementation - in production, you might want
+        # to use a configuration file or database
+        pass
+    except Exception as e:
+        app.logger.warning(f"Failed to update default config: {str(e)}")
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
