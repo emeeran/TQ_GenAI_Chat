@@ -257,6 +257,40 @@ EXPORT_DIR = Path(__file__).parent / 'exports'
 SAVE_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
 
+# Load cached models and defaults
+def load_cached_models():
+    """Load cached models on startup"""
+    try:
+        models_cache_file = Path(__file__).parent / 'models_cache.json'
+        defaults_cache_file = Path(__file__).parent / 'defaults_cache.json'
+        
+        # Load models cache
+        if models_cache_file.exists():
+            with open(models_cache_file, 'r') as f:
+                models_cache = json.load(f)
+                
+            for provider, data in models_cache.items():
+                if provider in MODEL_CONFIGS:
+                    MODEL_CONFIGS[provider] = data['models']
+                    app.logger.info(f"Loaded {len(data['models'])} cached models for {provider}")
+        
+        # Load defaults cache
+        if defaults_cache_file.exists():
+            with open(defaults_cache_file, 'r') as f:
+                defaults_cache = json.load(f)
+                
+            for provider, data in defaults_cache.items():
+                if provider in API_CONFIGS:
+                    API_CONFIGS[provider]['default'] = data['default_model']
+                    app.logger.info(f"Loaded cached default model {data['default_model']} for {provider}")
+                    
+    except Exception as e:
+        app.logger.warning(f"Failed to load cached models/defaults: {str(e)}")
+
+# Initialize cached models and defaults
+with app.app_context():
+    load_cached_models()
+
 # Rate limiting
 request_times = {}
 RATE_LIMIT = 60
@@ -740,20 +774,58 @@ def set_default_model(provider):
 def update_ai_models_file(provider, models):
     """Update ai_models.py file with new models (optional persistence)"""
     try:
-        # This is a basic implementation - in production, you might want 
-        # to use a more sophisticated approach or store in a database
-        pass
+        # Save updated models to a JSON file for persistence
+        models_cache_file = Path(__file__).parent / 'models_cache.json'
+        
+        # Load existing cache or create new one
+        if models_cache_file.exists():
+            with open(models_cache_file, 'r') as f:
+                models_cache = json.load(f)
+        else:
+            models_cache = {}
+        
+        # Update cache with new models
+        models_cache[provider] = {
+            'models': models,
+            'last_updated': datetime.now().isoformat()
+        }
+        
+        # Save updated cache
+        with open(models_cache_file, 'w') as f:
+            json.dump(models_cache, f, indent=2)
+            
+        app.logger.info(f"Saved {len(models)} models for {provider} to cache")
+        
     except Exception as e:
-        app.logger.warning(f"Failed to update ai_models.py: {str(e)}")
+        app.logger.warning(f"Failed to update models cache: {str(e)}")
 
 def update_default_in_config(provider, model):
     """Update default model in configuration (optional persistence)"""
     try:
-        # This is a basic implementation - in production, you might want
-        # to use a configuration file or database
-        pass
+        # Save default model changes to a JSON file for persistence
+        defaults_cache_file = Path(__file__).parent / 'defaults_cache.json'
+        
+        # Load existing cache or create new one
+        if defaults_cache_file.exists():
+            with open(defaults_cache_file, 'r') as f:
+                defaults_cache = json.load(f)
+        else:
+            defaults_cache = {}
+        
+        # Update cache with new default
+        defaults_cache[provider] = {
+            'default_model': model,
+            'last_updated': datetime.now().isoformat()
+        }
+        
+        # Save updated cache
+        with open(defaults_cache_file, 'w') as f:
+            json.dump(defaults_cache, f, indent=2)
+            
+        app.logger.info(f"Saved default model {model} for {provider} to cache")
+        
     except Exception as e:
-        app.logger.warning(f"Failed to update default config: {str(e)}")
+        app.logger.warning(f"Failed to update defaults cache: {str(e)}")
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
