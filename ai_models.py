@@ -1,7 +1,9 @@
 # AI Models Configuration
 # This file contains model configurations for various AI providers
+# AI Models Configuration
+# This file contains model configurations for various AI providers
 
-# OpenAI Models
+# OpenAI Models (latest as of July 2025)
 OPENAI_MODELS = {
     'gpt-4o': {
         'name': 'GPT-4o',
@@ -10,508 +12,219 @@ OPENAI_MODELS = {
         'supports_vision': True,
         'supports_function_calling': True
     },
-    'gpt-4o-mini': {
-        'name': 'GPT-4o Mini',
-        'context_window': 128000,
-        'max_output_tokens': 16384,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'chatgpt-4o-latest': {
-        'name': 'ChatGPT-4o Latest',
+    'gpt-4-turbo': {
+        'name': 'GPT-4 Turbo',
         'context_window': 128000,
         'max_output_tokens': 4096,
         'supports_vision': True,
         'supports_function_calling': True
     },
-    'o1': {
-        'name': 'o1',
-        'context_window': 200000,
-        'max_output_tokens': 100000,
-        'supports_reasoning': True
-    },
-    'o1-mini': {
-        'name': 'o1-mini',
+    'gpt-4.1': {
+        'name': 'GPT-4.1',
         'context_window': 128000,
-        'max_output_tokens': 65536,
-        'supports_reasoning': True
+        'max_output_tokens': 4096,
+        'supports_vision': True,
+        'supports_function_calling': True
     },
-    'o3-mini': {
-        'name': 'o3-mini',
-        'context_window': 128000,
-        'max_output_tokens': 65536,
-        'supports_reasoning': True
-    },
-    'o1-preview': {
-        'name': 'o1-preview',
-        'context_window': 128000,
-        'max_output_tokens': 32768,
-        'supports_reasoning': True
+    'gpt-3.5-turbo': {
+        'name': 'GPT-3.5 Turbo',
+        'context_window': 16000,
+        'max_output_tokens': 4096,
+        'supports_vision': False,
+        'supports_function_calling': True
     }
 }
 
-# Anthropic Models
+# Anthropic Models (latest as of July 2025)
 ANTHROPIC_MODELS = {
-    'claude-3-5-sonnet-20241022': {
-        'name': 'Claude 3.5 Sonnet',
-        'context_window': 200000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'claude-3-5-sonnet-latest': {
-        'name': 'Claude 3.5 Sonnet (Latest)',
-        'context_window': 200000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'claude-3-5-haiku-20241022': {
-        'name': 'Claude 3.5 Haiku',
-        'context_window': 200000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'claude-3-5-haiku-latest': {
-        'name': 'Claude 3.5 Haiku (Latest)',
-        'context_window': 200000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'claude-3-opus-20240229': {
+    'claude-3-opus': {
         'name': 'Claude 3 Opus',
         'context_window': 200000,
         'max_output_tokens': 4096,
         'supports_vision': True,
         'supports_function_calling': True
     },
-    'claude-3-sonnet-20240229': {
+    'claude-3-sonnet': {
         'name': 'Claude 3 Sonnet',
         'context_window': 200000,
         'max_output_tokens': 4096,
         'supports_vision': True,
         'supports_function_calling': True
     },
-    'claude-3-haiku-20240307': {
+    'claude-3-haiku': {
         'name': 'Claude 3 Haiku',
         'context_window': 200000,
         'max_output_tokens': 4096,
         'supports_vision': True,
         'supports_function_calling': True
+    },
+    'claude-3-5-sonnet': {
+        'name': 'Claude 3.5 Sonnet',
+        'context_window': 200000,
+        'max_output_tokens': 8192,
+        'supports_vision': True,
+        'supports_function_calling': True
+    },
+    'claude-3-5-haiku': {
+        'name': 'Claude 3.5 Haiku',
+        'context_window': 200000,
+        'max_output_tokens': 8192,
+        'supports_vision': True,
+        'supports_function_calling': True
     }
 }
 
-# Groq Models
+# Groq Models (latest as of July 2025)
 GROQ_MODELS = {
-    'llama-3.3-70b-versatile': {
-        'name': 'Llama 3.3 70B Versatile',
+    'llama-3-70b': {
+        'name': 'Llama 3 70B',
         'context_window': 128000,
         'max_output_tokens': 32768,
         'developer': 'Meta'
     },
-    'llama-3.1-8b-instant': {
-        'name': 'Llama 3.1 8B Instant',
-        'context_window': 128000,
-        'max_output_tokens': 8192,
-        'developer': 'Meta'
-    },
-    'llama3-70b-8192': {
-        'name': 'Llama 3 70B',
-        'context_window': 8192,
-        'max_output_tokens': 8192,
-        'developer': 'Meta'
-    },
-    'llama3-8b-8192': {
-        'name': 'Llama 3 8B',
-        'context_window': 8192,
-        'max_output_tokens': 8192,
-        'developer': 'Meta'
-    },
-    'mixtral-8x7b-32768': {
-        'name': 'Mixtral 8x7B',
+    'mixtral-8x22b': {
+        'name': 'Mixtral 8x22B',
         'context_window': 32768,
         'max_output_tokens': 32768,
         'developer': 'Mistral'
-    },
-    'gemma2-9b-it': {
-        'name': 'Gemma 2 9B IT',
-        'context_window': 8192,
-        'max_output_tokens': 8192,
-        'developer': 'Google'
-    },
-    'deepseek-r1-distill-llama-70b': {
-        'name': 'DeepSeek R1 Distill Llama 70B',
-        'context_window': 128000,
-        'max_output_tokens': 16384,
-        'developer': 'DeepSeek'
-    },
-    'deepseek-r1-distill-qwen-32b': {
-        'name': 'DeepSeek R1 Distill Qwen 32B',
-        'context_window': 128000,
-        'max_output_tokens': 16384,
-        'developer': 'DeepSeek'
-    },
-    'qwen-2.5-coder-32b': {
-        'name': 'Qwen 2.5 Coder 32B',
-        'context_window': 128000,
-        'max_output_tokens': 32768,
-        'developer': 'Alibaba Cloud'
-    },
-    'qwen-2.5-32b': {
-        'name': 'Qwen 2.5 32B',
-        'context_window': 128000,
-        'max_output_tokens': 32768,
-        'developer': 'Alibaba Cloud'
     }
 }
 
-# Mistral Models
+# Mistral Models (latest as of July 2025)
 MISTRAL_MODELS = {
-    'codestral-latest': {
-        'name': 'Codestral (Latest)',
+    'codestral': {
+        'name': 'Codestral',
         'context_window': 256000,
         'max_output_tokens': 8192,
         'specialization': 'coding'
     },
-    'mistral-large-latest': {
-        'name': 'Mistral Large (Latest)',
+    'mistral-large': {
+        'name': 'Mistral Large',
         'context_window': 131000,
         'max_output_tokens': 8192,
         'tier': 'flagship'
-    },
-    'pixtral-large-latest': {
-        'name': 'Pixtral Large (Latest)',
-        'context_window': 131000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'tier': 'flagship'
-    },
-    'mistral-small-latest': {
-        'name': 'Mistral Small (Latest)',
-        'context_window': 32000,
-        'max_output_tokens': 8192,
-        'tier': 'efficient'
-    },
-    'mistral-saba-latest': {
-        'name': 'Mistral Saba (Latest)',
-        'context_window': 32000,
-        'max_output_tokens': 8192,
-        'specialization': 'multilingual'
-    },
-    'ministral-3b-latest': {
-        'name': 'Ministral 3B (Latest)',
-        'context_window': 131000,
-        'max_output_tokens': 8192,
-        'tier': 'edge'
-    },
-    'ministral-8b-latest': {
-        'name': 'Ministral 8B (Latest)',
-        'context_window': 131000,
-        'max_output_tokens': 8192,
-        'tier': 'edge'
-    },
-    'pixtral-12b-2409': {
-        'name': 'Pixtral 12B',
-        'context_window': 131000,
-        'max_output_tokens': 8192,
-        'supports_vision': True
-    },
-    'open-mistral-nemo': {
-        'name': 'Mistral Nemo',
-        'context_window': 131000,
-        'max_output_tokens': 8192,
-        'license': 'Apache 2.0'
-    },
-    'open-codestral-mamba': {
-        'name': 'Codestral Mamba',
+    }
+}
+
+# X.AI (Grok) Models (latest as of July 2025)
+XAI_MODELS = {
+    'grok-4': {
+        'name': 'Grok 4',
         'context_window': 256000,
         'max_output_tokens': 8192,
-        'specialization': 'coding',
-        'license': 'Apache 2.0'
+        'supports_vision': True,
+        'supports_function_calling': True
     }
 }
 
-# X.AI (Grok) Models
-XAI_MODELS = {
-    'grok-2-latest': {
-        'name': 'Grok 2 (Latest)',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'grok-2': {
-        'name': 'Grok 2',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'grok-2-1212': {
-        'name': 'Grok 2 (Dec 2024)',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'grok-2-vision-latest': {
-        'name': 'Grok 2 Vision (Latest)',
-        'context_window': 32768,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'grok-2-vision': {
-        'name': 'Grok 2 Vision',
-        'context_window': 32768,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'grok-2-vision-1212': {
-        'name': 'Grok 2 Vision (Dec 2024)',
-        'context_window': 32768,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True
-    },
-    'grok-beta': {
-        'name': 'Grok Beta',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'status': 'beta'
-    },
-    'grok-vision-beta': {
-        'name': 'Grok Vision Beta',
-        'context_window': 8192,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'status': 'beta'
-    }
-}
-
-# DeepSeek Models
+# DeepSeek Models (latest as of July 2025)
 DEEPSEEK_MODELS = {
     'deepseek-chat': {
         'name': 'DeepSeek Chat',
         'context_window': 64000,
         'max_output_tokens': 8192,
         'supports_function_calling': True
-    },
-    'deepseek-reasoner': {
-        'name': 'DeepSeek Reasoner',
-        'context_window': 64000,
-        'max_output_tokens': 8192,
-        'max_cot_tokens': 32000,
-        'supports_reasoning': True
     }
 }
 
-# Google Gemini Models
+# Google Gemini Models (latest as of July 2025)
 GEMINI_MODELS = {
-    'gemini-1.5-pro': {
-        'name': 'Gemini 1.5 Pro',
+    'gemini-2.5-pro': {
+        'name': 'Gemini 2.5 Pro',
         'context_window': 2000000,
         'max_output_tokens': 8192,
         'supports_vision': True,
         'supports_function_calling': True,
         'supports_code_execution': True
     },
-    'gemini-1.5-pro-002': {
-        'name': 'Gemini 1.5 Pro (002)',
+    'gemini-2.5-flash': {
+        'name': 'Gemini 2.5 Flash',
         'context_window': 2000000,
         'max_output_tokens': 8192,
         'supports_vision': True,
-        'supports_function_calling': True,
-        'supports_code_execution': True
+        'supports_function_calling': True
     },
-    'gemini-1.5-flash': {
-        'name': 'Gemini 1.5 Flash',
-        'context_window': 1000000,
+    'gemini-2.5-flash-lite-preview': {
+        'name': 'Gemini 2.5 Flash-Lite Preview',
+        'context_window': 2000000,
         'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True,
-        'tier': 'fast'
-    },
-    'gemini-1.5-flash-002': {
-        'name': 'Gemini 1.5 Flash (002)',
-        'context_window': 1000000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True,
-        'tier': 'fast'
-    },
-    'gemini-1.5-flash-8b': {
-        'name': 'Gemini 1.5 Flash 8B',
-        'context_window': 1000000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True,
-        'tier': 'efficient'
-    },
-    'gemini-2.0-flash-exp': {
-        'name': 'Gemini 2.0 Flash (Experimental)',
-        'context_window': 1000000,
-        'max_output_tokens': 8192,
-        'supports_vision': True,
-        'supports_function_calling': True,
-        'supports_multimodal_live': True,
-        'status': 'experimental'
+        'supports_vision': True
     }
 }
 
-# Cohere Models
+# Cohere Models (latest as of July 2025)
 COHERE_MODELS = {
+    'command-a-03-2025': {
+        'name': 'Command A',
+        'context_window': 256000,
+        'max_output_tokens': 8192,
+        'supports_function_calling': True
+    },
     'command-r-plus': {
         'name': 'Command R+',
         'context_window': 128000,
         'max_output_tokens': 4096,
-        'supports_function_calling': True,
-        'supports_rag': True,
-        'tier': 'flagship'
+        'supports_function_calling': True
     },
     'command-r': {
         'name': 'Command R',
         'context_window': 128000,
         'max_output_tokens': 4096,
-        'supports_function_calling': True,
-        'supports_rag': True,
-        'tier': 'balanced'
+        'supports_function_calling': True
     },
     'command': {
         'name': 'Command',
         'context_window': 4096,
         'max_output_tokens': 4096,
         'supports_function_calling': True
-    },
-    'command-light': {
-        'name': 'Command Light',
-        'context_window': 4096,
-        'max_output_tokens': 4096,
-        'tier': 'efficient'
     }
 }
 
-# Alibaba (Qwen) Models via OpenRouter/Direct API
+# Alibaba (Qwen) Models (latest as of July 2025)
 ALIBABA_MODELS = {
-    'qwen-2.5-72b-instruct': {
-        'name': 'Qwen 2.5 72B Instruct',
+    'qwen3-235b-a22b-instruct': {
+        'name': 'Qwen3 235B A22B Instruct',
         'context_window': 131072,
         'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'qwen-2.5-32b-instruct': {
-        'name': 'Qwen 2.5 32B Instruct',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'qwen-2.5-14b-instruct': {
-        'name': 'Qwen 2.5 14B Instruct',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'qwen-2.5-7b-instruct': {
-        'name': 'Qwen 2.5 7B Instruct',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'qwen-2.5-coder-32b-instruct': {
-        'name': 'Qwen 2.5 Coder 32B Instruct',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'specialization': 'coding',
-        'supports_function_calling': True
-    },
-    'qwen-2.5-math-72b-instruct': {
-        'name': 'Qwen 2.5 Math 72B Instruct',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'specialization': 'mathematics',
         'supports_function_calling': True
     }
 }
 
-# OpenRouter Models (including Kimi)
+# OpenRouter Models (latest as of July 2025)
 OPENROUTER_MODELS = {
-    # Kimi Models
-    'moonshot/moonshot-v1-8k': {
-        'name': 'Kimi (Moonshot v1 8K)',
-        'context_window': 8192,
+    'google/gemini-2.5-pro-preview': {
+        'name': 'Gemini 2.5 Pro Preview',
+        'context_window': 2000000,
         'max_output_tokens': 8192,
-        'provider': 'Moonshot'
+        'provider': 'Google'
     },
-    'moonshot/moonshot-v1-32k': {
-        'name': 'Kimi (Moonshot v1 32K)',
-        'context_window': 32768,
-        'max_output_tokens': 32768,
-        'provider': 'Moonshot'
-    },
-    'moonshot/moonshot-v1-128k': {
-        'name': 'Kimi (Moonshot v1 128K)',
-        'context_window': 131072,
-        'max_output_tokens': 32768,
-        'provider': 'Moonshot'
-    },
-    # Popular OpenRouter Models
     'anthropic/claude-3.5-sonnet': {
         'name': 'Claude 3.5 Sonnet (OpenRouter)',
         'context_window': 200000,
         'max_output_tokens': 8192,
         'provider': 'Anthropic'
     },
-    'openai/gpt-4o': {
-        'name': 'GPT-4o (OpenRouter)',
-        'context_window': 128000,
-        'max_output_tokens': 4096,
-        'provider': 'OpenAI'
-    },
-    'google/gemini-2.0-flash-exp': {
-        'name': 'Gemini 2.0 Flash Exp (OpenRouter)',
-        'context_window': 1000000,
-        'max_output_tokens': 8192,
-        'provider': 'Google'
-    },
-    'meta-llama/llama-3.1-405b-instruct': {
-        'name': 'Llama 3.1 405B Instruct',
+    'moonshot/moonshot-v1-128k': {
+        'name': 'Kimi (Moonshot v1 128K)',
         'context_window': 131072,
-        'max_output_tokens': 4096,
-        'provider': 'Meta'
-    },
-    'qwen/qwen-2.5-72b-instruct': {
-        'name': 'Qwen 2.5 72B Instruct (OpenRouter)',
-        'context_window': 131072,
-        'max_output_tokens': 8192,
-        'provider': 'Alibaba'
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
     }
 }
 
-# Hugging Face Models
+# Hugging Face Models (latest as of July 2025)
 HUGGINGFACE_MODELS = {
-    'microsoft/DialoGPT-large': {
-        'name': 'DialoGPT Large',
-        'context_window': 1024,
-        'max_output_tokens': 1024,
-        'provider': 'Microsoft'
-    },
-    'meta-llama/Llama-2-70b-chat-hf': {
-        'name': 'Llama 2 70B Chat',
-        'context_window': 4096,
-        'max_output_tokens': 4096,
-        'provider': 'Meta'
-    },
-    'mistralai/Mixtral-8x7B-Instruct-v0.1': {
-        'name': 'Mixtral 8x7B Instruct',
-        'context_window': 32768,
+    'Qwen/Qwen3-235B-A22B-Instruct-2507': {
+        'name': 'Qwen3 235B A22B Instruct',
+        'context_window': 131072,
         'max_output_tokens': 8192,
-        'provider': 'Mistral'
+        'provider': 'Alibaba'
     },
-    'microsoft/phi-2': {
-        'name': 'Phi-2',
-        'context_window': 2048,
-        'max_output_tokens': 2048,
-        'provider': 'Microsoft'
+    'moonshotai/Kimi-K2-Instruct': {
+        'name': 'Kimi K2 Instruct',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
     }
 }
 

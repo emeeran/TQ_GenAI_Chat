@@ -21,7 +21,7 @@ from werkzeug.utils import secure_filename
 from persona import PERSONAS
 
 # Removed unused traceback import
-from utils.file_processor import FileProcessor, ProcessingError, status_tracker
+from core.file_processor import FileProcessor, ProcessingError, status_tracker
 
 PROCESSING_STATUS = status_tracker._statuses
 PROCESSING_ERRORS = {}
@@ -157,17 +157,96 @@ API_CONFIGS = {
 
 # Model configurations
 MODEL_CONFIGS = {
-    "openai": ['gpt-4o', 'chatgpt-4o-latest', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o1-preview', 'gpt-4o-realtime-preview', 'gpt-4o-mini-realtime-preview', 'gpt-4o-audio-preview'],
-    "groq": ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'deepseek-r1-distill-llama-70b', 'deepseek-r1-distill-qwen-32b', 'qwen-2.5-coder-32b', 'qwen-2.5-32b', 'deepseek-r1-distill-llama-70b-specdec', 'llama-3.3-70b-specdec', 'llama-3.2-1b-preview', 'llama-3.2-3b-preview', 'llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'],
-    "mistral": ['codestral-latest', 'mistral-large-latest', 'pixtral-large-latest', 'mistral-saba-latest', 'ministral-3b-latest', 'ministral-8b-latest', 'mistral-embed', 'mistral-moderation-latest', 'mistral-small-latest', 'pixtral-12b-2409', 'open-mistral-nemo', 'open-codestral-mamba', 'mathstral', 'open-mixtral-8x7b', 'open-mistral-7b', 'open-mixtral-8x22b', 'mistral-small-2402', 'mistral-large-2402', 'mistral-large-2407', 'codestral-2405'],
-    "anthropic": ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest'],
-    "xai": ['grok-2-vision-1212', 'grok-2-vision', 'grok-2-vision-latest', 'grok-2-1212', 'grok-2', 'grok-2-latest', 'grok-vision-beta', 'grok-beta'],
-    "deepseek": ['deepseek-chat', 'deepseek-reasoner'],
-    "gemini": ['gemini-1.5-pro', 'gemini-1.5-pro-002', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-flash-8b', 'gemini-2.0-flash-exp'],
-    "cohere": ['command-r-plus', 'command-r', 'command', 'command-light'],
-    "alibaba": ['qwen-2.5-72b-instruct', 'qwen-2.5-32b-instruct', 'qwen-2.5-14b-instruct', 'qwen-2.5-7b-instruct', 'qwen-2.5-coder-32b-instruct', 'qwen-2.5-math-72b-instruct'],
-    "openrouter": ['moonshot/moonshot-v1-8k', 'moonshot/moonshot-v1-32k', 'moonshot/moonshot-v1-128k', 'anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'google/gemini-2.0-flash-exp', 'meta-llama/llama-3.1-405b-instruct', 'qwen/qwen-2.5-72b-instruct'],
-    "huggingface": ['microsoft/DialoGPT-large', 'meta-llama/Llama-2-70b-chat-hf', 'mistralai/Mixtral-8x7B-Instruct-v0.1', 'microsoft/phi-2']
+    "openai": [
+        "gpt-4o",
+        "gpt-4.1",
+        "gpt-4o-mini",
+        "gpt-3.5-turbo",
+        "gpt-4-turbo",
+        "gpt-4-turbo-preview",
+        "gpt-4o-realtime-preview",
+        "gpt-4o-audio-preview"
+    ],
+    "gemini": [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite-preview",
+        "gemini-2.5-flash-native-audio",
+        "gemini-2.5-flash-preview-tts",
+        "gemini-2.5-pro-preview-tts",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-1.5-pro"
+    ],
+    "anthropic": [
+        "claude-3-5-sonnet-latest",
+        "claude-3-5-haiku-latest",
+        "claude-3-opus-20240229",
+        "claude-3-sonnet-20240229",
+        "claude-3-haiku-20240307"
+    ],
+    "groq": [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "gemma2-9b-it",
+        "deepseek-r1-distill-llama-70b",
+        "mixtral-8x7b-32768",
+        "mistral-saba-24b",
+        "qwen/qwen3-32b",
+        "moonshotai/kimi-k2-instruct"
+    ],
+    "mistral": [
+        "mistral-large-latest",
+        "mistral-saba-24b",
+        "codestral-latest",
+        "mistral-small-latest",
+        "pixtral-large-latest"
+    ],
+    "xai": [
+        "grok-4",
+        "grok-4-latest",
+        "grok-3",
+        "grok-3-mini"
+    ],
+    "deepseek": [
+        "deepseek-r1-distill-llama-70b",
+        "deepseek-chat",
+        "deepseek-reasoner"
+    ],
+    "cohere": [
+        "command-a-03-2025",
+        "command-r7b-12-2024",
+        "command-r-plus",
+        "command-r",
+        "command",
+        "command-light"
+    ],
+    "alibaba": [
+        "qwen3-32b",
+        "qwen-2.5-72b-instruct",
+        "qwen-2.5-32b-instruct",
+        "qwen-2.5-14b-instruct",
+        "qwen-2.5-7b-instruct",
+        "qwen-2.5-coder-32b-instruct",
+        "qwen-2.5-math-72b-instruct"
+    ],
+    "openrouter": [
+        "google/gemini-2.5-pro-preview",
+        "openai/gpt-4o",
+        "moonshotai/kimi-k2-instruct",
+        "meta-llama/llama-3.3-70b-versatile",
+        "qwen/qwen3-32b"
+    ],
+    "huggingface": [
+        "moonshotai/Kimi-K2-Instruct",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+        "mistralai/Voxtral-Small-24B-2507",
+        "mistralai/Voxtral-Mini-3B-2507",
+        "meta-llama/Llama-2-70b-chat-hf"
+    ]
 }
 
 # Initialize paths

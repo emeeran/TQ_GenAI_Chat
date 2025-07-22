@@ -1,172 +1,152 @@
-import concurrent.futures
+"""
+File Manager Service
+Handles file operations, storage, and retrieval.
+"""
+import os
 from datetime import datetime
-from functools import lru_cache
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+from werkzeug.utils import secure_filename
 
-import numpy as np
 from flask import current_app
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from config.settings import ALLOWED_EXTENSIONS, SAVE_DIR, EXPORT_DIR, UPLOAD_DIR
 
-from utils.caching import LRUCache
-
-
-class FileManagerError(Exception):
-    """Custom exception for FileManager errors"""
-    pass
 
 class FileManager:
-    """Optimized file storage and vector search"""
+    """Service for managing file operations in the application"""
 
     def __init__(self):
-        self.document_store = {}
-        self.vector_store = None
-        self.total_documents = 0
-        self.total_size = 0
-
-        # Optimized vectorizer
-        self.vectorizer = TfidfVectorizer(
-            strip_accents='unicode',
-            max_features=10000,
-            stop_words='english',
-            dtype=np.float32  # Use float32 for better memory usage
-        )
-
-        # Replace lru_cache_extended with our custom LRUCache
-        self.search_cache = LRUCache(maxsize=1000, ttl=300)
-
-        # Initialize thread pool
-        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
-
-        current_app.file_manager = self
-        current_app.logger.info("FileManager initialized and registered with app")
-
-    def get_stats(self) -> dict:
-        """Get current document store statistics"""
-        return {
-            'total_documents': self.total_documents,
-            'total_size': self.total_size,
-            'documents': [
-                {
-                    'filename': filename,
-                    'size': len(doc['content']),
-                    'timestamp': doc['timestamp']
-                }
-                for filename, doc in self.document_store.items()
-            ]
-        }
-
-    def add_document(self, filename: str, content: str) -> None:
-        """Add or update a document with improved tracking"""
-        try:
-            if not content:
-                raise FileManagerError("Empty content")
-
-            # Update stats
-            if filename not in self.document_store:
-                self.total_documents += 1
-            else:
-                self.total_size -= len(self.document_store[filename]['content'])
-
-            self.document_store[filename] = {
-                'content': content,
-                'timestamp': datetime.now().isoformat()
-            }
-            self.total_size += len(content)
-
-            self._update_vectors()
-            current_app.logger.info(f"Added document: {filename} (size: {len(content)} bytes)")
-
-        except Exception as e:
-            current_app.logger.error(f"Error adding document {filename}: {str(e)}")
-            raise FileManagerError(f"Failed to add document: {str(e)}")
-
-    def list_documents(self) -> list[dict]:
-        """Get list of available documents with previews"""
-        return [
-            {
-                'filename': filename,
-                'size': len(doc['content']),
-                'timestamp': doc['timestamp'],
-                'preview': doc['content'][:200] + '...' if len(doc['content']) > 200 else doc['content']
-            }
-            for filename, doc in self.document_store.items()
-        ]
-
-    def _update_vectors(self) -> None:
-        """Update document vectors with error handling"""
-        try:
-            self.vector_store = None
-            return
-
-            texts = [doc['content'] for doc in self.document_store.values()]
-            self.vector_store = self.vectorizer.fit_transform(texts)
-            current_app.logger.debug(f"Updated vectors for {len(texts)} documents")
-
-        except Exception as e:
-            current_app.logger.error(f"Vector update error: {str(e)}")
-            self.vector_store = None
-            raise FileManagerError(f"Failed to update vectors: {str(e)}")
-
-    @lru_cache(maxsize=100)
-    def _compute_similarity(self, query_vector, doc_vector) -> float:
-        """Cached similarity computation"""
-        return float(cosine_similarity(query_vector, doc_vector)[0, 0])
-
-    def search_documents(self, query: str, top_n: int = 3) -> list[dict]:
-        """Optimized vector search with caching"""
-        cache_key = f"{query}:{top_n}"
-
-        # Use our custom cache
-        if cache_key in self.search_cache:
-            return self.search_cache.get(cache_key)
-
-        if not self.document_store or self.vector_store is None:
-            return []
-
-        try:
-            # Transform query
-            query_vector = self.vectorizer.transform([query])
-
-            # Compute similarities in parallel
-            futures = []
-            for i in range(self.vector_store.shape[0]):
-                doc_vector = self.vector_store[i:i+1]
-                futures.append(
-                    self.pool.submit(self._compute_similarity, query_vector, doc_vector)
-                )
-
-            # Collect results
-            similarities = [f.result() for f in futures]
-
-            # Get top results
-            threshold = 0.1
-            scored_indices = [
-                (i, score) for i, score in enumerate(similarities)
-                if score > threshold
-            ]
-            scored_indices.sort(key=lambda x: x[1], reverse=True)
-
-            filenames = list(self.document_store.keys())
-            results = []
-
-            for idx, score in scored_indices[:top_n]:
-                filename = filenames[idx]
-                results.append({
-                    'filename': filename,
-                    'content': self.document_store[filename]['content'],
-                    'similarity': score
-                })
-
-            # Cache results with our custom cache
-            self.search_cache.set(cache_key, results)
-            return results
-
-        except Exception as e:
-            current_app.logger.error(f"Search error: {str(e)}")
-            return []
-
-    def get_document(self, filename: str) -> dict:
-        """Get a document by filename"""
-        if filename not in self.document_store:
-            raise KeyError(f"Document not found: {filename}")
-        return self.document_store[filename]
+        """Initialize the file manager with proper directory structure"""
+        self.upload_dir = UPLOAD_DIR
+        self.save_dir = SAVE_DIR
+        self.export_dir = EXPORT_DIR
+        
+        # Ensure all directories exist
+        for directory in [self.upload_dir, self.save_dir, self.export_dir]:
+            directory.mkdir(mode=0o755, parents=True, exist_ok=True)
+    
+    def allowed_file(self, filename: str) -> bool:
+        """Check if a file has an allowed extension"""
+        return '.' in filename and \
+               filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    
+    def save_uploaded_file(self, file, custom_filename: Optional[str] = None) -> str:
+        """Save an uploaded file to the upload directory with secure naming"""
+        if not file:
+            raise ValueError("No file provided")
+            
+        original_filename = secure_filename(file.filename)
+        if not original_filename:
+            raise ValueError("Invalid filename")
+            
+        if not self.allowed_file(original_filename):
+            raise ValueError(f"File type not allowed. Supported types: {', '.join(ALLOWED_EXTENSIONS)}")
+        
+        # Use custom filename if provided, otherwise use timestamp + original
+        if custom_filename:
+            filename = f"{secure_filename(custom_filename)}_{int(datetime.now().timestamp())}"
+            # Preserve original extension
+            if '.' in original_filename:
+                filename += f".{original_filename.rsplit('.', 1)[1].lower()}"
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{timestamp}_{original_filename}"
+        
+        filepath = os.path.join(self.upload_dir, filename)
+        file.save(filepath)
+        current_app.logger.info(f"Saved file: {filepath}")
+        
+        return filepath
+        
+    def save_chat_history(self, chat_data: Dict) -> str:
+        """Save chat history to a JSON file"""
+        if not chat_data:
+            raise ValueError("No chat data provided")
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        chat_id = chat_data.get("id", str(hash(str(chat_data)))[1:8])
+        filename = f"chat_{timestamp}_{chat_id}.json"
+        
+        filepath = os.path.join(self.save_dir, filename)
+        
+        import json
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(chat_data, f, ensure_ascii=False, indent=2)
+            
+        current_app.logger.info(f"Saved chat history: {filepath}")
+        return filepath
+        
+    def export_chat(self, chat_data: Dict, format: str = "md") -> str:
+        """Export chat to a specific format (markdown, text, etc.)"""
+        if not chat_data:
+            raise ValueError("No chat data provided")
+            
+        # Get chat title or generate one from first message
+        title = chat_data.get("title", "chat")
+        if not title and "messages" in chat_data and chat_data["messages"]:
+            first_msg = chat_data["messages"][0].get("content", "")
+            # Create title from first message (limited to 30 chars)
+            title = "_".join(first_msg[:30].split())
+        
+        # Sanitize title for filename
+        title = secure_filename(title.lower().replace(" ", "_"))
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{title}_{timestamp}.{format}"
+        
+        filepath = os.path.join(self.export_dir, filename)
+        
+        if format == "md":
+            self._export_to_markdown(chat_data, filepath)
+        else:
+            raise ValueError(f"Export format '{format}' not supported")
+            
+        current_app.logger.info(f"Exported chat: {filepath}")
+        return filepath
+        
+    def _export_to_markdown(self, chat_data: Dict, filepath: str) -> None:
+        """Export chat data to markdown format"""
+        with open(filepath, 'w', encoding='utf-8') as f:
+            # Write header
+            title = chat_data.get("title", "Chat Export")
+            f.write(f"# {title}\n\n")
+            f.write(f"*Exported on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n")
+            
+            # Write messages
+            for msg in chat_data.get("messages", []):
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                
+                if role == "user":
+                    f.write(f"## User\n\n{content}\n\n")
+                elif role == "assistant":
+                    f.write(f"## Assistant\n\n{content}\n\n")
+                elif role == "system":
+                    f.write(f"## System\n\n{content}\n\n")
+                else:
+                    f.write(f"## {role.capitalize()}\n\n{content}\n\n")
+    
+    def get_saved_chats(self) -> List[Dict]:
+        """Get list of saved chat files with metadata"""
+        chats = []
+        
+        for item in self.save_dir.glob("chat_*.json"):
+            if item.is_file():
+                try:
+                    import json
+                    with open(item, 'r', encoding='utf-8') as f:
+                        chat_data = json.load(f)
+                    
+                    # Extract basic metadata
+                    chats.append({
+                        "filename": item.name,
+                        "path": str(item),
+                        "created": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
+                        "title": chat_data.get("title", item.name),
+                        "message_count": len(chat_data.get("messages", [])),
+                    })
+                except Exception as e:
+                    current_app.logger.error(f"Error reading chat file {item}: {str(e)}")
+        
+        # Sort by creation date, newest first
+        chats.sort(key=lambda x: x["created"], reverse=True)
+        return chats

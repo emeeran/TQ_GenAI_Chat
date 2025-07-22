@@ -1,42 +1,64 @@
 """
 Service for interacting with XAI (Grok) API.
 """
+import os
+import json
 import requests
+from typing import Dict, List, Optional, Union, Any
 
-from utils.api_config import APIConfig
+from flask import current_app
 
 
 class XAIService:
+    @classmethod
+    def is_configured(cls) -> bool:
+        """Check if XAI API key is configured"""
+        return bool(os.environ.get('XAI_API_KEY', ''))
     """Service for making requests to XAI API"""
 
     def __init__(self):
-        self.api_key = APIConfig.get_api_key('xai')
+        """Initialize XAI service with API key validation"""
+        self.api_key = os.environ.get('XAI_API_KEY', '')
         if not self.api_key:
             raise ValueError("XAI API key not configured. Please set XAI_API_KEY in .env file.")
 
         # Use the correct base URL for XAI/Grok API
         self.base_url = "https://api.x.ai/v1"
+        
+        # Configure timeout and retry settings
+        self.timeout = (10, 60)  # (connect_timeout, read_timeout)
+        
+    def _create_headers(self) -> Dict[str, str]:
+        """Create request headers with API key"""
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
 
-    def generate_response(self, prompt, model="grok-2-latest", **kwargs):
+    def generate_response(self, 
+                          prompt: str, 
+                          model: str = "grok-2-latest", 
+                          system_prompt: str = "You are a helpful AI assistant.",
+                          max_tokens: int = 4000,
+                          temperature: float = 0.7,
+                          **kwargs) -> Dict[str, Any]:
         """
         Generate a response using XAI
 
         Args:
             prompt (str): The prompt to send to XAI
             model (str): The model to use
+            system_prompt (str): The system prompt to use
+            max_tokens (int): Maximum tokens to generate
+            temperature (float): Temperature parameter
             **kwargs: Additional parameters to send to the API
 
         Returns:
             dict: The response from XAI API
         """
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = self._create_headers()
 
-        system_prompt = kwargs.pop('system_prompt', "You are a helpful AI assistant.")
-        max_tokens = kwargs.pop('max_tokens', 4000)
-
+        # Prepare request data
         data = {
             "model": model,
             "messages": [
@@ -44,29 +66,64 @@ class XAIService:
                 {"role": "user", "content": prompt}
             ],
             "max_tokens": max_tokens,
+            "temperature": temperature,
             **kwargs
         }
 
-        response = requests.post(
-            f"{self.base_url}/chat/completions",
-            headers=headers,
-            json=data
-        )
-
-        if response.status_code != 200:
-            error_msg = f"XAI API request failed with status code {response.status_code}: {response.text}"
-            raise Exception(error_msg)
-
-        response_data = response.json()
-
-        # Extract the content from the response
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            text = response_data['choices'][0]['message']['content']
-            return {'text': text, 'raw_response': response_data}
-
-        return response_data
-
-    @staticmethod
-    def is_configured():
-        """Check if XAI API is configured correctly"""
-        return APIConfig.check_api_configured('xai')
+        try:
+            current_app.logger.debug(f"Calling XAI API with model: {model}")
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=self.timeout
+            )
+            
+            response.raise_for_status()
+            result = response.json()
+            
+            # Extract and return the response content
+            if "choices" in result and result["choices"]:
+                return {
+                    "content": result["choices"][0]["message"]["content"],
+                    "model": model,
+                    "provider": "xai",
+                    "raw_response": result
+                }
+            else:
+                raise ValueError("Unexpected response format from XAI API")
+                
+        except requests.exceptions.RequestException as e:
+            current_app.logger.error(f"XAI API request failed: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                current_app.logger.error(f"Status code: {e.response.status_code}")
+                current_app.logger.error(f"Response: {e.response.text}")
+            raise ValueError(f"XAI API request failed: {str(e)}")
+    
+    def list_models(self) -> List[Dict[str, Any]]:
+        """
+        Get list of available models from XAI API
+        
+        Returns:
+            List[Dict[str, Any]]: List of model information
+        """
+        headers = self._create_headers()
+        
+        try:
+            response = requests.get(
+                f"{self.base_url}/models",
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            response.raise_for_status()
+            result = response.json()
+            
+            if "data" in result:
+                return result["data"]
+            else:
+                return []
+                
+        except requests.exceptions.RequestException as e:
+            current_app.logger.error(f"Failed to get XAI models: {str(e)}")
+            return []

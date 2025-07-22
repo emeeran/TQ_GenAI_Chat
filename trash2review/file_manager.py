@@ -1,5 +1,4 @@
 # ...existing imports...
-
 class FileProcessor:
     """Unified file processor with optimized handling"""
 
