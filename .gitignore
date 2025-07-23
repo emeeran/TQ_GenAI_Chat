@@ -1,7 +1,19 @@
 # Ignore node_modules directory
 node_modules/
-
-# Ignore log files
+# Python specific files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.eggs/
+*.pytest_cache/
+*.coverage
+*.mypy_cache/
+*.hypothesis/
+*.tox/
+.Pythonles
 *.log
 
 # Ignore build directories
@@ -15,7 +27,6 @@ uploads/
 
 # Database files
 *.db
-documents.db
 *.sqlite
 *.sqlite3
 
@@ -24,7 +35,6 @@ defaults_cache.json
 models_cache.json
 flask_session/
 .ruff_cache/
-__pycache__/
 
 # Ignore environment variable files
 .env
