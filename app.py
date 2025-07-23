@@ -1176,6 +1176,59 @@ def view_document(filename):
         app.logger.error(f"Error viewing document: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/list_saved_chats', methods=['GET'])
+def list_saved_chats():
+    """List all saved chat files"""
+    try:
+        chat_files = []
+        for filepath in SAVE_DIR.glob('*.json'):
+            try:
+                # Get file stats
+                stat_info = filepath.stat()
+                chat_files.append({
+                    'filename': filepath.name,
+                    'display_name': filepath.stem.replace('chat_', '').replace('_', ' '),
+                    'size': stat_info.st_size,
+                    'modified': datetime.fromtimestamp(stat_info.st_mtime).isoformat()
+                })
+            except Exception as e:
+                app.logger.warning(f"Error reading chat file {filepath.name}: {str(e)}")
+                continue
+        
+        # Sort by modification date (newest first)
+        chat_files.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return jsonify({'chats': chat_files})
+    
+    except Exception as e:
+        app.logger.error(f"Error listing saved chats: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/load_chat/<filename>', methods=['GET'])
+def load_chat(filename):
+    """Load a specific saved chat file"""
+    try:
+        # Sanitize filename to prevent directory traversal
+        safe_filename = Path(filename).name
+        if not safe_filename.endswith('.json'):
+            return jsonify({'error': 'Invalid file type'}), 400
+        
+        filepath = SAVE_DIR / safe_filename
+        
+        if not filepath.exists():
+            return jsonify({'error': 'Chat file not found'}), 404
+        
+        with open(filepath, encoding='utf-8') as f:
+            chat_data = json.load(f)
+        
+        return jsonify(chat_data)
+    
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Invalid JSON file'}), 400
+    except Exception as e:
+        app.logger.error(f"Error loading chat {filename}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/')
 def home():
     return render_template('index.html', default_provider='groq')

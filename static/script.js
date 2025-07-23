@@ -172,7 +172,8 @@ async function loadSaved() {
     try {
         // Get list of saved chats
         const response = await fetch('/list_saved_chats');
-        const chats = await response.json();
+        const data = await response.json();
+        const chats = data.chats || [];
 
         if (chats.length === 0) {
             alert('No saved chats found');
@@ -195,8 +196,8 @@ async function loadSaved() {
                             ${chats.map(chat => `
                                 <button class="list-group-item list-group-item-action"
                                         onclick="loadChatFile('${chat.filename}')">
-                                    ${new Date(chat.timestamp).toLocaleString()}<br>
-                                    <small class="text-muted">${chat.preview}...</small>
+                                    ${chat.display_name}<br>
+                                    <small class="text-muted">Modified: ${new Date(chat.modified).toLocaleString()}</small>
                                 </button>
                             `).join('')}
                         </div>
