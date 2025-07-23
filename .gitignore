@@ -11,10 +11,26 @@ build/
 # Custom build directories
 saved_chats/
 exports/
+uploads/
 
+# Database files
+*.db
+documents.db
+*.sqlite
+*.sqlite3
+
+# Cache files
+defaults_cache.json
+models_cache.json
+flask_session/
+.ruff_cache/
+__pycache__/
 
 # Ignore environment variable files
 .env
+.env.example
+venv/
+.venv/
 
 # Ignore OS generated files
 .DS_Store
@@ -45,6 +61,17 @@ __pycache__/
 *.env
 *.venv
 .Python
+
+# Docker related
+Dockerfile
+docker-compose.yml
+nginx.conf
+
+# Deployment logs
+deployment.log
+
+# Generated test files
+test_enhanced_app.py
 
 # Ignore Java specific files
 *.class
