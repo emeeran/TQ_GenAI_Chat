@@ -1180,5 +1180,23 @@ def view_document(filename):
 def home():
     return render_template('index.html', default_provider='groq')
 
+def main():
+    """Main entry point for the console script"""
+    import sys
+    
+    # Handle command line arguments
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ['--help', '-h']:
+            print("TQ GenAI Chat v1.0.0")
+            print("Usage: tq-genai-chat [--help] [--version]")
+            print("       python app.py")
+            return
+        elif sys.argv[1] in ['--version', '-v']:
+            print("TQ GenAI Chat v1.0.0")
+            return
+    
+    # Start the Flask application
+    app.run(debug=False, threaded=True, host='127.0.0.1', port=5000)
+
 if __name__ == '__main__':
-    app.run(debug=False, threaded=True)
+    main()

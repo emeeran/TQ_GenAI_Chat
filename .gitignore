@@ -24,7 +24,7 @@ build/
 saved_chats/
 exports/
 uploads/
-
+trash2review/
 # Database files
 *.db
 *.sqlite
