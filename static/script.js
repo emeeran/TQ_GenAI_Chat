@@ -79,13 +79,35 @@ async function updateModels() {
     }
 }
 
-function appendMessage(message, isUser = false) {
+function appendMessage(message, isUser = false, messageIndex = null) {
     const chatBox = document.getElementById('chat-box');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+    
+    // Add message index as data attribute for editing
+    if (messageIndex !== null) {
+        messageDiv.setAttribute('data-message-index', messageIndex);
+    }
 
     if (isUser) {
-        messageDiv.textContent = message;
+        // Create message content container
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = message;
+        messageDiv.appendChild(contentDiv);
+        
+        // Add edit button for user messages
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'message-actions';
+        
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm btn-outline-secondary edit-message-btn';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
+        editBtn.title = 'Edit and resubmit this message';
+        editBtn.onclick = () => editMessage(messageIndex);
+        
+        actionsDiv.appendChild(editBtn);
+        messageDiv.appendChild(actionsDiv);
     } else {
         // Handle formatted response
         const content = typeof message === 'object' ? message : { text: message };
@@ -128,6 +150,86 @@ function appendMessage(message, isUser = false) {
     if (!isUser && message.text) {
         lastAiResponse = message.text;
     }
+}
+
+function editMessage(messageIndex) {
+    if (messageIndex === null || messageIndex >= chatHistory.length) {
+        return;
+    }
+    
+    const messageToEdit = chatHistory[messageIndex];
+    if (!messageToEdit.isUser) {
+        return; // Only allow editing user messages
+    }
+    
+    // Create edit modal
+    const modal = document.createElement('div');
+    modal.className = 'modal fade show';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Message</h5>
+                    <button type="button" class="btn-close" onclick="this.closest('.modal').remove()"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit-message-text" class="form-label">Message:</label>
+                        <textarea class="form-control" id="edit-message-text" rows="4" placeholder="Enter your message...">${messageToEdit.content}</textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Editing this message will remove all subsequent messages and regenerate the conversation from this point.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEditedMessage(${messageIndex})">Update & Resubmit</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Focus on the textarea
+    setTimeout(() => {
+        document.getElementById('edit-message-text').focus();
+    }, 100);
+}
+
+function submitEditedMessage(messageIndex) {
+    const newMessageText = document.getElementById('edit-message-text').value.trim();
+    
+    if (!newMessageText) {
+        alert('Message cannot be empty');
+        return;
+    }
+    
+    // Remove the modal
+    document.querySelector('.modal').remove();
+    
+    // Update the message in chat history
+    chatHistory[messageIndex].content = newMessageText;
+    
+    // Remove all messages after this one from chat history
+    chatHistory = chatHistory.slice(0, messageIndex + 1);
+    
+    // Re-render the conversation
+    reRenderConversation();
+    
+    // Resubmit the edited message
+    sendMessage(newMessageText, false);
+}
+
+function reRenderConversation() {
+    const chatBox = document.getElementById('chat-box');
+    chatBox.innerHTML = '';
+    
+    chatHistory.forEach((msg, index) => {
+        appendMessage(msg.content, msg.isUser, index);
+    });
 }
 
 let chatHistory = [];
@@ -219,7 +321,11 @@ async function loadChatFile(filename) {
         chatHistory = data.history;
         const chatBox = document.getElementById('chat-box');
         chatBox.innerHTML = '';
-        chatHistory.forEach(msg => appendMessage(msg.content, msg.isUser));
+        
+        // Re-render with proper indices
+        chatHistory.forEach((msg, index) => {
+            appendMessage(msg.content, msg.isUser, index);
+        });
 
         // Remove modal
         document.querySelector('.modal').remove();
@@ -511,8 +617,16 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
 
         // Only clear input and add user message if not a retry
         if (!isRetry) {
-            appendMessage(messageToSend, true);
+            const userMessageIndex = chatHistory.length;
+            appendMessage(messageToSend, true, userMessageIndex);
             userInput.value = '';
+            
+            // Add user message to chat history immediately
+            chatHistory.push({
+                content: messageToSend,
+                isUser: true,
+                timestamp: new Date().toISOString()
+            });
         }
 
         showProcessing(true);
@@ -560,17 +674,14 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
         }
 
         if (data && data.response) {
-            appendMessage(data.response, false);
+            const aiMessageIndex = chatHistory.length;
+            appendMessage(data.response, false, aiMessageIndex);
             if (data.response.text) {
                 lastAiResponse = data.response.text;
             }
             lastMessage = messageToSend;
 
-            chatHistory.push({
-                content: messageToSend,
-                isUser: true,
-                timestamp: new Date().toISOString()
-            });
+            // Add AI response to chat history
             chatHistory.push({
                 content: data.response,
                 isUser: false,

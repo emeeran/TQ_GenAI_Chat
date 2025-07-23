@@ -157,6 +157,42 @@ body {
     border-top-color: rgba(0, 0, 0, 0.05);
 }
 
+.message-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+}
+
+.edit-message-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.edit-message-btn:hover {
+    background-color: #6c757d;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.message-content {
+    flex: 1;
+}
+
+.user-message {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
 .input-container {
     display: flex;
     gap: 10px;
