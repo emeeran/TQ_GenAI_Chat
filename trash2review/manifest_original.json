@@ -1,0 +1,91 @@
+{
+  "name": "TQ GenAI Chat",
+  "short_name": "TQ Chat",
+  "description": "A multi-provider GenAI chat application with advanced file processing capabilities",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#2196f3",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "categories": ["productivity", "utilities", "education"],
+  "icons": [
+    {
+      "src": "/static/portrait-sketch-simple.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/favicon.ico",
+      "sizes": "16x16 32x32",
+      "type": "image/x-icon"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Desktop view of TQ GenAI Chat"
+    },
+    {
+      "src": "/static/screenshot-mobile.png", 
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile view of TQ GenAI Chat"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Chat",
+      "short_name": "New Chat", 
+      "description": "Start a new conversation",
+      "url": "/?action=new",
+      "icons": [
+        {
+          "src": "/static/portrait-sketch-simple.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/upload",
+      "accept": {
+        "application/pdf": [".pdf"],
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+        "text/markdown": [".md"],
+        "text/plain": [".txt"],
+        "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["text/*", "image/*", "application/pdf"]
+        }
+      ]
+    }
+  },
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}
