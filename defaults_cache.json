@@ -1,18 +1,6 @@
 {
   "groq": {
     "default_model": "moonshotai/kimi-k2-instruct",
-    "last_updated": "2025-07-22T22:49:02.175456"
-  },
-  "openai": {
-    "default_model": "gpt-4.1-nano",
-    "last_updated": "2025-07-22T22:16:50.213152"
-  },
-  "alibaba": {
-    "default_model": "qwen3-32b",
-    "last_updated": "2025-07-22T22:18:53.026510"
-  },
-  "openrouter": {
-    "default_model": "qwen/qwen3-32b",
-    "last_updated": "2025-07-23T00:16:46.844167"
+    "last_updated": "2025-07-23T20:25:57.522532"
   }
 }

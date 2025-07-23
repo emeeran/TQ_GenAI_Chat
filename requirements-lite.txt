@@ -1,0 +1,39 @@
+# TQ GenAI Chat - Lightweight Requirements
+# Core dependencies only for minimal installation
+
+# Core Web Framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+Werkzeug==3.0.1
+
+# Environment & Configuration
+python-dotenv==1.0.0
+
+# AI Provider Libraries (Core Only)
+anthropic==0.7.8
+openai==1.3.8
+groq==0.4.1
+mistralai==0.0.12
+
+# HTTP Requests
+requests==2.31.0
+urllib3==2.1.0
+
+# Document Processing (Essential Only)
+PyPDF2==3.0.1
+python-docx==1.1.0
+openpyxl==3.1.2
+markdown==3.5.1
+
+# Audio Processing (Basic)
+SpeechRecognition==3.10.0
+pydub==0.25.1
+
+# Data Processing (Minimal)
+numpy==1.25.2
+
+# Security
+cryptography==41.0.8
+
+# Utility Libraries
+pathlib2==2.3.7

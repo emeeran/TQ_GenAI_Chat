@@ -3,7 +3,6 @@ import io
 import json
 import os
 import time
-import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from functools import lru_cache, wraps  # Add this import
@@ -17,22 +16,20 @@ from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 from pydub import AudioSegment
 from werkzeug.utils import secure_filename
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # Removed unused OpenAI import
 from persona import PERSONAS
 
 # Removed unused traceback import
 from core.file_processor import FileProcessor, ProcessingError, status_tracker
-from services.file_manager import FileManager
-from services.xai_service import XAIService
-
-# Suppress pydub regex syntax warnings for Python 3.12+
-warnings.filterwarnings("ignore", category=SyntaxWarning, module="pydub")
 
 PROCESSING_STATUS = status_tracker._statuses
 PROCESSING_ERRORS = {}
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from services.file_manager import FileManager
+from services.xai_service import XAIService
 
 # Initialize Flask app
 app = Flask(__name__,
