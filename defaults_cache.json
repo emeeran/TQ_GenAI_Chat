@@ -2,5 +2,9 @@
   "groq": {
     "default_model": "moonshotai/kimi-k2-instruct",
     "last_updated": "2025-07-23T20:25:57.522532"
+  },
+  "gemini": {
+    "default_model": "gemini-2.5-flash",
+    "last_updated": "2025-07-24T23:47:18.753575"
   }
 }

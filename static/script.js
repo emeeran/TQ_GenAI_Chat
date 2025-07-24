@@ -1,3 +1,28 @@
+// Theme toggle logic
+function setTheme(theme) {
+    document.body.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.add(`theme-${theme}`);
+    localStorage.setItem('theme', theme);
+    const label = document.getElementById('theme-label');
+    const icon = document.querySelector('#theme-toggle i');
+    if (theme === 'dark') {
+        if (label) label.textContent = 'Light';
+        if (icon) icon.className = 'fas fa-sun';
+    } else {
+        if (label) label.textContent = 'Dark';
+        if (icon) icon.className = 'fas fa-moon';
+    }
+}
+
+function toggleTheme() {
+    const current = localStorage.getItem('theme') || 'light';
+    setTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+// On load, set theme
+document.addEventListener('DOMContentLoaded', () => {
+    setTheme(localStorage.getItem('theme') || 'light');
+});
 // Debounce function to limit rapid calls
 const debounce = (func, wait) => {
     let timeout;
@@ -17,8 +42,30 @@ const elements = {
     userInput: document.getElementById('user-input'),
     provider: document.getElementById('provider'),
     model: document.getElementById('model'),
-    persona: document.getElementById('persona')
+    persona: document.getElementById('persona'),
+    // customPersonaInput removed
+    personaContent: document.getElementById('persona-content')
 };
+
+// Persona selector logic
+if (elements.persona) {
+    const display = document.getElementById('persona-content-display');
+    async function updatePersonaContent() {
+        const personaId = elements.persona.value;
+        let content = '';
+        try {
+            const res = await fetch(`/get_persona_content/${personaId}`);
+            const data = await res.json();
+            content = data.content || '(No details for this persona)';
+        } catch (e) {
+            content = '(Error loading persona details)';
+        }
+        if (display) display.textContent = content;
+    }
+    elements.persona.addEventListener('change', updatePersonaContent);
+    // Initial load
+    updatePersonaContent();
+}
 
 // Add request queue
 const requestQueue = [];
@@ -122,6 +169,7 @@ function appendMessage(message, isUser = false, messageIndex = null) {
         });
 
         messageDiv.innerHTML = html;
+        messageDiv.classList.add('chat-response');
 
         // Add metadata if available
         if (content.metadata) {
@@ -602,12 +650,16 @@ async function setDefaultModel() {
     }
 }
 
+
 const sendMessage = debounce(async (message = null, isRetry = false) => {
     try {
         const userInput = document.getElementById('user-input');
         const provider = document.getElementById('provider').value;
         const model = document.getElementById('model').value;
-        const persona = document.getElementById('persona').value;
+        let persona = document.getElementById('persona').value;
+        if (persona === 'custom') {
+            persona = document.getElementById('custom-persona-input').value.trim();
+        }
 
         const messageToSend = message || userInput.value.trim();
 

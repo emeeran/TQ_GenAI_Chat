@@ -1,3 +1,4 @@
+
 import asyncio
 import io
 import json
@@ -6,7 +7,7 @@ import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from functools import lru_cache, wraps  # Add this import
+from functools import lru_cache, wraps
 from pathlib import Path
 
 import anthropic
@@ -19,11 +20,7 @@ from pydub import AudioSegment
 from werkzeug.utils import secure_filename
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
-# Removed unused OpenAI import
 from persona import PERSONAS
-
-# Removed unused traceback import
 from core.file_processor import FileProcessor, ProcessingError, status_tracker
 from services.file_manager import FileManager
 from services.xai_service import XAIService
@@ -31,10 +28,9 @@ from services.xai_service import XAIService
 # Suppress pydub regex syntax warnings for Python 3.12+
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pydub")
 
-PROCESSING_STATUS = status_tracker._statuses
-PROCESSING_ERRORS = {}
 
-# Initialize Flask app
+
+# Initialize Flask app (only once)
 app = Flask(__name__,
     template_folder=str(Path(__file__).parent / 'templates'),
     static_folder=str(Path(__file__).parent / 'static')
@@ -44,6 +40,20 @@ app.config['JSON_SORT_KEYS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024  # Increase to 64MB
 app.config['UPLOAD_FOLDER'] = str(Path(app.root_path) / 'uploads')
 app.config['MAX_FILES'] = 10
+
+# ...existing code...
+
+@app.route('/get_persona_content/<persona_id>', methods=['GET'])
+def get_persona_content(persona_id):
+    """Return the content of the selected persona, or blank for custom."""
+    if persona_id == 'custom':
+        return jsonify({'content': ''})
+    content = PERSONAS.get(persona_id, '')
+    return jsonify({'content': content})
+
+PROCESSING_STATUS = status_tracker._statuses
+PROCESSING_ERRORS = {}
+
 
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -269,7 +279,7 @@ def load_cached_models():
         
         # Load models cache
         if models_cache_file.exists():
-            with open(models_cache_file, 'r') as f:
+            with open(models_cache_file) as f:
                 models_cache = json.load(f)
                 
             for provider, data in models_cache.items():
@@ -279,7 +289,7 @@ def load_cached_models():
         
         # Load defaults cache
         if defaults_cache_file.exists():
-            with open(defaults_cache_file, 'r') as f:
+            with open(defaults_cache_file) as f:
                 defaults_cache = json.load(f)
                 
             for provider, data in defaults_cache.items():
@@ -564,15 +574,15 @@ When using context from documents, format the references like this:
 
         raise ValueError('Invalid response structure from API')
 
-    except requests.Timeout:
+    except requests.Timeout as e:
         error_msg = f"Request to {provider} timed out after {READ_TIMEOUT}s"
         app.logger.error(error_msg)
-        raise ValueError(error_msg)
+        raise ValueError(error_msg) from e
 
     except requests.RequestException as e:
         error_msg = f"API request failed: {str(e)}"
         app.logger.error(f"{error_msg}\nEndpoint: {endpoint}")
-        raise ValueError(error_msg)
+        raise ValueError(error_msg) from e
 
 def process_anthropic_request(model: str, message: str, system_prompt: str) -> dict:
     api_key = API_CONFIGS['anthropic']['key']
@@ -633,7 +643,7 @@ def process_xai_request(model: str, message: str, persona: str) -> dict:
         }
     except Exception as e:
         app.logger.error(f"X AI request failed: {str(e)}")
-        raise ValueError(f"X AI request failed: {str(e)}")
+        raise ValueError(f"X AI request failed: {str(e)}") from e
 
 @app.route('/get_models/<provider>')
 def get_models(provider):
@@ -782,7 +792,7 @@ def update_ai_models_file(provider, models):
         
         # Load existing cache or create new one
         if models_cache_file.exists():
-            with open(models_cache_file, 'r') as f:
+            with open(models_cache_file) as f:
                 models_cache = json.load(f)
         else:
             models_cache = {}
@@ -810,7 +820,7 @@ def update_default_in_config(provider, model):
         
         # Load existing cache or create new one
         if defaults_cache_file.exists():
-            with open(defaults_cache_file, 'r') as f:
+            with open(defaults_cache_file) as f:
                 defaults_cache = json.load(f)
         else:
             defaults_cache = {}
