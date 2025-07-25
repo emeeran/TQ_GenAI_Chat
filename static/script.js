@@ -43,28 +43,30 @@ const elements = {
     provider: document.getElementById('provider'),
     model: document.getElementById('model'),
     persona: document.getElementById('persona'),
-    // customPersonaInput removed
+    customPersonaInput: document.getElementById('custom-persona-input'),
     personaContent: document.getElementById('persona-content')
 };
 
 // Persona selector logic
 if (elements.persona) {
-    const display = document.getElementById('persona-content-display');
-    async function updatePersonaContent() {
-        const personaId = elements.persona.value;
-        let content = '';
-        try {
-            const res = await fetch(`/get_persona_content/${personaId}`);
-            const data = await res.json();
-            content = data.content || '(No details for this persona)';
-        } catch (e) {
-            content = '(Error loading persona details)';
+    elements.persona.addEventListener('change', async function () {
+        if (this.value === 'custom') {
+            elements.customPersonaInput.classList.remove('d-none');
+            elements.personaContent.textContent = '';
+        } else {
+            elements.customPersonaInput.classList.add('d-none');
+            // Fetch persona content from backend
+            try {
+                const res = await fetch(`/get_persona_content/${this.value}`);
+                const data = await res.json();
+                elements.personaContent.textContent = data.content || '';
+            } catch (e) {
+                elements.personaContent.textContent = '';
+            }
         }
-        if (display) display.textContent = content;
-    }
-    elements.persona.addEventListener('change', updatePersonaContent);
-    // Initial load
-    updatePersonaContent();
+    });
+    // Trigger initial content
+    elements.persona.dispatchEvent(new Event('change'));
 }
 
 // Add request queue
@@ -169,7 +171,6 @@ function appendMessage(message, isUser = false, messageIndex = null) {
         });
 
         messageDiv.innerHTML = html;
-        messageDiv.classList.add('chat-response');
 
         // Add metadata if available
         if (content.metadata) {

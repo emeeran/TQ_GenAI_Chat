@@ -29,8 +29,18 @@ from services.xai_service import XAIService
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pydub")
 
 
+# ...existing code...
 
-# Initialize Flask app (only once)
+# Place this route after Flask app is initialized
+
+# ...existing code...
+
+# After app = Flask(...) and CORS/app.config setup
+
+
+# ...existing code...
+
+# Initialize Flask app
 app = Flask(__name__,
     template_folder=str(Path(__file__).parent / 'templates'),
     static_folder=str(Path(__file__).parent / 'static')
@@ -54,6 +64,16 @@ def get_persona_content(persona_id):
 PROCESSING_STATUS = status_tracker._statuses
 PROCESSING_ERRORS = {}
 
+# Initialize Flask app
+app = Flask(__name__,
+    template_folder=str(Path(__file__).parent / 'templates'),
+    static_folder=str(Path(__file__).parent / 'static')
+)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+app.config['JSON_SORT_KEYS'] = False
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024  # Increase to 64MB
+app.config['UPLOAD_FOLDER'] = str(Path(app.root_path) / 'uploads')
+app.config['MAX_FILES'] = 10
 
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

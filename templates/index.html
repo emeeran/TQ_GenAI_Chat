@@ -29,29 +29,28 @@
             <!-- Sidebar -->
             <div class="col-md-3 sidebar">
                 <div class="sidebar-title">
-                    <div class="sidebar-header">
-                        <img src="{{ url_for('static', filename='portrait-sketch-simple.svg') }}" alt="TQ" class="sidebar-icon">
-                        <h3>TQ AI Chat</h3>
+                    <div class="sidebar-header d-flex align-items-center justify-content-between" style="gap:0.7rem;">
+                        <div class="d-flex align-items-center" style="gap:0.7rem;">
+                            <img src="{{ url_for('static', filename='portrait-sketch-simple.svg') }}" alt="TQ" class="sidebar-icon">
+                            <h3 style="margin-bottom:0;">TQ AI Chat</h3>
+                        </div>
+                        <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" style="margin-left:0.5rem;">
+                            <i class="fas fa-moon"></i>
+                        </button>
                     </div>
                 </div>
 
                 <!-- Theme Toggle -->
-                <div class="settings-group mb-3">
-                    <div class="d-flex align-items-center justify-content-end">
-                        <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" aria-label="Toggle theme" style="font-size:1.5rem; border-radius:50%; width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center;">
-                            <i class="fas fa-moon" id="theme-toggle-icon"></i>
-                        </button>
-                    </div>
-                </div>
+                <!-- Theme Toggle moved to header -->
                 <!-- Model Settings -->
-                <div class="settings-group">
-                    <div class="settings-header" data-section="model">
-                        <h4><i class="fas fa-cog"></i> Model Settings</h4>
+                <div class="settings-group" style="margin-bottom:0.5rem;">
+                    <div class="settings-header" data-section="model" style="margin-bottom:0.08rem;">
+                        <h4 style="margin-bottom:0.08rem;"><i class="fas fa-cog"></i> Model Settings</h4>
                         <i class="fas fa-chevron-down"></i>
                     </div>
-                    <div class="settings-content" id="model-settings">
+                    <div class="settings-content" id="model-settings" style="padding-bottom:0.08rem;">
                         <!-- Model Action Icons -->
-                        <div class="model-actions mb-3">
+                        <div class="model-actions mb-1" style="margin-bottom:0.12rem;">
                             <button class="btn btn-outline-secondary btn-sm" onclick="updateModelsFromProvider()" id="update-models-btn" title="Update Models">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
@@ -59,9 +58,9 @@
                                 <i class="fas fa-star"></i>
                             </button>
                         </div>
-                        <div class="form-group">
-                            <label for="provider">API Provider</label>
-                            <select class="form-control" id="provider" onchange="updateModels()">
+                        <div class="form-group" style="margin-bottom:0.06rem;">
+                            <label for="provider" style="margin-bottom:0.03rem;">API Provider</label>
+                            <select class="form-control" id="provider" onchange="updateModels()" style="margin-bottom:0.03rem;">
                                 <option value="groq">Groq</option>
                                 <option value="openai">OpenAI</option>
                                 <option value="mistral">Mistral</option>
@@ -75,15 +74,15 @@
                                 <option value="huggingface">Hugging Face</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="model">Model</label>
-                            <select class="form-control" id="model" disabled>
+                        <div class="form-group" style="margin-bottom:0.06rem;">
+                            <label for="model" style="margin-bottom:0.03rem;">Model</label>
+                            <select class="form-control" id="model" disabled style="margin-bottom:0.03rem;">
                                 <option value="">Select Model</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="persona">Assistant Persona</label>
-                            <select class="form-control" id="persona">
+                        <div class="form-group" style="margin-bottom:0.06rem;">
+                            <label for="persona" style="margin-bottom:0.03rem;">Assistant Persona</label>
+                            <select class="form-control" id="persona" style="margin-bottom:0.03rem;">
                                 <option value="helpful_assistant" selected>Helpful Assistant</option>
                                 <option value="code_expert">Code Expert</option>
                                 <option value="medical_doctor">Medical Doctor</option>
@@ -96,34 +95,8 @@
                                 <option value="research_scientist">Research Scientist</option>
                                 <option value="custom">Custom Persona...</option>
                             </select>
-                            <input type="text" id="custom-persona-input" class="form-control mt-2" placeholder="Describe your custom persona..." style="display:none; background:#e0e0e0; color:#000;" autocomplete="off">
-                            <!-- Persona content will be shown below the selector -->
-                            <div id="persona-content-display" class="alert alert-secondary mt-2" style="min-height:2em; white-space:pre-line;"></div>
-
-                            <!-- Language Selector -->
-                            <label for="language" class="mt-3">Language</label>
-                            <select class="form-control" id="language">
-                                <option value="en">English</option>
-                                <option value="ta">Tamil</option>
-                                <option value="hi">Hindi</option>
-                                <option value="te">Telugu</option>
-                                <option value="kn">Kannada</option>
-                                <option value="ml">Malayalam</option>
-                                <option value="bn">Bengali</option>
-                                <option value="mr">Marathi</option>
-                                <option value="gu">Gujarati</option>
-                                <option value="pa">Punjabi</option>
-                                <option value="ur">Urdu</option>
-                                <option value="or">Odia</option>
-                                <option value="as">Assamese</option>
-                                <option value="bho">Bhojpuri</option>
-                                <option value="mai">Maithili</option>
-                                <option value="sa">Sanskrit</option>
-                                <option value="kok">Konkani</option>
-                                <option value="ks">Kashmiri</option>
-                                <option value="ne">Nepali</option>
-                                <option value="sd">Sind</option>
-                            </select>
+                            <input type="text" class="form-control mt-2 d-none" id="custom-persona-input" placeholder="Enter your custom persona..." style="margin-bottom:0.03rem;">
+                            <div id="persona-content" class="alert alert-secondary mt-2 small" style="white-space: pre-line; margin-bottom:0.03rem;"></div>
                         </div>
                     </div>
                 </div>
@@ -177,13 +150,9 @@
                         </div>
                         <div class="mb-3">
                             <label for="voice-select">Voice Selection</label>
-                            <div class="d-flex align-items-center gap-2">
-                                <select class="form-control" id="voice-select">
-                                    <option value="">Loading voices...</option>
-                                </select>
-                                <button class="btn btn-outline-secondary btn-sm" id="reload-voices-btn" type="button" title="Reload Voices" aria-label="Reload Voices"><i class="fas fa-sync-alt"></i></button>
-                            </div>
-                            <div id="voice-warning" class="text-warning small mt-1" style="display:none;"></div>
+                            <select class="form-control" id="voice-select">
+                                <option value="">Loading voices...</option>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label for="voice-rate">Speed</label>
@@ -312,7 +281,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
         document.getElementById('provider').addEventListener('change', async function () {
@@ -365,104 +333,6 @@
                 })
             });
         };
-
-        // Dynamically populate voice selection with all available voices
-        function populateVoices() {
-            const voiceSelect = document.getElementById('voice-select');
-            const warning = document.getElementById('voice-warning');
-            if (!voiceSelect) return;
-            const voices = window.speechSynthesis.getVoices();
-            voiceSelect.innerHTML = '';
-            // Group voices by language
-            const grouped = {};
-            voices.forEach(voice => {
-                const lang = voice.lang;
-                if (!grouped[lang]) grouped[lang] = [];
-                grouped[lang].push(voice);
-            });
-            Object.keys(grouped).sort().forEach(lang => {
-                const optgroup = document.createElement('optgroup');
-                optgroup.label = lang;
-                grouped[lang].forEach(voice => {
-                    const option = document.createElement('option');
-                    option.value = voice.name;
-                    option.textContent = `${voice.name} (${voice.lang})${voice.gender ? ' [' + voice.gender + ']' : ''}${voice.default ? ' [default]' : ''}`;
-                    if (voice.default) option.selected = true;
-                    optgroup.appendChild(option);
-                });
-                voiceSelect.appendChild(optgroup);
-            });
-            if (voices.length < 5) {
-                if (warning) {
-                    warning.style.display = '';
-                    warning.innerHTML = `
-                        <strong>Only a few voices loaded.</strong><br>
-                        <span style="color:#b85c00">This is a known Chrome/Chromium browser bug.</span><br>
-                        <ul style="margin:0 0 0 1.2em;padding:0;font-size:0.95em;">
-                          <li>Try clicking <b>Reload Voices</b> again or refreshing the page.</li>
-                          <li>If that doesn't work, <b>use Firefox</b> (or Safari/Edge) for full voice support.</li>
-                          <li>To add more voices, install additional system voices in your OS settings.</li>
-                        </ul>
-                        <a href="https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis/getVoices" target="_blank" rel="noopener" style="font-size:0.95em;">Learn more about browser voice support</a> 🛈
-                    `;
-                }
-            } else {
-                if (warning) warning.style.display = 'none';
-            }
-        }
-
-        function forceVoicesLoad(callback) {
-            const synth = window.speechSynthesis;
-            let tried = false;
-            function tryLoad() {
-                const voices = synth.getVoices();
-                if (voices.length > 5) {
-                    if (callback) callback();
-                } else if (!tried) {
-                    tried = true;
-                    // Speak a silent utterance to force load
-                    const utter = new SpeechSynthesisUtterance('');
-                    utter.volume = 0;
-                    synth.speak(utter);
-                    setTimeout(tryLoad, 250);
-                } else {
-                    if (callback) callback();
-                }
-            }
-            tryLoad();
-        }
-
-        function reloadVoices() {
-            forceVoicesLoad(populateVoices);
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.onvoiceschanged = populateVoices;
-                forceVoicesLoad(populateVoices);
-                const reloadBtn = document.getElementById('reload-voices-btn');
-                if (reloadBtn) reloadBtn.onclick = reloadVoices;
-            }
-        });
-
-        (function() {
-    const personaSelect = document.getElementById('persona');
-    const customInput = document.getElementById('custom-persona-input');
-    if (personaSelect && customInput) {
-        function toggleCustomInput() {
-            if (personaSelect.value === 'custom') {
-                customInput.style.display = '';
-                customInput.focus();
-            } else {
-                customInput.style.display = 'none';
-                customInput.value = '';
-            }
-        }
-        personaSelect.addEventListener('change', toggleCustomInput);
-        // On page load
-        toggleCustomInput();
-    }
-})();
     </script>
 </body>
 
