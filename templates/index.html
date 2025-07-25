@@ -395,7 +395,16 @@
             if (voices.length < 5) {
                 if (warning) {
                     warning.style.display = '';
-                    warning.textContent = 'Only a few voices loaded. Click Reload Voices or refresh the page.';
+                    warning.innerHTML = `
+                        <strong>Only a few voices loaded.</strong><br>
+                        <span style="color:#b85c00">This is a known Chrome/Chromium browser bug.</span><br>
+                        <ul style="margin:0 0 0 1.2em;padding:0;font-size:0.95em;">
+                          <li>Try clicking <b>Reload Voices</b> again or refreshing the page.</li>
+                          <li>If that doesn't work, <b>use Firefox</b> (or Safari/Edge) for full voice support.</li>
+                          <li>To add more voices, install additional system voices in your OS settings.</li>
+                        </ul>
+                        <a href="https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis/getVoices" target="_blank" rel="noopener" style="font-size:0.95em;">Learn more about browser voice support</a> 🛈
+                    `;
                 }
             } else {
                 if (warning) warning.style.display = 'none';
