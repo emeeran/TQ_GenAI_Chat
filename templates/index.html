@@ -29,14 +29,15 @@
             <!-- Sidebar -->
             <div class="col-md-3 sidebar">
                 <div class="sidebar-title">
-                    <div class="sidebar-header d-flex align-items-center justify-content-between" style="gap:0.7rem;">
-                        <div class="d-flex align-items-center" style="gap:0.7rem;">
-                            <img src="{{ url_for('static', filename='portrait-sketch-simple.svg') }}" alt="TQ" class="sidebar-icon">
-                            <h3 style="margin-bottom:0;">TQ AI Chat</h3>
-                        </div>
-                        <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" style="margin-left:0.5rem;">
-                            <i class="fas fa-moon"></i>
-                        </button>
+                    <div class="sidebar-header d-flex align-items-center justify-content-center" style="padding-top:0.7rem;padding-bottom:0.7rem;gap:0.7rem;">
+                        <span style="font-weight:900;letter-spacing:0.04em;font-size:2.3rem;
+                            font-family: 'Inter', 'Segoe UI', 'Roboto', Arial, sans-serif;
+                            background: linear-gradient(90deg, #007cf0 0%, #00dfd8 100%);
+                            background-clip: text;
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;
+                            text-shadow: 0 4px 16px rgba(0, 223, 216, 0.18), 0 1px 0 #fff;
+                            margin-bottom:0;line-height:1.1;display:block;text-align:center;">TQ AI Chat</span>
                     </div>
                 </div>
 
@@ -54,8 +55,14 @@
                             <button class="btn btn-outline-secondary btn-sm" onclick="updateModelsFromProvider()" id="update-models-btn" title="Update Models">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
-                            <button class="btn btn-outline-primary btn-sm ms-2" onclick="setDefaultModel()" id="set-default-btn" title="Set Default">
+                            <button class="btn btn-outline-warning btn-sm ms-2" onclick="setDefaultModel()" id="set-model-btn" title="Set Default Model">
                                 <i class="fas fa-star"></i>
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm ms-2" onclick="setDefaultProvider()" id="set-provider-btn" title="Set Default Provider">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <button class="btn btn-light btn-sm ms-2" onclick="toggleTheme()" id="theme-toggle-btn-model" title="Toggle Theme" style="box-shadow:none;border:none;background:transparent;">
+                                <i class="fas fa-adjust"></i>
                             </button>
                         </div>
                         <div class="form-group" style="margin-bottom:0.06rem;">
@@ -283,6 +290,97 @@
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
+        function setDefaultModel() {
+            const modelSelect = document.getElementById('model');
+            const selectedModel = modelSelect.value;
+            if (!selectedModel) {
+                alert('Please select a model to set as default.');
+                return;
+            }
+            // Save to localStorage or send to backend as needed
+            localStorage.setItem('defaultModel', selectedModel);
+            alert('Default model set to: ' + selectedModel);
+        }
+
+        function setDefaultProvider() {
+            const providerSelect = document.getElementById('provider');
+            const selectedProvider = providerSelect.value;
+            if (!selectedProvider) {
+                alert('Please select a provider to set as default.');
+                return;
+            }
+            // Save to localStorage or send to backend as needed
+            localStorage.setItem('defaultProvider', selectedProvider);
+            alert('Default provider set to: ' + selectedProvider);
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            if (body.classList.contains('theme-dark')) {
+                body.classList.remove('theme-dark');
+                body.classList.add('theme-light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.classList.remove('theme-light');
+                body.classList.add('theme-dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // On page load, apply saved theme
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('theme-dark');
+            } else {
+                document.body.classList.add('theme-light');
+            }
+        });
+    </script>
+    <script>
+        // Persona content mapping
+        const personaContents = {
+            "helpful_assistant": "A friendly, helpful AI assistant for general tasks and questions.",
+            "code_expert": "Expert in programming, code review, and software engineering.",
+            "medical_doctor": "Provides medical information and advice. Not a substitute for professional care.",
+            "psychologist": "Offers psychological insights and support. Not a substitute for therapy.",
+            "historian": "Shares historical facts, context, and analysis.",
+            "science_educator": "Explains scientific concepts and answers science questions.",
+            "business_analyst": "Analyzes business problems, strategy, and data.",
+            "legal_advisor": "Provides legal information and context. Not a substitute for a lawyer.",
+            "tech_reviewer": "Reviews and explains technology products and trends.",
+            "research_scientist": "Expert in research methods, data analysis, and scientific literature.",
+            "custom": ""
+        };
+
+        function updatePersonaContent() {
+            const personaSelect = document.getElementById('persona');
+            const customInput = document.getElementById('custom-persona-input');
+            const contentDiv = document.getElementById('persona-content');
+            let persona = personaSelect.value;
+            if (persona === 'custom') {
+                customInput.classList.remove('d-none');
+                contentDiv.textContent = customInput.value || 'Describe your custom persona above.';
+            } else {
+                customInput.classList.add('d-none');
+                customInput.value = '';
+                contentDiv.textContent = personaContents[persona] || '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const personaSelect = document.getElementById('persona');
+            const customInput = document.getElementById('custom-persona-input');
+            if (personaSelect) {
+                personaSelect.addEventListener('change', updatePersonaContent);
+                updatePersonaContent();
+            }
+            if (customInput) {
+                customInput.addEventListener('input', updatePersonaContent);
+            }
+        });
+    </script>
+    <script>
         document.getElementById('provider').addEventListener('change', async function () {
             const modelSelect = document.getElementById('model');
             const provider = this.value;
@@ -295,6 +393,20 @@
 
             try {
                 const response = await fetch(`/get_models/${provider}`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        alert('Model list not found for this provider (404).');
+                    } else if (response.status === 400) {
+                        alert('Bad request for model list (400).');
+                    } else if (response.status === 304) {
+                        alert('Model list not modified (304). Try refreshing.');
+                    } else {
+                        alert(`Error fetching models: ${response.status}`);
+                    }
+                    modelSelect.disabled = true;
+                    modelSelect.innerHTML = '<option value="">Select Model</option>';
+                    return;
+                }
                 const models = await response.json();
 
                 modelSelect.innerHTML = '<option value="">Select Model</option>';
@@ -307,6 +419,7 @@
 
                 modelSelect.disabled = false;
             } catch (error) {
+                alert('Network or server error fetching models.');
                 console.error('Error fetching models:', error);
             }
         });
@@ -321,17 +434,35 @@
                 return;
             }
 
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: message,
-                    provider: provider,
-                    model: model
-                })
-            });
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        provider: provider,
+                        model: model
+                    })
+                });
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        alert('Chat endpoint not found (404).');
+                    } else if (response.status === 400) {
+                        alert('Bad request to chat endpoint (400).');
+                    } else if (response.status === 304) {
+                        alert('Chat response not modified (304). Try refreshing.');
+                    } else {
+                        alert(`Error sending message: ${response.status}`);
+                    }
+                    return;
+                }
+                // ...handle response as needed...
+            } catch (error) {
+                alert('Network or server error sending message.');
+                console.error('Error sending message:', error);
+            }
         };
     </script>
 </body>

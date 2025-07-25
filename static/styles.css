@@ -3,6 +3,12 @@ body.theme-light {
     background-color: #f0f0f0;
     color: #222;
 }
+.form-control, .form-select {
+    color: #222 !important;
+}
+.chat-box, .chat-area, .chat-response {
+    color: #222 !important;
+}
 .theme-light .sidebar {
     background: linear-gradient(145deg, #ffffff, #f8f9fa);
     color: #222;
@@ -20,6 +26,13 @@ body.theme-light {
 body.theme-dark {
     background-color: #181a1b;
     color: #e0e0e0;
+}
+.theme-dark .form-control, .theme-dark .form-select {
+    color: #fff !important;
+}
+.theme-dark .chat-box, .theme-dark .chat-area, .theme-dark .chat-response {
+    color: #222 !important;
+}
 }
 .theme-dark .sidebar {
     background: linear-gradient(145deg, #23272b, #181a1b);
