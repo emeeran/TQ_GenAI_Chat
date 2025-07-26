@@ -1,31 +1,32 @@
 
 # --- Imports (PEP 8: all imports at the top) ---
-import sys
-import tempfile
+
+
+import anthropic
 import asyncio
 import io
 import json
 import os
-import time
-import warnings
-import anthropic
 import requests
 import speech_recognition as sr
-from pathlib import Path
+import sys
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
+from core.file_processor import FileProcessor, ProcessingError, status_tracker
 from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
-from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache, wraps
-from pydub import AudioSegment
-from werkzeug.utils import secure_filename
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from pathlib import Path
 from persona import PERSONAS
-from core.file_processor import FileProcessor, ProcessingError, status_tracker
+from pydub import AudioSegment
+from requests.adapters import HTTPAdapter
 from services.file_manager import FileManager
 from services.xai_service import XAIService
+from urllib3.util.retry import Retry
+from werkzeug.utils import secure_filename
 
 # --- Text-to-Speech (TTS) with Multiple Voices ---
 try:
@@ -207,10 +208,10 @@ API_CONFIGS = {
         "fallback": "gemini-1.5-flash"
     },
     "cohere": {
-        "endpoint": "https://api.cohere.com/v1/chat",
+        "endpoint": "https://api.cohere.com/v2/chat",
         "key": os.getenv("COHERE_API_KEY", ""),
-        "default": "command-r",
-        "fallback": "command"
+        "default": "command-r-plus-08-2024",
+        "fallback": "command-r-08-2024"
     },
     "alibaba": {
         "endpoint": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
@@ -670,7 +671,7 @@ Please synthesize a clear, well-organized answer using this context where releva
         payload = {
             'model': model,
             'messages': [
-                {'role': 'USER', 'content': message}
+                {'role': 'user', 'content': message}
             ]
         }
     else:
@@ -742,10 +743,15 @@ Please synthesize a clear, well-organized answer using this context where releva
                     }
                 last_error = 'Invalid response structure from Alibaba DashScope API'
             elif provider == 'cohere':
-                if 'text' in result:
+                # Cohere v2: extract text from result['message']['content'][0]['text']
+                try:
+                    text = result["message"]["content"][0]["text"]
+                except (KeyError, IndexError, TypeError):
+                    text = None
+                if text:
                     return {
                         'response': {
-                            'text': result['text'],
+                            'text': text,
                             'metadata': {
                                 'provider': provider,
                                 'model': model_to_use,

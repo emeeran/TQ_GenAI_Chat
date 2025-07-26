@@ -154,22 +154,28 @@ GEMINI_MODELS = {
 
 # Cohere Models (latest as of July 2025)
 COHERE_MODELS = {
+    'command-r-plus-08-2024': {
+        'name': 'Command R+ (Aug 2024)',
+        'context_window': 128000,
+        'max_output_tokens': 4096,
+        'supports_function_calling': True
+    },
+    'command-r-08-2024': {
+        'name': 'Command R (Aug 2024)',
+        'context_window': 128000,
+        'max_output_tokens': 4096,
+        'supports_function_calling': True
+    },
+    'command-r7b-12-2024': {
+        'name': 'Command R7B (Dec 2024)',
+        'context_window': 128000,
+        'max_output_tokens': 4096,
+        'supports_function_calling': True
+    },
     'command-a-03-2025': {
-        'name': 'Command A',
+        'name': 'Command A (Mar 2025)',
         'context_window': 256000,
         'max_output_tokens': 8192,
-        'supports_function_calling': True
-    },
-    'command-r-plus': {
-        'name': 'Command R+',
-        'context_window': 128000,
-        'max_output_tokens': 4096,
-        'supports_function_calling': True
-    },
-    'command-r': {
-        'name': 'Command R',
-        'context_window': 128000,
-        'max_output_tokens': 4096,
         'supports_function_calling': True
     },
     'command': {
@@ -281,11 +287,11 @@ DEFAULT_MODELS = {
     'anthropic': 'claude-3-5-sonnet-latest',
     'deepseek': 'deepseek-chat',
     'gemini': 'gemini-2.5-flash',
-    'cohere': 'command-r',
+    'cohere': 'command-r-plus-08-2024',
     'alibaba': 'qwen-2.5-72b-instruct',
     'openrouter': 'moonshot/moonshot-v1-32k',
-    'huggingface': 'meta-llama/Llama-2-70b-chat-hf'
-    , 'moonshot': 'moonshot-v1-32k'
+    'huggingface': 'meta-llama/Llama-2-70b-chat-hf',
+    'moonshot': 'moonshot-v1-32k'
 }
 
 # API Endpoints
@@ -297,11 +303,11 @@ API_ENDPOINTS = {
     'xai': 'https://api.x.ai/v1/chat/completions',
     'deepseek': 'https://api.deepseek.com/v1/chat/completions',
     'gemini': 'https://generativelanguage.googleapis.com/v1/models/',
-    'cohere': 'https://api.cohere.com/v1/chat',
+    'cohere': 'https://api.cohere.com/v2/chat',
     'alibaba': 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
     'openrouter': 'https://openrouter.ai/api/v1/chat/completions',
-    'huggingface': 'https://api-inference.huggingface.co/models/'
-    , 'moonshot': 'https://api.moonshot.ai/v1/chat/completions'
+    'huggingface': 'https://api-inference.huggingface.co/models/',
+    'moonshot': 'https://api.moonshot.ai/v1/chat/completions'
 }
 
 # Function to get model info

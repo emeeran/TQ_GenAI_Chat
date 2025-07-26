@@ -720,7 +720,16 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
 
         clearTimeout(timeout);
 
-        const data = await response.json();
+        let text = await response.text();
+        let data = null;
+        try {
+            data = JSON.parse(text);
+        } catch (jsonErr) {
+            // Not valid JSON, show as error
+            appendMessage(`Error: ${text || 'Unknown error from server.'}`, false);
+            showProcessing(false);
+            return;
+        }
 
         if (!response.ok) {
             throw new Error(data.error || `HTTP error! status: ${response.status}`);
