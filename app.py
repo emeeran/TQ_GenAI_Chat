@@ -1,7 +1,6 @@
 
+
 # --- Imports (PEP 8: all imports at the top) ---
-
-
 import anthropic
 import asyncio
 import io
@@ -16,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from core.file_processor import FileProcessor, ProcessingError, status_tracker
 from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, Response, stream_with_context
 from flask_cors import CORS
 from functools import lru_cache, wraps
 from pathlib import Path
@@ -325,12 +324,9 @@ MODEL_CONFIGS = {
         "meta-llama/llama-3.3-70b-versatile",
         "qwen/qwen3-32b"
     ],
+    # Only include free-tier models for Hugging Face Inference API (as of July 2025)
     "huggingface": [
-        "moonshotai/Kimi-K2-Instruct",
-        "Qwen/Qwen3-235B-A22B-Instruct-2507",
-        "mistralai/Voxtral-Small-24B-2507",
-        "mistralai/Voxtral-Mini-3B-2507",
-        "meta-llama/Llama-2-70b-chat-hf"
+        "Qwen/Qwen3-Coder-480B-A35B-Instruct"  # Novita provider, free-tier
     ]
     , "moonshot": [
         "moonshot-v1-32k",
@@ -643,17 +639,21 @@ Please synthesize a clear, well-organized answer using this context where releva
             ]
         }
     elif provider == 'huggingface':
-        # Hugging Face endpoint must include model name
-        from ai_models import HUGGINGFACE_MODELS
-        if model not in HUGGINGFACE_MODELS:
-            raise ValueError(f"Model '{model}' is not supported or not configured for Hugging Face. Please select a supported model.")
-        endpoint = f"https://api-inference.huggingface.co/models/{model}"
-        headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
+        # Only allow free-tier models for Hugging Face
+        allowed_hf_models = ["Qwen/Qwen3-Coder-480B-A35B-Instruct"]
+        if model not in allowed_hf_models:
+            raise ValueError(f"Model '{model}' is not available for free-tier Hugging Face inference. Please select Qwen/Qwen3-Coder-480B-A35B-Instruct.")
+        # Use OpenAI-compatible endpoint and payload for Qwen/Qwen3-Coder-480B-A35B-Instruct
+        endpoint = "https://router.huggingface.co/v1/chat/completions"
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
         payload = {
-            'inputs': message,
-            'parameters': {
-                'return_full_text': False
-            }
+            'model': f'{model}:novita',
+            'messages': [
+                {'role': 'user', 'content': message}
+            ]
         }
     elif provider == 'openrouter':
         # OpenRouter expects 'model' and 'messages' array
@@ -713,7 +713,22 @@ Please synthesize a clear, well-organized answer using this context where releva
             result = response.json()
             # Provider-specific response parsing
             if provider == 'huggingface':
-                if isinstance(result, list) and result and 'generated_text' in result[0]:
+                if model.lower().startswith("qwen/qwen3-coder-480b-a35b-instruct"):
+                    # OpenAI-compatible response
+                    if 'choices' in result and result['choices']:
+                        return {
+                            'response': {
+                                'text': result['choices'][0]['message']['content'],
+                                'metadata': {
+                                    'provider': provider,
+                                    'model': model_to_use,
+                                    'response_time': f"{response.elapsed.total_seconds()}s",
+                                    'fallback_used': model_to_use != model
+                                }
+                            }
+                        }
+                    last_error = 'Invalid response structure from Hugging Face OpenAI-compatible API'
+                elif isinstance(result, list) and result and 'generated_text' in result[0]:
                     return {
                         'response': {
                             'text': result[0]['generated_text'],
@@ -725,7 +740,8 @@ Please synthesize a clear, well-organized answer using this context where releva
                             }
                         }
                     }
-                last_error = 'Invalid response structure from Hugging Face API'
+                else:
+                    last_error = 'Invalid response structure from Hugging Face API'
             elif provider == 'alibaba':
                 # OpenAI-compatible: extract text from choices[0].message.content
                 try:
