@@ -1,21 +1,23 @@
 
+# --- Imports (PEP 8: all imports at the top) ---
+import sys
+import tempfile
 import asyncio
 import io
 import json
 import os
 import time
 import warnings
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-from functools import lru_cache, wraps
-from pathlib import Path
-
 import anthropic
 import requests
 import speech_recognition as sr
+from pathlib import Path
+from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache, wraps
 from pydub import AudioSegment
 from werkzeug.utils import secure_filename
 from requests.adapters import HTTPAdapter
@@ -25,22 +27,17 @@ from core.file_processor import FileProcessor, ProcessingError, status_tracker
 from services.file_manager import FileManager
 from services.xai_service import XAIService
 
-# Suppress pydub regex syntax warnings for Python 3.12+
-warnings.filterwarnings("ignore", category=SyntaxWarning, module="pydub")
+# --- Text-to-Speech (TTS) with Multiple Voices ---
+try:
+    import pyttsx3
+except ImportError:
+    pyttsx3 = None
+try:
+    from gtts import gTTS
+except ImportError:
+    gTTS = None
 
-
-# ...existing code...
-
-# Place this route after Flask app is initialized
-
-# ...existing code...
-
-# After app = Flask(...) and CORS/app.config setup
-
-
-# ...existing code...
-
-# Initialize Flask app
+# Initialize Flask app (must be before any @app.route usage)
 app = Flask(__name__,
     template_folder=str(Path(__file__).parent / 'templates'),
     static_folder=str(Path(__file__).parent / 'static')
@@ -51,36 +48,72 @@ app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024  # Increase to 64MB
 app.config['UPLOAD_FOLDER'] = str(Path(app.root_path) / 'uploads')
 app.config['MAX_FILES'] = 10
 
-# ...existing code...
-
-@app.route('/get_persona_content/<persona_id>', methods=['GET'])
-def get_persona_content(persona_id):
-    """Return the content of the selected persona, or blank for custom."""
-    if persona_id == 'custom':
-        return jsonify({'content': ''})
-    content = PERSONAS.get(persona_id, '')
-    return jsonify({'content': content})
+# Initialize services and globals after app is created
+with app.app_context():
+    file_manager = FileManager()
 
 PROCESSING_STATUS = status_tracker._statuses
 PROCESSING_ERRORS = {}
 
-# Initialize Flask app
-app = Flask(__name__,
-    template_folder=str(Path(__file__).parent / 'templates'),
-    static_folder=str(Path(__file__).parent / 'static')
-)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
-app.config['JSON_SORT_KEYS'] = False
-app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024  # Increase to 64MB
-app.config['UPLOAD_FOLDER'] = str(Path(app.root_path) / 'uploads')
-app.config['MAX_FILES'] = 10
+def get_tts_voices():
+    voices = []
+    if pyttsx3:
+        engine = pyttsx3.init()
+        for v in engine.getProperty('voices'):
+            voices.append({'id': v.id, 'name': v.name, 'lang': v.languages[0] if v.languages else '', 'gender': getattr(v, 'gender', '')})
+    if gTTS:
+        # gTTS supports many languages, but not voice selection; return language codes
+        voices.append({'id': 'gtts', 'name': 'Google TTS', 'lang': 'en', 'gender': ''})
+    return voices
 
-# Ensure upload directory exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+@app.route('/tts/voices', methods=['GET'])
+def tts_voices():
+    """Return available TTS voices."""
+    return jsonify({'voices': get_tts_voices()})
 
-# Initialize services with app context
-with app.app_context():
-    file_manager = FileManager()
+@app.route('/tts', methods=['POST'])
+def tts():
+    """Convert text to speech with selectable voice."""
+    data = request.get_json()
+    text = data.get('text', '')
+    voice_id = data.get('voice_id', None)
+    lang = data.get('lang', 'en')
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    # Try pyttsx3 first
+    if pyttsx3:
+        engine = pyttsx3.init()
+        if voice_id:
+            try:
+                engine.setProperty('voice', voice_id)
+            except Exception:
+                pass
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
+            engine.save_to_file(text, tf.name)
+            engine.runAndWait()
+            tf.seek(0)
+            audio_data = tf.read()
+        os.unlink(tf.name)
+        return (audio_data, 200, {'Content-Type': 'audio/wav'})
+    # Fallback to gTTS
+    elif gTTS:
+        try:
+            tts = gTTS(text=text, lang=lang)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tf:
+                tts.save(tf.name)
+                tf.seek(0)
+                audio_data = tf.read()
+            os.unlink(tf.name)
+            return (audio_data, 200, {'Content-Type': 'audio/mpeg'})
+        except Exception as e:
+            return jsonify({'error': f'gTTS error: {str(e)}'}), 500
+    else:
+        return jsonify({'error': 'No TTS engine available. Please install pyttsx3 or gTTS.'}), 500
+
+
+
+
+# ...existing code...
 
 # Optimization settings
 CACHE_TTL = 300
@@ -575,7 +608,7 @@ Please synthesize a clear, well-organized answer using this context where releva
                     retries += 1
                 else:
                     raise
-        raise ValueError(f"All attempts failed for provider 'xai'. Last error: Rate limit exceeded or unknown error.")
+        raise ValueError("All attempts failed for provider 'xai'. Last error: Rate limit exceeded or unknown error.")
     elif provider == 'gemini':
         return process_gemini_request(model, message, persona)
 
@@ -1416,7 +1449,6 @@ def home():
 
 def main():
     """Main entry point for the console script"""
-    import sys
     
     # Handle command line arguments
     if len(sys.argv) > 1:
