@@ -288,7 +288,7 @@ DEFAULT_MODELS = {
     'deepseek': 'deepseek-chat',
     'gemini': 'gemini-2.5-flash',
     'cohere': 'command-r-plus-08-2024',
-    'alibaba': 'qwen-2.5-72b-instruct',
+    'alibaba': 'qwen-plus',
     'openrouter': 'moonshot/moonshot-v1-32k',
     'huggingface': 'meta-llama/Llama-2-70b-chat-hf',
     'moonshot': 'moonshot-v1-32k'

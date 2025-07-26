@@ -214,10 +214,11 @@ API_CONFIGS = {
         "fallback": "command-r-08-2024"
     },
     "alibaba": {
-        "endpoint": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
-        "key": os.getenv("ALIBABA_API_KEY", ""),
-        "default": "qwen-2.5-72b-instruct",
-        "fallback": "qwen-2.5-32b-instruct"
+        # OpenAI-compatible endpoint for Qwen
+        "endpoint": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        "key": os.getenv("DASHSCOPE_API_KEY", ""),
+        "default": "qwen-plus",
+        "fallback": "qwen-turbo"
     },
     "openrouter": {
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
@@ -633,16 +634,13 @@ Please synthesize a clear, well-organized answer using this context where releva
     payload = None
 
     if provider == 'alibaba':
-        # Alibaba DashScope expects 'input' and 'model' fields
+        # Alibaba Qwen OpenAI-compatible API expects 'model' and 'messages' fields
         payload = {
             'model': model,
-            'input': {
-                'prompt': message
-            },
-            'parameters': {
-                'top_p': 0.8,
-                'temperature': 0.7
-            }
+            'messages': [
+                {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
+                {'role': 'user', 'content': message}
+            ]
         }
     elif provider == 'huggingface':
         # Hugging Face endpoint must include model name
@@ -729,10 +727,15 @@ Please synthesize a clear, well-organized answer using this context where releva
                     }
                 last_error = 'Invalid response structure from Hugging Face API'
             elif provider == 'alibaba':
-                if 'output' in result and 'text' in result['output']:
+                # OpenAI-compatible: extract text from choices[0].message.content
+                try:
+                    text = result["choices"][0]["message"]["content"]
+                except (KeyError, IndexError, TypeError):
+                    text = None
+                if text:
                     return {
                         'response': {
-                            'text': result['output']['text'],
+                            'text': text,
                             'metadata': {
                                 'provider': provider,
                                 'model': model_to_use,
@@ -741,7 +744,7 @@ Please synthesize a clear, well-organized answer using this context where releva
                             }
                         }
                     }
-                last_error = 'Invalid response structure from Alibaba DashScope API'
+                last_error = 'Invalid response structure from Alibaba Qwen API'
             elif provider == 'cohere':
                 # Cohere v2: extract text from result['message']['content'][0]['text']
                 try:
