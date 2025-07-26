@@ -186,6 +186,12 @@ API_CONFIGS = {
         "default": "meta-llama/Llama-2-70b-chat-hf",
         "fallback": "microsoft/DialoGPT-large"
     }
+    , "moonshot": {
+        "endpoint": "https://api.moonshot.ai/v1/chat/completions",
+        "key": os.getenv("MOONSHOT_API_KEY", ""),
+        "default": "moonshot-v1-32k",
+        "fallback": "moonshot-v1-128k"
+    }
 }
 
 # Model configurations
@@ -279,6 +285,10 @@ MODEL_CONFIGS = {
         "mistralai/Voxtral-Small-24B-2507",
         "mistralai/Voxtral-Mini-3B-2507",
         "meta-llama/Llama-2-70b-chat-hf"
+    ]
+    , "moonshot": [
+        "moonshot-v1-32k",
+        "moonshot-v1-128k"
     ]
 }
 
@@ -543,66 +553,207 @@ Please synthesize a clear, well-organized answer using this context where releva
     except Exception as e:
         app.logger.warning(f"Error getting document context: {str(e)}")
 
-    # Add markdown formatting instruction to all providers
+
     markdown_instruction = "Format your response using proper Markdown. Use headers (###) for sections, code blocks for examples or quotes (```), and proper linking when referencing sources. Use bullet points and numbered lists where appropriate."
 
-    # Handle different providers
+    # Handle special providers
     if provider == 'anthropic':
         system_prompt = f"{PERSONAS.get(persona, '')}\n{markdown_instruction}"
         return process_anthropic_request(model, message, system_prompt)
     elif provider == 'xai':
-        return process_xai_request(model, message, f"{persona}\n{markdown_instruction}")
+        # Add exponential backoff for rate limit errors
+        import time
+        retries = 0
+        while retries < MAX_RETRIES:
+            try:
+                return process_xai_request(model, message, f"{persona}\n{markdown_instruction}")
+            except Exception as e:
+                if '429' in str(e):
+                    wait_time = 2 ** retries
+                    app.logger.warning(f"XAI rate limit hit, retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    retries += 1
+                else:
+                    raise
+        raise ValueError(f"All attempts failed for provider 'xai'. Last error: Rate limit exceeded or unknown error.")
     elif provider == 'gemini':
         return process_gemini_request(model, message, persona)
 
-    # Add markdown formatting instruction to system prompt
     config = API_CONFIGS[provider]
     endpoint = config['endpoint']
     api_key = config['key']
 
+    # Provider-specific request logic
     headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
-    payload = {
-        'model': model,
-        'messages': [
-            {'role': 'system', 'content': f"""Persona: {persona}
-{markdown_instruction}
+    payload = None
 
-When using context from documents, format the references like this:
-> Source: [filename] (relevance: XX%)"""},
-            {'role': 'user', 'content': message}
-        ]
-    }
-
-    try:
-        session = create_request_session()
-        response = session.post(
-            endpoint,
-            headers=headers,
-            json=payload,
-            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
-        )
-        response.raise_for_status()
-
-        result = response.json()
-        if 'choices' in result and result['choices']:
-            return {
-                'response': {
-                    'text': result['choices'][0]['message']['content'],
-                    'metadata': {'provider': provider, 'model': model, 'response_time': f"{response.elapsed.total_seconds()}s"}
-                }
+    if provider == 'alibaba':
+        # Alibaba DashScope expects 'input' and 'model' fields
+        payload = {
+            'model': model,
+            'input': {
+                'prompt': message
+            },
+            'parameters': {
+                'top_p': 0.8,
+                'temperature': 0.7
             }
+        }
+    elif provider == 'huggingface':
+        # Hugging Face endpoint must include model name
+        from ai_models import HUGGINGFACE_MODELS
+        if model not in HUGGINGFACE_MODELS:
+            raise ValueError(f"Model '{model}' is not supported or not configured for Hugging Face. Please select a supported model.")
+        endpoint = f"https://api-inference.huggingface.co/models/{model}"
+        headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
+        payload = {
+            'inputs': message,
+            'parameters': {
+                'return_full_text': False
+            }
+        }
+    elif provider == 'openrouter':
+        # OpenRouter expects 'model' and 'messages' array
+        payload = {
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
+                {'role': 'user', 'content': message}
+            ]
+        }
+    elif provider == 'cohere':
+        # Cohere expects 'model' and 'messages' array
+        payload = {
+            'model': model,
+            'messages': [
+                {'role': 'USER', 'content': message}
+            ]
+        }
+    else:
+        # Default: OpenAI-like
+        payload = {
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
+                {'role': 'user', 'content': message}
+            ]
+        }
 
-        raise ValueError('Invalid response structure from API')
+    retries = 0
+    last_error = None
+    session = create_request_session()
+    models_to_try = [model]
+    fallback_model = config.get('fallback')
+    if fallback_model and fallback_model != model:
+        models_to_try.append(fallback_model)
 
-    except requests.Timeout as e:
-        error_msg = f"Request to {provider} timed out after {READ_TIMEOUT}s"
-        app.logger.error(error_msg)
-        raise ValueError(error_msg) from e
+    for model_to_use in models_to_try:
+        if provider == 'huggingface':
+            endpoint = f"https://api-inference.huggingface.co/models/{model_to_use}"
+        payload['model'] = model_to_use if provider != 'huggingface' else None
+        try:
+            response = session.post(
+                endpoint,
+                headers=headers,
+                json=payload,
+                timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
+            )
+            try:
+                response.raise_for_status()
+            except requests.HTTPError:
+                if provider == 'huggingface' and response.status_code == 404:
+                    last_error = f"Model '{model_to_use}' not found on Hugging Face. Please check the model name or your API access permissions."
+                    app.logger.error(f"{last_error}\nEndpoint: {endpoint}")
+                    break
+                else:
+                    raise
+            result = response.json()
+            # Provider-specific response parsing
+            if provider == 'huggingface':
+                if isinstance(result, list) and result and 'generated_text' in result[0]:
+                    return {
+                        'response': {
+                            'text': result[0]['generated_text'],
+                            'metadata': {
+                                'provider': provider,
+                                'model': model_to_use,
+                                'response_time': f"{response.elapsed.total_seconds()}s",
+                                'fallback_used': model_to_use != model
+                            }
+                        }
+                    }
+                last_error = 'Invalid response structure from Hugging Face API'
+            elif provider == 'alibaba':
+                if 'output' in result and 'text' in result['output']:
+                    return {
+                        'response': {
+                            'text': result['output']['text'],
+                            'metadata': {
+                                'provider': provider,
+                                'model': model_to_use,
+                                'response_time': f"{response.elapsed.total_seconds()}s",
+                                'fallback_used': model_to_use != model
+                            }
+                        }
+                    }
+                last_error = 'Invalid response structure from Alibaba DashScope API'
+            elif provider == 'cohere':
+                if 'text' in result:
+                    return {
+                        'response': {
+                            'text': result['text'],
+                            'metadata': {
+                                'provider': provider,
+                                'model': model_to_use,
+                                'response_time': f"{response.elapsed.total_seconds()}s",
+                                'fallback_used': model_to_use != model
+                            }
+                        }
+                    }
+                last_error = 'Invalid response structure from Cohere API'
+            elif provider == 'openrouter':
+                if 'choices' in result and result['choices']:
+                    return {
+                        'response': {
+                            'text': result['choices'][0]['message']['content'],
+                            'metadata': {
+                                'provider': provider,
+                                'model': model_to_use,
+                                'response_time': f"{response.elapsed.total_seconds()}s",
+                                'fallback_used': model_to_use != model
+                            }
+                        }
+                    }
+                last_error = 'Invalid response structure from OpenRouter API'
+            else:
+                if 'choices' in result and result['choices']:
+                    return {
+                        'response': {
+                            'text': result['choices'][0]['message']['content'],
+                            'metadata': {
+                                'provider': provider,
+                                'model': model_to_use,
+                                'response_time': f"{response.elapsed.total_seconds()}s",
+                                'fallback_used': model_to_use != model
+                            }
+                        }
+                    }
+                last_error = 'Invalid response structure from API'
+        except requests.Timeout:
+            last_error = f"Request to {provider} timed out after {READ_TIMEOUT}s (model: {model_to_use})"
+            app.logger.error(last_error)
+        except requests.RequestException as e:
+            last_error = f"API request failed: {str(e)} (model: {model_to_use})"
+            app.logger.error(f"{last_error}\nEndpoint: {endpoint}")
+        except Exception as e:
+            last_error = f"Unexpected error: {str(e)} (model: {model_to_use})"
+            app.logger.error(last_error)
+        retries += 1
+        if retries >= MAX_RETRIES:
+            break
 
-    except requests.RequestException as e:
-        error_msg = f"API request failed: {str(e)}"
-        app.logger.error(f"{error_msg}\nEndpoint: {endpoint}")
-        raise ValueError(error_msg) from e
+    # If all attempts failed, return error info for frontend retry modal
+    raise ValueError(f"All attempts failed for provider '{provider}'. Last error: {last_error}")
 
 def process_anthropic_request(model: str, message: str, system_prompt: str) -> dict:
     api_key = API_CONFIGS['anthropic']['key']

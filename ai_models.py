@@ -225,6 +225,34 @@ HUGGINGFACE_MODELS = {
         'context_window': 131072,
         'max_output_tokens': 32768,
         'provider': 'Moonshot'
+    },
+    'mistralai/Voxtral-Small-24B-2507': {
+        'name': 'Voxtral Small 24B',
+        'context_window': 131072,
+        'max_output_tokens': 8192,
+        'provider': 'Mistral'
+    },
+    'mistralai/Voxtral-Mini-3B-2507': {
+        'name': 'Voxtral Mini 3B',
+        'context_window': 131072,
+        'max_output_tokens': 8192,
+        'provider': 'Mistral'
+    }
+}
+
+# Moonshot Models (latest as of July 2025)
+MOONSHOT_MODELS = {
+    'moonshot-v1-32k': {
+        'name': 'Moonshot v1 32K',
+        'context_window': 32768,
+        'max_output_tokens': 8192,
+        'supports_function_calling': True
+    },
+    'moonshot-v1-128k': {
+        'name': 'Moonshot v1 128K',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'supports_function_calling': True
     }
 }
 
@@ -241,6 +269,7 @@ ALL_MODELS = {
     'alibaba': list(ALIBABA_MODELS.keys()),
     'openrouter': list(OPENROUTER_MODELS.keys()),
     'huggingface': list(HUGGINGFACE_MODELS.keys())
+    , 'moonshot': list(MOONSHOT_MODELS.keys())
 }
 
 # Default models for each provider
@@ -251,11 +280,12 @@ DEFAULT_MODELS = {
     'mistral': 'codestral-latest',
     'anthropic': 'claude-3-5-sonnet-latest',
     'deepseek': 'deepseek-chat',
-    'gemini': 'gemini-1.5-flash',
+    'gemini': 'gemini-2.5-flash',
     'cohere': 'command-r',
     'alibaba': 'qwen-2.5-72b-instruct',
     'openrouter': 'moonshot/moonshot-v1-32k',
     'huggingface': 'meta-llama/Llama-2-70b-chat-hf'
+    , 'moonshot': 'moonshot-v1-32k'
 }
 
 # API Endpoints
@@ -271,6 +301,7 @@ API_ENDPOINTS = {
     'alibaba': 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
     'openrouter': 'https://openrouter.ai/api/v1/chat/completions',
     'huggingface': 'https://api-inference.huggingface.co/models/'
+    , 'moonshot': 'https://api.moonshot.ai/v1/chat/completions'
 }
 
 # Function to get model info
@@ -288,6 +319,7 @@ def get_model_info(provider: str, model: str) -> dict:
         'alibaba': ALIBABA_MODELS,
         'openrouter': OPENROUTER_MODELS,
         'huggingface': HUGGINGFACE_MODELS
+        , 'moonshot': MOONSHOT_MODELS
     }
 
     return model_dict_map.get(provider, {}).get(model, {})

@@ -1,12 +1,11 @@
 # AI Models Configuration Utilities
-from typing import Dict, Any, Optional, List
-
+from typing import Any
 from ai_models import (
-    OPENAI_MODELS, GROQ_MODELS, ANTHROPIC_MODELS, MISTRAL_MODELS, 
-    XAI_MODELS, DEEPSEEK_MODELS, COHERE_MODELS
+    ALIBABA_MODELS, ANTHROPIC_MODELS, COHERE_MODELS, DEEPSEEK_MODELS,
+    GEMINI_MODELS, GROQ_MODELS, HUGGINGFACE_MODELS, MISTRAL_MODELS,
+    MOONSHOT_MODELS, OPENAI_MODELS, OPENROUTER_MODELS, XAI_MODELS
 )
 
-# Consolidated model lookup structure
 ALL_MODELS = {
     'openai': OPENAI_MODELS,
     'groq': GROQ_MODELS,
@@ -14,7 +13,12 @@ ALL_MODELS = {
     'mistral': MISTRAL_MODELS,
     'xai': XAI_MODELS,
     'deepseek': DEEPSEEK_MODELS,
-    'cohere': COHERE_MODELS
+    'cohere': COHERE_MODELS,
+    'gemini': GEMINI_MODELS,
+    'alibaba': ALIBABA_MODELS,
+    'openrouter': OPENROUTER_MODELS,
+    'huggingface': HUGGINGFACE_MODELS,
+    'moonshot': MOONSHOT_MODELS
 }
 
 # Default models for each provider
@@ -25,7 +29,12 @@ DEFAULT_MODELS = {
     'mistral': 'mistral-large-latest',
     'xai': 'grok-2-latest',
     'deepseek': 'deepseek-chat',
-    'cohere': 'command-r'
+    'cohere': 'command-r',
+    'gemini': 'gemini-2.5-flash',
+    'alibaba': 'qwen3-235b-a22b-instruct',
+    'openrouter': 'google/gemini-2.5-pro-preview',
+    'huggingface': 'Qwen/Qwen3-235B-A22B-Instruct-2507',
+    'moonshot': 'moonshot-v1-32k'
 }
 
 # Fallback models in case default is not available
@@ -36,7 +45,12 @@ FALLBACK_MODELS = {
     'mistral': 'mistral-small-latest',
     'xai': 'grok-beta',
     'deepseek': 'deepseek-coder',
-    'cohere': 'command'
+    'cohere': 'command',
+    'gemini': 'gemini-2.5-flash-lite-preview',
+    'alibaba': 'qwen3-235b-a22b-instruct',
+    'openrouter': 'anthropic/claude-3.5-sonnet',
+    'huggingface': 'moonshotai/Kimi-K2-Instruct',
+    'moonshot': 'moonshot-v1-128k'
 }
 
 # API endpoints for providers
@@ -47,10 +61,15 @@ API_ENDPOINTS = {
     'mistral': 'https://api.mistral.ai/v1/chat/completions',
     'xai': 'https://api.x.ai/v1/chat/completions',
     'deepseek': 'https://api.deepseek.com/v1/chat/completions',
-    'cohere': 'https://api.cohere.ai/v1/generate'
+    'cohere': 'https://api.cohere.ai/v1/generate',
+    'gemini': 'https://generativelanguage.googleapis.com/v1/models/',
+    'alibaba': 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+    'openrouter': 'https://openrouter.ai/api/v1/chat/completions',
+    'huggingface': 'https://api-inference.huggingface.co/models/',
+    'moonshot': 'https://api.moonshot.ai/v1/chat/completions'
 }
 
-def get_models(provider: str) -> List[Dict[str, Any]]:
+def get_models(provider: str) -> list[dict[str, Any]]:
     """
     Get all models for a provider
     
@@ -62,7 +81,7 @@ def get_models(provider: str) -> List[Dict[str, Any]]:
     """
     models_dict = ALL_MODELS.get(provider, {})
     return [
-        {"id": model_id, **model_info} 
+        {"id": model_id, **model_info}
         for model_id, model_info in models_dict.items()
     ]
 
@@ -90,7 +109,7 @@ def get_fallback_model(provider: str) -> str:
     """
     return FALLBACK_MODELS.get(provider, '')
 
-def get_model_info(provider: str, model_id: str) -> Optional[Dict[str, Any]]:
+def get_model_info(provider: str, model_id: str) -> dict[str, Any] | None:
     """
     Get detailed information about a specific model
     
@@ -110,7 +129,7 @@ def get_model_info(provider: str, model_id: str) -> Optional[Dict[str, Any]]:
         }
     return None
 
-def get_available_providers() -> List[str]:
+def get_available_providers() -> list[str]:
     """
     Get list of all available providers
     
