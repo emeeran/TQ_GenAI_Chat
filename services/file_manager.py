@@ -5,7 +5,6 @@ Handles file operations, storage, and retrieval.
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 from werkzeug.utils import secure_filename
 
 from flask import current_app
@@ -13,6 +12,19 @@ from config.settings import ALLOWED_EXTENSIONS, SAVE_DIR, EXPORT_DIR, UPLOAD_DIR
 
 
 class FileManager:
+    def search_documents(self, query, top_n=3):
+        """Proxy to DocumentStore.search_documents for context search."""
+        from core.document_store import DocumentStore
+        if not hasattr(self, '_document_store'):
+            self._document_store = DocumentStore()
+        results = self._document_store.search_documents(query, limit=top_n)
+        # Optionally add similarity score if not present
+        for r in results:
+            if 'similarity' not in r:
+                r['similarity'] = 1.0  # Placeholder if not calculated
+            if 'filename' not in r and 'title' in r:
+                r['filename'] = r['title']
+        return results
     """Service for managing file operations in the application"""
 
     def __init__(self):
@@ -30,7 +42,7 @@ class FileManager:
         return '.' in filename and \
                filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     
-    def save_uploaded_file(self, file, custom_filename: Optional[str] = None) -> str:
+    def save_uploaded_file(self, file, custom_filename: str | None = None) -> str:
         """Save an uploaded file to the upload directory with secure naming"""
         if not file:
             raise ValueError("No file provided")
@@ -58,7 +70,7 @@ class FileManager:
         
         return filepath
         
-    def save_chat_history(self, chat_data: Dict) -> str:
+    def save_chat_history(self, chat_data: dict) -> str:
         """Save chat history to a JSON file"""
         if not chat_data:
             raise ValueError("No chat data provided")
@@ -76,7 +88,7 @@ class FileManager:
         current_app.logger.info(f"Saved chat history: {filepath}")
         return filepath
         
-    def export_chat(self, chat_data: Dict, format: str = "md") -> str:
+    def export_chat(self, chat_data: dict, format: str = "md") -> str:
         """Export chat to a specific format (markdown, text, etc.)"""
         if not chat_data:
             raise ValueError("No chat data provided")
@@ -103,7 +115,7 @@ class FileManager:
         current_app.logger.info(f"Exported chat: {filepath}")
         return filepath
         
-    def _export_to_markdown(self, chat_data: Dict, filepath: str) -> None:
+    def _export_to_markdown(self, chat_data: dict, filepath: str) -> None:
         """Export chat data to markdown format"""
         with open(filepath, 'w', encoding='utf-8') as f:
             # Write header
@@ -125,7 +137,7 @@ class FileManager:
                 else:
                     f.write(f"## {role.capitalize()}\n\n{content}\n\n")
     
-    def get_saved_chats(self) -> List[Dict]:
+    def get_saved_chats(self) -> list[dict]:
         """Get list of saved chat files with metadata"""
         chats = []
         

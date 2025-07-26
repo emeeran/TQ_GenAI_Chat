@@ -810,12 +810,19 @@ async function initializeAudio() {
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
             const audioUrl = URL.createObjectURL(audioBlob);
-            await transcribeAudio(audioBlob);
-            audioChunks = [];
+            try {
+                await transcribeAudio(audioBlob);
+            } catch (error) {
+                console.error('Error transcribing audio:', error);
+                alert('Error transcribing audio. Please try again.');
+            } finally {
+                audioChunks = [];
+            }
         };
     } catch (error) {
         console.error('Error initializing audio:', error);
         document.getElementById('record-button').style.display = 'none';
+        alert('Failed to initialize audio. Please check your microphone permissions.');
     }
 }
 
@@ -851,12 +858,19 @@ async function transcribeAudio(audioBlob) {
             body: formData
         });
         const data = await response.json();
-        if (data.text) {
-            document.getElementById('user-input').value = data.text;
+
+        if (response.ok) {
+            if (data.text) {
+                document.getElementById('user-input').value = data.text;
+            } else {
+                throw new Error('No text received from transcription');
+            }
+        } else {
+            throw new Error(data.error || 'Transcription failed');
         }
     } catch (error) {
         console.error('Error transcribing audio:', error);
-        alert('Error transcribing audio');
+        alert(`Error transcribing audio: ${error.message}`);
     }
 }
 
@@ -864,6 +878,7 @@ function updateVoiceList() {
     const voiceSelect = document.getElementById('voice-select');
     const genderSelect = document.getElementById('voice-gender');
     const voices = speechSynthesis.getVoices();
+    console.log('Available voices from browser:', voices); // Log all available voices
     const selectedGender = genderSelect.value;
 
     // Filter voices by language and gender
@@ -1034,9 +1049,17 @@ function speakText(text) {
             console.error('Speech synthesis error:', event);
             isSpeaking = false;
             updateSpeakButton();
+            alert('Text-to-speech error. Please try again.');
         };
 
-        speechSynthesis.speak(utterance);
+        try {
+            speechSynthesis.speak(utterance);
+        } catch (error) {
+            console.error('Speech synthesis failed:', error);
+            alert('Text-to-speech failed. Please check your browser settings.');
+            isSpeaking = false;
+            updateSpeakButton();
+        }
     }
 
     try {
@@ -1044,8 +1067,8 @@ function speakText(text) {
         updateSpeakButton();
         speakNextSentence();
     } catch (error) {
-        console.error('Speech synthesis failed:', error);
-        alert('Text-to-speech failed. Please check your browser settings.');
+        console.error('Speech synthesis initialization failed:', error);
+        alert('Text-to-speech initialization failed. Please check your browser settings.');
         isSpeaking = false;
         updateSpeakButton();
     }

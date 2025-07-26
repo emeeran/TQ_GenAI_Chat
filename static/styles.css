@@ -263,6 +263,9 @@ body {
     display: flex;
     gap: 10px;
     padding: 10px 0;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .input-container input {
@@ -319,6 +322,13 @@ body {
     padding: 10px;
     background-color: #e9ecef;
     border-radius: 8px;
+    animation: fadeInOut 2s infinite;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 .feedback-section {
@@ -357,10 +367,24 @@ body {
 
 #record-button {
     min-width: 45px;
+    transition: all 0.3s ease;
+}
+
+#record-button.recording {
+    background-color: #dc3545;
+    color: white;
+    animation: pulse 1.5s infinite;
 }
 
 #speak-button {
     min-width: 45px;
+    transition: all 0.3s ease;
+}
+
+#speak-button.speaking {
+    background-color: #dc3545;
+    color: white;
+    animation: pulse 1.5s infinite;
 }
 
 .recording {
@@ -619,6 +643,12 @@ body {
     border: 1px solid #e0e0e0;
     padding: 0.6rem 1rem;
     transition: all 0.2s ease;
+    background-color: #ffffff;
+}
+
+.form-control:focus {
+    border-color: #1976d2;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
 .form-control:focus {

@@ -86,26 +86,37 @@ def tts():
         if voice_id:
             try:
                 engine.setProperty('voice', voice_id)
-            except Exception:
-                pass
+            except Exception as e:
+                app.logger.error(f"Failed to set voice: {str(e)}")
         with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
-            engine.save_to_file(text, tf.name)
-            engine.runAndWait()
-            tf.seek(0)
-            audio_data = tf.read()
-        os.unlink(tf.name)
+            try:
+                engine.save_to_file(text, tf.name)
+                engine.runAndWait()
+                tf.seek(0)
+                audio_data = tf.read()
+            except Exception as e:
+                app.logger.error(f"pyttsx3 TTS error: {str(e)}")
+                return jsonify({'error': f'pyttsx3 TTS error: {str(e)}'}), 500
+            finally:
+                os.unlink(tf.name)
         return (audio_data, 200, {'Content-Type': 'audio/wav'})
     # Fallback to gTTS
     elif gTTS:
         try:
             tts = gTTS(text=text, lang=lang)
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tf:
-                tts.save(tf.name)
-                tf.seek(0)
-                audio_data = tf.read()
-            os.unlink(tf.name)
+                try:
+                    tts.save(tf.name)
+                    tf.seek(0)
+                    audio_data = tf.read()
+                except Exception as e:
+                    app.logger.error(f"gTTS save error: {str(e)}")
+                    return jsonify({'error': f'gTTS save error: {str(e)}'}), 500
+                finally:
+                    os.unlink(tf.name)
             return (audio_data, 200, {'Content-Type': 'audio/mpeg'})
         except Exception as e:
+            app.logger.error(f"gTTS error: {str(e)}")
             return jsonify({'error': f'gTTS error: {str(e)}'}), 500
     else:
         return jsonify({'error': 'No TTS engine available. Please install pyttsx3 or gTTS.'}), 500
@@ -1066,17 +1077,24 @@ def transcribe():
 
         with sr.AudioFile(wav_data) as source:
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data)
-            return jsonify({
-                'text': text,
-                'status': 'success'
-            })
+            try:
+                text = recognizer.recognize_google(audio_data)
+                return jsonify({
+                    'text': text,
+                    'status': 'success'
+                })
+            except sr.UnknownValueError:
+                return jsonify({
+                    'error': 'Could not understand audio',
+                    'status': 'error'
+                }), 400
+            except sr.RequestError as e:
+                app.logger.error(f"Google Speech Recognition request error: {str(e)}")
+                return jsonify({
+                    'error': f'Google Speech Recognition request failed: {str(e)}',
+                    'status': 'error'
+                }), 500
 
-    except sr.UnknownValueError:
-        return jsonify({
-            'error': 'Could not understand audio',
-            'status': 'error'
-        }), 400
     except Exception as e:
         app.logger.error(f"Transcription error: {str(e)}")
         return jsonify({
