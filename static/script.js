@@ -203,7 +203,11 @@ function appendMessage(message, isUser = false, messageIndex = null) {
             // Create verification summary, hidden by default
             const verificationDiv = document.createElement('div');
             verificationDiv.className = 'verification-summary hidden';
-            verificationDiv.innerHTML = marked.parse(message.verification.text || '');
+            let verifierInfo = '';
+            if (message.verification.metadata && message.verification.metadata.provider && message.verification.metadata.model) {
+                verifierInfo = `<div class="verifier-meta"><small class="text-muted">Verified by: <b>${message.verification.metadata.provider}/${message.verification.metadata.model}</b></small></div>`;
+            }
+            verificationDiv.innerHTML = verifierInfo + marked.parse(message.verification.text || '');
             messageDiv.appendChild(verificationDiv);
 
             // Toggle summary on badge click

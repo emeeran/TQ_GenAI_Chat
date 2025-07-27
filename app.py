@@ -880,10 +880,32 @@ Please synthesize a clear, well-organized answer using this context where releva
         app.logger.warning(f"Authenticity verification failed: {str(e)}")
         verification_result = {'response': {'text': 'Verification failed or unavailable.', 'metadata': {}}}
 
-    # --- Step 3: Return both response and verification ---
+    # --- Step 3: Integrate corrections from verification agent ---
+    corrected_text = None
+    verification_notes = None
+    if verification_result and 'response' in verification_result and 'text' in verification_result['response']:
+        # Try to extract 'Corrected Response' and 'Verification Notes' sections
+        import re
+        vtext = verification_result['response']['text']
+        match = re.search(r"(?s)Corrected Response:?\s*(.+?)(?:\n+|$)Verification Notes:?\s*(.+)", vtext)
+        if match:
+            corrected_text = match.group(1).strip()
+            verification_notes = match.group(2).strip()
+        else:
+            # Fallback: if not formatted, use the whole text as notes
+            verification_notes = vtext.strip()
+
+    # If we have a corrected response, use it as the main answer
+    response_to_display = dict(initial_result['response'])
+    if corrected_text:
+        response_to_display['text'] = corrected_text
+
     return {
-        'response': initial_result['response'],
-        'verification': verification_result['response'] if verification_result else None
+        'response': response_to_display,
+        'verification': {
+            'text': verification_notes or (verification_result['response']['text'] if verification_result else ''),
+            'metadata': verification_result['response'].get('metadata', {}) if verification_result and 'response' in verification_result else {}
+        } if verification_result else None
     }
 
     config = API_CONFIGS[provider]
