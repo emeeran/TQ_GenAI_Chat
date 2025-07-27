@@ -1,8 +1,6 @@
-
-[] add to persona.py a muslim ulama who is well-versed in Sharieya Law, Quran and Sunni Muslims primarily rely on six major collections of Hadith, known as the "Six Books" (Al-Sihah al-Sitta)
-
-[] the content of the persona selected should be dispplayed for all persona
-
-[] when custom persona selected, the displpay container should dynamically turn as prompt input box
-
-[] ppersona should be imported only from persona.py, any alteration in prompt here should immediately reflect
+[] remove files dropdown lists & view uploaded files from sidebar
+[]  place an icon of paperclip for attachment in between send and mic
+[] compact actions icons in the input container making more room for prompt input
+[] On successful file attachment, list out below audio settings.
+[] Throughly check the upload file functionality
+[] streamline audio functionalities

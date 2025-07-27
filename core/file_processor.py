@@ -15,6 +15,14 @@ import pandas as pd
 import PyPDF2
 from PIL import Image
 
+# OCR dependencies
+try:
+    import pytesseract
+    from pdf2image import convert_from_bytes
+except ImportError:
+    pytesseract = None
+    convert_from_bytes = None
+
 
 class ProcessingError(Exception):
     """Custom exception for file processing errors."""
@@ -181,23 +189,31 @@ class FileProcessor:
             raise ProcessingError(f"Processing failed: {str(e)}", ext) from e
     
     def _process_pdf(self, content: bytes, filename: str) -> str:
-        """Extract text from PDF files."""
+        """Extract text from PDF files. Uses OCR fallback if no text is found."""
         try:
             pdf_file = io.BytesIO(content)
             pdf_reader = PyPDF2.PdfReader(pdf_file)
-            
             text_parts = []
             for page in pdf_reader.pages:
                 page_text = page.extract_text()
                 if page_text:
                     text_parts.append(page_text)
-            
             result = '\n\n'.join(text_parts)
-            if not result.strip():
-                raise ProcessingError("PDF contains no extractable text")
-            
-            return result
-            
+            if result.strip():
+                return result
+            # Fallback to OCR if no text found
+            if pytesseract is None or convert_from_bytes is None:
+                raise ProcessingError("PDF contains no extractable text and OCR dependencies are not installed.")
+            images = convert_from_bytes(content)
+            ocr_text = []
+            for img in images:
+                # Optional: preprocess image for better OCR (grayscale, threshold)
+                img = img.convert('L')
+                ocr_text.append(pytesseract.image_to_string(img))
+            ocr_result = '\n\n'.join(ocr_text)
+            if not ocr_result.strip():
+                raise ProcessingError("PDF contains no extractable text (even with OCR)")
+            return ocr_result
         except Exception as e:
             raise ProcessingError(f"PDF processing error: {str(e)}") from e
     

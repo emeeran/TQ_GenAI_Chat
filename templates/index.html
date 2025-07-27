@@ -91,18 +91,7 @@
                         <div class="form-group" style="margin-bottom:0.06rem;">
                             <label for="persona" style="margin-bottom:0.03rem;">Assistant Persona</label>
                             <select class="form-control" id="persona" style="margin-bottom:0.03rem;">
-                                <option value="helpful_assistant" selected>Helpful Assistant</option>
-                                <option value="code_expert">Code Expert</option>
-                                <option value="medical_doctor">Medical Doctor</option>
-                                <option value="psychologist">Psychologist</option>
-                                <option value="historian">Historian</option>
-                                <option value="science_educator">Science Educator</option>
-                                <option value="business_analyst">Business Analyst</option>
-                                <option value="legal_advisor">Legal Advisor</option>
-                                <option value="tech_reviewer">Tech Reviewer</option>
-                                <option value="research_scientist">Research Scientist</option>
-                                <option value="muslim_ulama">Muslim Ulama</option>
-                                <option value="custom">Custom Persona...</option>
+                                <!-- Persona options will be loaded dynamically -->
                             </select>
                             <textarea class="form-control mt-2 d-none" id="custom-persona-textarea" placeholder="Enter your custom persona prompt..." style="margin-bottom:0.03rem; min-height: 80px;"></textarea>
                             <div id="persona-content" class="alert alert-secondary mt-2 small" style="white-space: pre-line; margin-bottom:0.03rem; max-height: 160px; overflow-y: auto;"></div>
@@ -183,51 +172,10 @@
                 </div>
 
                 <!-- Move File Upload section here, after Voice Settings -->
-                <div class="settings-group">
-                    <div class="settings-header" data-section="files">
-                        <h4><i class="fas fa-file-upload"></i> Files</h4>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="settings-content" id="file-upload">
-                        <div class="form-group">
-                            <!-- Simplified upload dropzone -->
-                            <div class="file-upload-container">
-                                <div class="upload-dropzone" ondrop="handleFileDrop(event)"
-                                    ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                                    <input type="file" class="form-control" id="file-input" multiple
-                                        accept=".pdf,.epub,.jpg,.jpeg,.png,.docx,.xlsx,.csv,.txt,.md">
-                                    <div class="upload-icon-wrapper">
-                                        <i class="fas fa-cloud-upload-alt"></i>
-                                    </div>
-                                </div>
-                                <button class="btn btn-primary upload-btn mt-2 w-100" onclick="uploadFiles()"
-                                    id="upload-button" disabled>
-                                    <i class="fas fa-upload me-2"></i>Upload Files
-                                </button>
-                            </div>
-
-                            <!-- Progress overlay -->
-                            <div class="upload-progress-overlay d-none">
-                                <div class="current-file-progress">
-                                    <div class="file-info">
-                                        <i class="fas fa-file me-2"></i>
-                                        <span class="current-filename">filename.txt</span>
-                                    </div>
-                                    <div class="progress">
-                                        <div class="progress-bar progress-bar-animated" style="width: 0%"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Removed Files section from sidebar as requested -->
 
                 <!-- Add this button after the upload section -->
-                <div class="d-grid gap-2 mt-3">
-                    <button class="btn btn-outline-primary" onclick="openFileList()">
-                        <i class="fas fa-folder-open me-2"></i>View Uploaded Files
-                    </button>
-                </div>
+                <!-- Removed sidebar file list button as requested -->
 
                 <!-- Status Section -->
                 <div id="status-container">
@@ -258,6 +206,10 @@
                     <button id="record-button" class="btn btn-primary" onclick="toggleRecording()">
                         <i class="fas fa-microphone"></i>
                     </button>
+                    <button id="attach-button" class="btn btn-secondary" title="Attach file" onclick="document.getElementById('file-input').click();" style="margin-left:0.3rem;margin-right:0.3rem;">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <input type="file" id="file-input" style="display:none;" multiple accept=".pdf,.epub,.jpg,.jpeg,.png,.docx,.xlsx,.csv,.txt,.md">
                     <input type="text" id="user-input" class="form-control" placeholder="Type your message...">
                     <button class="btn btn-primary" onclick="sendMessage()">Send</button>
                     <button id="speak-button" class="btn btn-primary" onclick="speakText(lastAiResponse)">
@@ -268,27 +220,7 @@
         </div>
     </div>
 
-    <!-- Add this modal at the bottom of body, before scripts -->
-    <div class="modal" id="fileListModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-file-alt me-2"></i>Uploaded Files
-                        <span class="files-counter badge bg-primary ms-2"></span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeFileList()"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="file-list-container">
-                        <div id="fileList" class="file-grid">
-                            <!-- Files will be added here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Removed file list modal as requested -->
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
@@ -340,24 +272,44 @@
         });
     </script>
     <script>
-        // Persona content mapping
-        const personaContents = {
-            "helpful_assistant": "A friendly, helpful AI assistant for general tasks and questions.",
-            "code_expert": "Expert in programming, code review, and software engineering.",
-            "medical_doctor": "Provides medical information and advice. Not a substitute for professional care.",
-            "psychologist": "Offers psychological insights and support. Not a substitute for therapy.",
-            "historian": "Shares historical facts, context, and analysis.",
-            "science_educator": "Explains scientific concepts and answers science questions.",
-            "business_analyst": "Analyzes business problems, strategy, and data.",
-            "legal_advisor": "Provides legal information and context. Not a substitute for a lawyer.",
-            "tech_reviewer": "Reviews and explains technology products and trends.",
-            "research_scientist": "Expert in research methods, data analysis, and scientific literature.",
-            "custom": ""
-        };
+        // Dynamically load personas from backend and update dropdown and description
+        let personaContents = {};
+        async function loadPersonas() {
+            const personaSelect = document.getElementById('persona');
+            const customInput = document.getElementById('custom-persona-textarea');
+            const contentDiv = document.getElementById('persona-content');
+            try {
+                const resp = await fetch('/personas');
+                console.log('Fetching /personas, status:', resp.status);
+                if (!resp.ok) throw new Error('Failed to fetch personas');
+                personaContents = await resp.json();
+                console.log('Persona contents received:', personaContents);
+                personaSelect.innerHTML = '';
+                Object.entries(personaContents).forEach(([key, desc]) => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    if (key === 'helpful_assistant') opt.selected = true;
+                    personaSelect.appendChild(opt);
+                });
+                // Add custom option
+                const customOpt = document.createElement('option');
+                customOpt.value = 'custom';
+                customOpt.textContent = 'Custom Persona...';
+                personaSelect.appendChild(customOpt);
+                updatePersonaContent();
+            } catch (e) {
+                console.error('Error loading personas:', e);
+                personaSelect.innerHTML = '<option value="helpful_assistant">Helpful Assistant</option>';
+                contentDiv.textContent = 'A friendly, helpful AI assistant for general tasks and questions.';
+            }
+            personaSelect.addEventListener('change', updatePersonaContent);
+            if (customInput) customInput.addEventListener('input', updatePersonaContent);
+        }
 
         function updatePersonaContent() {
             const personaSelect = document.getElementById('persona');
-            const customInput = document.getElementById('custom-persona-input');
+            const customInput = document.getElementById('custom-persona-textarea');
             const contentDiv = document.getElementById('persona-content');
             let persona = personaSelect.value;
             if (persona === 'custom') {
@@ -370,17 +322,7 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const personaSelect = document.getElementById('persona');
-            const customInput = document.getElementById('custom-persona-input');
-            if (personaSelect) {
-                personaSelect.addEventListener('change', updatePersonaContent);
-                updatePersonaContent();
-            }
-            if (customInput) {
-                customInput.addEventListener('input', updatePersonaContent);
-            }
-        });
+        document.addEventListener('DOMContentLoaded', loadPersonas);
     </script>
     <script>
         document.getElementById('provider').addEventListener('change', async function () {

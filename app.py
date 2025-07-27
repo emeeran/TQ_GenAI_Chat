@@ -1,3 +1,4 @@
+## Removed duplicate /personas route at the top. Only one definition after app = Flask(...)
 
 
 # --- Imports (PEP 8: all imports at the top) ---
@@ -15,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from core.file_processor import FileProcessor, ProcessingError, status_tracker
 from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request, Response, stream_with_context
+from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 from functools import lru_cache, wraps
 from pathlib import Path
@@ -52,10 +53,15 @@ app.config['MAX_FILES'] = 10
 with app.app_context():
     file_manager = FileManager()
 
+@app.route('/personas')
+def get_personas():
+    from persona import PERSONAS
+    # Return the full PERSONAS dictionary for dropdown and display
+    return jsonify(PERSONAS)
+
 # Serve persona content for frontend display (must be after app = Flask(...))
 @app.route('/get_persona_content/<persona_key>')
 def get_persona_content(persona_key):
-    from persona import PERSONAS
     content = PERSONAS.get(persona_key, "")
     return jsonify({"content": content})
 
@@ -130,8 +136,6 @@ def tts():
 
 
 
-
-# ...existing code...
 
 # Optimization settings
 CACHE_TTL = 300
@@ -1597,7 +1601,7 @@ def upload_files():
 
                 try:
                     with open(temp_path, 'rb') as f:
-                        content = asyncio.run(FileProcessor.process_file(f, filename))
+                        content = asyncio.run(FileProcessor.process_file(f.read(), filename))
 
                     # Store in file manager
                     with app.app_context():
@@ -1672,7 +1676,7 @@ def retry_processing(filename):
 
         # Use FileProcessor to process the file
         try:
-            content = asyncio.run(FileProcessor.process_file(file, filename))
+            content = asyncio.run(FileProcessor.process_file(file.read(), filename))
             result = {'status': 'success', 'content': content}
         except ProcessingError as e:
             result = {'status': 'error', 'message': str(e)}

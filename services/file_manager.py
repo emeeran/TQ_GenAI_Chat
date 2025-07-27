@@ -12,6 +12,29 @@ from config.settings import ALLOWED_EXTENSIONS, SAVE_DIR, EXPORT_DIR, UPLOAD_DIR
 
 
 class FileManager:
+    def get_document(self, filename: str):
+        """Retrieve a document by filename (title)."""
+        from core.document_store import DocumentStore
+        if not hasattr(self, '_document_store'):
+            self._document_store = DocumentStore()
+        # Search for document by title (filename)
+        docs = self._document_store.search_documents(filename, limit=1)
+        if docs:
+            return docs[0]
+        return None
+    def add_document(self, filename: str, content: str, doc_type: str = "text", metadata: dict = None, user_id: str = None):
+        """Add a document to the document store (proxy)."""
+        from core.document_store import DocumentStore
+        if not hasattr(self, '_document_store'):
+            self._document_store = DocumentStore()
+        return self._document_store.add_document(
+            content=content,
+            title=filename,
+            file_path=None,
+            doc_type=doc_type,
+            metadata=metadata,
+            user_id=user_id
+        )
     def search_documents(self, query, top_n=3):
         """Proxy to DocumentStore.search_documents for context search."""
         from core.document_store import DocumentStore

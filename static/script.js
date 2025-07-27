@@ -1262,77 +1262,113 @@ function handleFileDrop(event) {
 
 function updateFileInput(files) {
     const fileInput = document.getElementById('file-input');
-    const uploadBtn = document.getElementById('upload-button');
-
     // Update file input
     const dt = new DataTransfer();
     Array.from(files).forEach(file => {
         dt.items.add(file);
     });
     fileInput.files = dt.files;
-
-    // Enable upload button
-    uploadBtn.disabled = false;
 }
 
 // Listen for file input changes
 document.getElementById('file-input').addEventListener('change', function () {
-    document.getElementById('upload-button').disabled = this.files.length === 0;
+    if (this.files.length > 0) {
+        uploadFiles();
+    }
 });
 
 async function uploadFiles() {
     const fileInput = document.getElementById('file-input');
-    const uploadBtn = document.getElementById('upload-button');
-    const progressOverlay = document.querySelector('.upload-progress-overlay');
-    const progressBar = progressOverlay.querySelector('.progress-bar');
-    const currentFilename = progressOverlay.querySelector('.current-filename');
-
     if (!fileInput.files.length) return;
 
     try {
-        uploadBtn.disabled = true;
-        progressOverlay.classList.remove('d-none');
-
         const formData = new FormData();
         Array.from(fileInput.files).forEach(file => {
             formData.append('files[]', file);
-            currentFilename.textContent = file.name;
+            appendMessage(`Uploading file: ${file.name}...`, false);
         });
 
         const xhr = new XMLHttpRequest();
 
-        // Track upload progress
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentComplete = (event.loaded / event.total) * 100;
-                progressBar.style.width = percentComplete + '%';
-            }
-        };
+        // Track upload progress (optional: implement a progress bar if desired)
+        // xhr.upload.onprogress = (event) => { ... };
 
         // Handle completion
         xhr.onload = async () => {
             if (xhr.status === 200) {
                 const result = JSON.parse(xhr.responseText);
+                if (result.results && Array.isArray(result.results)) {
+                    for (const f of result.results) {
+                        if (f.status === 'success') {
+                            appendMessage(`File uploaded: ${f.filename}`, false);
+                            // Fetch and display a snippet of the extracted text
+                            try {
+                                const resp = await fetch(`/documents/view/${encodeURIComponent(f.filename)}`);
+                                if (resp.ok) {
+                                    const doc = await resp.json();
+                                    if (doc.preview) {
+                                        const maxPreview = 1000;
+                                        const isLong = doc.preview.length > maxPreview;
+                                        const shortText = doc.preview.substring(0, maxPreview);
+                                        const fullText = doc.preview;
+                                        const msgId = `doc-preview-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+                                        let html = `<div id="${msgId}">`;
+                                        html += `<strong>Extracted text from ${f.filename}:</strong><br><pre style='white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;'>`;
+                                        html += isLong ? shortText + '...' : shortText;
+                                        html += '</pre>';
+                                        if (isLong) {
+                                            html += `<button class='btn btn-link btn-sm' style='padding:0;margin-top:-0.5em;' onclick="toggleDocPreview('${msgId}', this, \`${fullText.replace(/`/g, '\`').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') }\`, \`${shortText.replace(/`/g, '\`').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') }\`)">Show more</button>`;
+                                        }
+                                        html += '</div>';
+                                        appendMessage(html, false, true);
+                                    }
+// Toggle function for document preview expansion
+function toggleDocPreview(msgId, btn, fullText, shortText) {
+    const container = document.getElementById(msgId);
+    if (!container) return;
+    const pre = container.querySelector('pre');
+    if (!pre) return;
+    if (btn.textContent === 'Show more') {
+        pre.textContent = fullText;
+        btn.textContent = 'Show less';
+    } else {
+        pre.textContent = shortText + '...';
+        btn.textContent = 'Show more';
+    }
+}
+                                }
+                            } catch (e) {
+                                appendMessage(`(Could not fetch extracted text for ${f.filename})`, false);
+                            }
+                        } else {
+                            appendMessage(`Upload failed: ${f.filename} (${f.error || 'Unknown error'})`, false);
+                        }
+                    }
+                }
                 if (result.results?.some(f => f.status === 'success')) {
-                    await updateDocumentsList();
                     showNotification('Files uploaded successfully', 'success');
+                    // Show audio settings section below upload
+                    const voiceSettings = document.getElementById('voice-settings');
+                    if (voiceSettings) {
+                        voiceSettings.parentElement.classList.add('expanded');
+                        voiceSettings.style.maxHeight = '500px';
+                        voiceSettings.style.opacity = '1';
+                        voiceSettings.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 }
             } else {
+                appendMessage('Upload failed: Server error', false);
                 throw new Error(xhr.status === 413 ? 'Files too large' : 'Upload failed');
             }
 
             // Reset UI
             fileInput.value = '';
-            uploadBtn.disabled = true;
-            progressBar.style.width = '0%';
-            progressOverlay.classList.add('d-none');
         };
 
         // Handle errors
         xhr.onerror = () => {
+            appendMessage('Upload failed: Network error', false);
             showNotification('Upload failed', 'error');
-            progressOverlay.classList.add('d-none');
-            uploadBtn.disabled = true;
         };
 
         // Send request
@@ -1340,10 +1376,9 @@ async function uploadFiles() {
         xhr.send(formData);
 
     } catch (error) {
+        appendMessage(`Upload failed: ${error.message}`, false);
         console.error('Upload error:', error);
         showNotification(error.message, 'error');
-        progressOverlay.classList.add('d-none');
-        uploadBtn.disabled = true;
     }
 }
 
