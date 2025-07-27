@@ -1,3 +1,41 @@
+.clickable {
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.clickable:hover {
+    background: #388e3c;
+    box-shadow: 0 2px 8px rgba(76,175,80,0.25);
+}
+.verification-summary.hidden {
+    display: none;
+}
+/* Verified badge styles */
+.verified-badge {
+    display: inline-block;
+    background: #4caf50;
+    color: #fff;
+    font-size: 0.85em;
+    font-weight: bold;
+    border-radius: 12px;
+    padding: 0.2em 0.7em 0.2em 0.5em;
+    margin-bottom: 0.5em;
+    margin-right: 0.5em;
+    vertical-align: middle;
+    box-shadow: 0 1px 4px rgba(76,175,80,0.15);
+}
+.verified-badge i {
+    margin-right: 0.3em;
+}
+
+.verification-summary {
+    background: #e8f5e9;
+    color: #222;
+    border-left: 4px solid #4caf50;
+    padding: 0.5em 1em;
+    margin-top: 0.7em;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.97em;
+}
 /* Theme: Light (default) */
 body.theme-light {
     background-color: #f0f0f0;

@@ -147,30 +147,29 @@ function appendMessage(message, isUser = false, messageIndex = null) {
         messageDiv.setAttribute('data-message-index', messageIndex);
     }
 
+
     if (isUser) {
-        // Create message content container
+        // ...existing code for user messages...
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
         contentDiv.textContent = message;
         messageDiv.appendChild(contentDiv);
-        
-        // Add edit button for user messages
+
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'message-actions';
-        
+
         const editBtn = document.createElement('button');
         editBtn.className = 'btn btn-sm btn-outline-secondary edit-message-btn';
         editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
         editBtn.title = 'Edit and resubmit this message';
         editBtn.onclick = () => editMessage(messageIndex);
-        
+
         actionsDiv.appendChild(editBtn);
         messageDiv.appendChild(actionsDiv);
     } else {
-        // Handle formatted response
+        // AI message: check for verification
         const content = typeof message === 'object' ? message : { text: message };
         const markdown = content.text || message;
-
         // Convert markdown to HTML
         const html = marked.parse(markdown, {
             gfm: true,
@@ -178,7 +177,6 @@ function appendMessage(message, isUser = false, messageIndex = null) {
             headerIds: false,
             mangle: false
         });
-
         messageDiv.innerHTML = html;
 
         // Add metadata if available
@@ -192,6 +190,26 @@ function appendMessage(message, isUser = false, messageIndex = null) {
                 </small>
             `;
             messageDiv.appendChild(metadataDiv);
+        }
+
+        // If verification is present, show badge and summary
+        if (message.verification) {
+            const badge = document.createElement('span');
+            badge.className = 'verified-badge clickable';
+            badge.innerHTML = '<i class="fas fa-shield-check"></i> Verified';
+            badge.title = 'Click to show/hide verification summary';
+            messageDiv.insertAdjacentElement('afterbegin', badge);
+
+            // Create verification summary, hidden by default
+            const verificationDiv = document.createElement('div');
+            verificationDiv.className = 'verification-summary hidden';
+            verificationDiv.innerHTML = marked.parse(message.verification.text || '');
+            messageDiv.appendChild(verificationDiv);
+
+            // Toggle summary on badge click
+            badge.addEventListener('click', () => {
+                verificationDiv.classList.toggle('hidden');
+            });
         }
     }
 
@@ -746,15 +764,20 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
 
         if (data && data.response) {
             const aiMessageIndex = chatHistory.length;
-            appendMessage(data.response, false, aiMessageIndex);
-            if (data.response.text) {
-                lastAiResponse = data.response.text;
+            // Merge verification into response for badge logic
+            let aiMessage = data.response;
+            if (data.verification) {
+                aiMessage = { ...aiMessage, verification: data.verification };
+            }
+            appendMessage(aiMessage, false, aiMessageIndex);
+            if (aiMessage.text) {
+                lastAiResponse = aiMessage.text;
             }
             lastMessage = messageToSend;
 
             // Add AI response to chat history
             chatHistory.push({
-                content: data.response,
+                content: aiMessage,
                 isUser: false,
                 timestamp: new Date().toISOString()
             });

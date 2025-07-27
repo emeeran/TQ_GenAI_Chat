@@ -623,17 +623,18 @@ Please synthesize a clear, well-organized answer using this context where releva
 
     markdown_instruction = "Format your response using proper Markdown. Use headers (###) for sections, code blocks for examples or quotes (```), and proper linking when referencing sources. Use bullet points and numbered lists where appropriate."
 
-    # Handle special providers
+
+    # --- Step 1: Generate initial response ---
     if provider == 'anthropic':
         system_prompt = f"{PERSONAS.get(persona, '')}\n{markdown_instruction}"
-        return process_anthropic_request(model, message, system_prompt)
+        initial_result = process_anthropic_request(model, message, system_prompt)
     elif provider == 'xai':
-        # Add exponential backoff for rate limit errors
         import time
         retries = 0
         while retries < MAX_RETRIES:
             try:
-                return process_xai_request(model, message, f"{persona}\n{markdown_instruction}")
+                initial_result = process_xai_request(model, message, f"{persona}\n{markdown_instruction}")
+                break
             except Exception as e:
                 if '429' in str(e):
                     wait_time = 2 ** retries
@@ -642,9 +643,227 @@ Please synthesize a clear, well-organized answer using this context where releva
                     retries += 1
                 else:
                     raise
-        raise ValueError("All attempts failed for provider 'xai'. Last error: Rate limit exceeded or unknown error.")
+        else:
+            raise ValueError("All attempts failed for provider 'xai'. Last error: Rate limit exceeded or unknown error.")
     elif provider == 'gemini':
-        return process_gemini_request(model, message, persona)
+        initial_result = process_gemini_request(model, message, persona)
+    else:
+        # ...existing code for other providers...
+        config = API_CONFIGS[provider]
+        endpoint = config['endpoint']
+        api_key = config['key']
+        headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
+        payload = None
+        if provider == 'alibaba':
+            payload = {
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
+                    {'role': 'user', 'content': message}
+                ]
+            }
+        elif provider == 'huggingface':
+            allowed_hf_models = ["Qwen/Qwen3-Coder-480B-A35B-Instruct"]
+            if model not in allowed_hf_models:
+                raise ValueError(f"Model '{model}' is not available for free-tier Hugging Face inference. Please select Qwen/Qwen3-Coder-480B-A35B-Instruct.")
+            endpoint = "https://router.huggingface.co/v1/chat/completions"
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            payload = {
+                'model': f'{model}:novita',
+                'messages': [
+                    {'role': 'user', 'content': message}
+                ]
+            }
+        elif provider == 'openrouter':
+            payload = {
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
+                    {'role': 'user', 'content': message}
+                ]
+            }
+        elif provider == 'cohere':
+            payload = {
+                'model': model,
+                'messages': [
+                    {'role': 'user', 'content': message}
+                ]
+            }
+        else:
+            payload = {
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
+                    {'role': 'user', 'content': message}
+                ]
+            }
+        retries = 0
+        last_error = None
+        session = create_request_session()
+        models_to_try = [model]
+        fallback_model = config.get('fallback')
+        if fallback_model and fallback_model != model:
+            models_to_try.append(fallback_model)
+        for model_to_use in models_to_try:
+            if provider == 'huggingface':
+                endpoint = f"https://api-inference.huggingface.co/models/{model_to_use}"
+            payload['model'] = model_to_use if provider != 'huggingface' else None
+            try:
+                response = session.post(
+                    endpoint,
+                    headers=headers,
+                    json=payload,
+                    timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
+                )
+                try:
+                    response.raise_for_status()
+                except requests.HTTPError:
+                    if provider == 'huggingface' and response.status_code == 404:
+                        last_error = f"Model '{model_to_use}' not found on Hugging Face. Please check the model name or your API access permissions."
+                        app.logger.error(f"{last_error}\nEndpoint: {endpoint}")
+                        break
+                    else:
+                        raise
+                result = response.json()
+                if provider == 'huggingface':
+                    if model.lower().startswith("qwen/qwen3-coder-480b-a35b-instruct"):
+                        if 'choices' in result and result['choices']:
+                            initial_result = {
+                                'response': {
+                                    'text': result['choices'][0]['message']['content'],
+                                    'metadata': {
+                                        'provider': provider,
+                                        'model': model_to_use,
+                                        'response_time': f"{response.elapsed.total_seconds()}s",
+                                        'fallback_used': model_to_use != model
+                                    }
+                                }
+                            }
+                            break
+                        last_error = 'Invalid response structure from Hugging Face OpenAI-compatible API'
+                    elif isinstance(result, list) and result and 'generated_text' in result[0]:
+                        initial_result = {
+                            'response': {
+                                'text': result[0]['generated_text'],
+                                'metadata': {
+                                    'provider': provider,
+                                    'model': model_to_use,
+                                    'response_time': f"{response.elapsed.total_seconds()}s",
+                                    'fallback_used': model_to_use != model
+                                }
+                            }
+                        }
+                        break
+                    else:
+                        last_error = 'Invalid response structure from Hugging Face API'
+                elif provider == 'alibaba':
+                    try:
+                        text = result["choices"][0]["message"]["content"]
+                    except (KeyError, IndexError, TypeError):
+                        text = None
+                    if text:
+                        initial_result = {
+                            'response': {
+                                'text': text,
+                                'metadata': {
+                                    'provider': provider,
+                                    'model': model_to_use,
+                                    'response_time': f"{response.elapsed.total_seconds()}s",
+                                    'fallback_used': model_to_use != model
+                                }
+                            }
+                        }
+                        break
+                    last_error = 'Invalid response structure from Alibaba Qwen API'
+                elif provider == 'cohere':
+                    try:
+                        text = result["message"]["content"][0]["text"]
+                    except (KeyError, IndexError, TypeError):
+                        text = None
+                    if text:
+                        initial_result = {
+                            'response': {
+                                'text': text,
+                                'metadata': {
+                                    'provider': provider,
+                                    'model': model_to_use,
+                                    'response_time': f"{response.elapsed.total_seconds()}s",
+                                    'fallback_used': model_to_use != model
+                                }
+                            }
+                        }
+                        break
+                    last_error = 'Invalid response structure from Cohere API'
+                elif provider == 'openrouter':
+                    if 'choices' in result and result['choices']:
+                        initial_result = {
+                            'response': {
+                                'text': result['choices'][0]['message']['content'],
+                                'metadata': {
+                                    'provider': provider,
+                                    'model': model_to_use,
+                                    'response_time': f"{response.elapsed.total_seconds()}s",
+                                    'fallback_used': model_to_use != model
+                                }
+                            }
+                        }
+                        break
+                    last_error = 'Invalid response structure from OpenRouter API'
+                else:
+                    if 'choices' in result and result['choices']:
+                        initial_result = {
+                            'response': {
+                                'text': result['choices'][0]['message']['content'],
+                                'metadata': {
+                                    'provider': provider,
+                                    'model': model_to_use,
+                                    'response_time': f"{response.elapsed.total_seconds()}s",
+                                    'fallback_used': model_to_use != model
+                                }
+                            }
+                        }
+                        break
+                    last_error = 'Invalid response structure from API'
+            except requests.Timeout:
+                last_error = f"Request to {provider} timed out after {READ_TIMEOUT}s (model: {model_to_use})"
+                app.logger.error(last_error)
+            except requests.RequestException as e:
+                last_error = f"API request failed: {str(e)} (model: {model_to_use})"
+                app.logger.error(f"{last_error}\nEndpoint: {endpoint}")
+            except Exception as e:
+                last_error = f"Unexpected error: {str(e)} (model: {model_to_use})"
+                app.logger.error(last_error)
+            retries += 1
+            if retries >= MAX_RETRIES:
+                break
+        else:
+            raise ValueError(f"All attempts failed for provider '{provider}'. Last error: {last_error}")
+
+    # --- Step 2: Authenticity Verification ---
+    verification_result = None
+    try:
+        # Use the same provider/model for verification, but with the authenticity_verifier persona
+        verification_data = {
+            'provider': provider,
+            'model': model,
+            'message': initial_result['response']['text'],
+            'persona': 'authenticity_verifier'
+        }
+        # Avoid infinite recursion by not verifying the verifier
+        if persona != 'authenticity_verifier':
+            verification_result = process_chat_request(verification_data)
+    except Exception as e:
+        app.logger.warning(f"Authenticity verification failed: {str(e)}")
+        verification_result = {'response': {'text': 'Verification failed or unavailable.', 'metadata': {}}}
+
+    # --- Step 3: Return both response and verification ---
+    return {
+        'response': initial_result['response'],
+        'verification': verification_result['response'] if verification_result else None
+    }
 
     config = API_CONFIGS[provider]
     endpoint = config['endpoint']
