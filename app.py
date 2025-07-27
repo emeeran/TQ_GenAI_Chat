@@ -318,6 +318,16 @@ MODEL_CONFIGS = {
         "qwen-2.5-math-72b-instruct"
     ],
     "openrouter": [
+        "kimi-k2-0711-preview",
+        "kimi-latest",
+        "kimi-thinking-preview",
+        "moonshot-v1-128k",
+        "moonshot-v1-128k-vision-preview",
+        "moonshot-v1-32k",
+        "moonshot-v1-32k-vision-preview",
+        "moonshot-v1-8k",
+        "moonshot-v1-8k-vision-preview",
+        "moonshot-v1-auto",
         "google/gemini-2.5-pro-preview",
         "openai/gpt-4o",
         "moonshotai/kimi-k2-instruct",
@@ -329,8 +339,16 @@ MODEL_CONFIGS = {
         "Qwen/Qwen3-Coder-480B-A35B-Instruct"  # Novita provider, free-tier
     ]
     , "moonshot": [
+        "kimi-k2-0711-preview",
+        "kimi-latest",
+        "kimi-thinking-preview",
+        "moonshot-v1-128k",
+        "moonshot-v1-128k-vision-preview",
         "moonshot-v1-32k",
-        "moonshot-v1-128k"
+        "moonshot-v1-32k-vision-preview",
+        "moonshot-v1-8k",
+        "moonshot-v1-8k-vision-preview",
+        "moonshot-v1-auto"
     ]
 }
 
@@ -896,6 +914,8 @@ def get_models(provider):
     if default and default not in models:
         models.append(default)
 
+    if provider == "moonshot":
+        app.logger.info(f"Moonshot models returned: {models}")
     return jsonify({
         'models': models,
         'default': default,
@@ -910,15 +930,26 @@ def update_models(provider):
         return jsonify({'error': f'Invalid provider: {provider}'}), 400
 
     try:
+        # For Moonshot, always use the static list from ai_models.py
+        if provider == "moonshot":
+            from ai_models import MOONSHOT_MODELS
+            models = sorted(MOONSHOT_MODELS.keys())
+            MODEL_CONFIGS[provider] = models
+            # Also update the cache file so the correct list persists across restarts
+            update_ai_models_file(provider, models)
+            return jsonify({
+                'success': True,
+                'models': models,
+                'message': f"Successfully updated {len(models)} models for moonshot (static list)"
+            })
+
         config = API_CONFIGS.get(provider)
         api_key = config.get('key')
-        
         if not api_key:
             return jsonify({'error': f'No API key found for {provider}'}), 400
 
         # Fetch models from provider's API
         session = create_request_session()
-        
         if provider == 'openai':
             url = 'https://api.openai.com/v1/models'
             headers = {

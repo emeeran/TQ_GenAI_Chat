@@ -198,6 +198,66 @@ ALIBABA_MODELS = {
 
 # OpenRouter Models (latest as of July 2025)
 OPENROUTER_MODELS = {
+    'kimi-k2-0711-preview': {
+        'name': 'Kimi K2 0711 Preview',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
+    },
+    'kimi-latest': {
+        'name': 'Kimi Latest',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
+    },
+    'kimi-thinking-preview': {
+        'name': 'Kimi Thinking Preview',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
+    },
+    'moonshot-v1-128k': {
+        'name': 'Moonshot v1 128K',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
+    },
+    'moonshot-v1-128k-vision-preview': {
+        'name': 'Moonshot v1 128K Vision Preview',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
+    },
+    'moonshot-v1-32k': {
+        'name': 'Moonshot v1 32K',
+        'context_window': 32768,
+        'max_output_tokens': 8192,
+        'provider': 'Moonshot'
+    },
+    'moonshot-v1-32k-vision-preview': {
+        'name': 'Moonshot v1 32K Vision Preview',
+        'context_window': 32768,
+        'max_output_tokens': 8192,
+        'provider': 'Moonshot'
+    },
+    'moonshot-v1-8k': {
+        'name': 'Moonshot v1 8K',
+        'context_window': 8192,
+        'max_output_tokens': 2048,
+        'provider': 'Moonshot'
+    },
+    'moonshot-v1-8k-vision-preview': {
+        'name': 'Moonshot v1 8K Vision Preview',
+        'context_window': 8192,
+        'max_output_tokens': 2048,
+        'provider': 'Moonshot'
+    },
+    'moonshot-v1-auto': {
+        'name': 'Moonshot v1 Auto',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'provider': 'Moonshot'
+    },
     'google/gemini-2.5-pro-preview': {
         'name': 'Gemini 2.5 Pro Preview',
         'context_window': 2000000,
@@ -209,12 +269,6 @@ OPENROUTER_MODELS = {
         'context_window': 200000,
         'max_output_tokens': 8192,
         'provider': 'Anthropic'
-    },
-    'moonshot/moonshot-v1-128k': {
-        'name': 'Kimi (Moonshot v1 128K)',
-        'context_window': 131072,
-        'max_output_tokens': 32768,
-        'provider': 'Moonshot'
     }
 }
 
@@ -248,14 +302,62 @@ HUGGINGFACE_MODELS = {
 
 # Moonshot Models (latest as of July 2025)
 MOONSHOT_MODELS = {
+    'kimi-k2-0711-preview': {
+        'name': 'Kimi K2 0711 Preview',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'supports_function_calling': True
+    },
+    'kimi-latest': {
+        'name': 'Kimi Latest',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'supports_function_calling': True
+    },
+    'kimi-thinking-preview': {
+        'name': 'Kimi Thinking Preview',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'supports_function_calling': True
+    },
+    'moonshot-v1-128k': {
+        'name': 'Moonshot v1 128K',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'supports_function_calling': True
+    },
+    'moonshot-v1-128k-vision-preview': {
+        'name': 'Moonshot v1 128K Vision Preview',
+        'context_window': 131072,
+        'max_output_tokens': 32768,
+        'supports_function_calling': True
+    },
     'moonshot-v1-32k': {
         'name': 'Moonshot v1 32K',
         'context_window': 32768,
         'max_output_tokens': 8192,
         'supports_function_calling': True
     },
-    'moonshot-v1-128k': {
-        'name': 'Moonshot v1 128K',
+    'moonshot-v1-32k-vision-preview': {
+        'name': 'Moonshot v1 32K Vision Preview',
+        'context_window': 32768,
+        'max_output_tokens': 8192,
+        'supports_function_calling': True
+    },
+    'moonshot-v1-8k': {
+        'name': 'Moonshot v1 8K',
+        'context_window': 8192,
+        'max_output_tokens': 2048,
+        'supports_function_calling': True
+    },
+    'moonshot-v1-8k-vision-preview': {
+        'name': 'Moonshot v1 8K Vision Preview',
+        'context_window': 8192,
+        'max_output_tokens': 2048,
+        'supports_function_calling': True
+    },
+    'moonshot-v1-auto': {
+        'name': 'Moonshot v1 Auto',
         'context_window': 131072,
         'max_output_tokens': 32768,
         'supports_function_calling': True

@@ -22,6 +22,8 @@ function toggleTheme() {
 // On load, set theme
 document.addEventListener('DOMContentLoaded', () => {
     setTheme(localStorage.getItem('theme') || 'light');
+    // Always refresh models on page load
+    updateModels();
 });
 // Debounce function to limit rapid calls
 const debounce = (func, wait) => {
@@ -46,6 +48,11 @@ const elements = {
     customPersonaInput: document.getElementById('custom-persona-input'),
     personaContent: document.getElementById('persona-content')
 };
+
+// Always refresh models on provider change
+if (elements.provider) {
+    elements.provider.addEventListener('change', updateModels);
+}
 
 // Persona selector logic
 if (elements.persona) {
