@@ -843,12 +843,33 @@ Please synthesize a clear, well-organized answer using this context where releva
             raise ValueError(f"All attempts failed for provider '{provider}'. Last error: {last_error}")
 
     # --- Step 2: Authenticity Verification ---
+
+    # --- Preferred verification provider/model ---
+    PREFERRED_VERIFIERS = [
+        ('openai', 'gpt-4o'),
+        ('anthropic', 'claude-3-5-sonnet-latest'),
+        ('openai', 'gpt-4-turbo'),
+        ('anthropic', 'claude-3-opus-20240229')
+    ]
     verification_result = None
     try:
-        # Use the same provider/model for verification, but with the authenticity_verifier persona
+        # Pick a verifier different from the original provider/model if possible
+        verifier_provider, verifier_model = None, None
+        for cand_provider, cand_model in PREFERRED_VERIFIERS:
+            if (cand_provider != provider) or (cand_model != model):
+                # Check if API key is configured and model is available
+                if cand_provider in API_CONFIGS and API_CONFIGS[cand_provider]['key']:
+                    available_models = MODEL_CONFIGS.get(cand_provider, [])
+                    if cand_model in available_models:
+                        verifier_provider, verifier_model = cand_provider, cand_model
+                        break
+        # Fallback: if all preferred are unavailable, use original provider/model
+        if not verifier_provider:
+            verifier_provider, verifier_model = provider, model
+
         verification_data = {
-            'provider': provider,
-            'model': model,
+            'provider': verifier_provider,
+            'model': verifier_model,
             'message': initial_result['response']['text'],
             'persona': 'authenticity_verifier'
         }
