@@ -52,6 +52,13 @@ app.config['MAX_FILES'] = 10
 with app.app_context():
     file_manager = FileManager()
 
+# Serve persona content for frontend display (must be after app = Flask(...))
+@app.route('/get_persona_content/<persona_key>')
+def get_persona_content(persona_key):
+    from persona import PERSONAS
+    content = PERSONAS.get(persona_key, "")
+    return jsonify({"content": content})
+
 PROCESSING_STATUS = status_tracker._statuses
 PROCESSING_ERRORS = {}
 

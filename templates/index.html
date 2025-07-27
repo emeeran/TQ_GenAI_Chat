@@ -101,10 +101,11 @@
                                 <option value="legal_advisor">Legal Advisor</option>
                                 <option value="tech_reviewer">Tech Reviewer</option>
                                 <option value="research_scientist">Research Scientist</option>
+                                <option value="muslim_ulama">Muslim Ulama</option>
                                 <option value="custom">Custom Persona...</option>
                             </select>
-                            <input type="text" class="form-control mt-2 d-none" id="custom-persona-input" placeholder="Enter your custom persona..." style="margin-bottom:0.03rem;">
-                            <div id="persona-content" class="alert alert-secondary mt-2 small" style="white-space: pre-line; margin-bottom:0.03rem;"></div>
+                            <textarea class="form-control mt-2 d-none" id="custom-persona-textarea" placeholder="Enter your custom persona prompt..." style="margin-bottom:0.03rem; min-height: 80px;"></textarea>
+                            <div id="persona-content" class="alert alert-secondary mt-2 small" style="white-space: pre-line; margin-bottom:0.03rem; max-height: 160px; overflow-y: auto;"></div>
                         </div>
                     </div>
                 </div>

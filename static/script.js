@@ -45,7 +45,7 @@ const elements = {
     provider: document.getElementById('provider'),
     model: document.getElementById('model'),
     persona: document.getElementById('persona'),
-    customPersonaInput: document.getElementById('custom-persona-input'),
+    customPersonaInput: document.getElementById('custom-persona-textarea'),
     personaContent: document.getElementById('persona-content')
 };
 
@@ -56,12 +56,14 @@ if (elements.provider) {
 
 // Persona selector logic
 if (elements.persona) {
+    const customTextarea = document.getElementById('custom-persona-textarea');
     elements.persona.addEventListener('change', async function () {
         if (this.value === 'custom') {
-            elements.customPersonaInput.classList.remove('d-none');
-            elements.personaContent.textContent = '';
+            customTextarea.classList.remove('d-none');
+            elements.personaContent.classList.add('d-none');
         } else {
-            elements.customPersonaInput.classList.add('d-none');
+            customTextarea.classList.add('d-none');
+            elements.personaContent.classList.remove('d-none');
             // Fetch persona content from backend
             try {
                 const res = await fetch(`/get_persona_content/${this.value}`);
@@ -666,7 +668,7 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
         const model = document.getElementById('model').value;
         let persona = document.getElementById('persona').value;
         if (persona === 'custom') {
-            persona = document.getElementById('custom-persona-input').value.trim();
+            persona = document.getElementById('custom-persona-textarea').value.trim();
         }
 
         const messageToSend = message || userInput.value.trim();
