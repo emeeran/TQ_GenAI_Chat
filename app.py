@@ -248,6 +248,12 @@ API_CONFIGS = {
         "default": "moonshot-v1-32k",
         "fallback": "moonshot-v1-128k"
     }
+    , "perplexity": {
+        "endpoint": "https://api.perplexity.ai/chat/completions",
+        "key": os.getenv("PERPLEXITY_API_KEY", ""),
+        "default": "pplx-70b-chat",
+        "fallback": "pplx-7b-chat"
+    }
 }
 
 # Model configurations
@@ -360,6 +366,10 @@ MODEL_CONFIGS = {
         "moonshot-v1-8k",
         "moonshot-v1-8k-vision-preview",
         "moonshot-v1-auto"
+    ]
+    , "perplexity": [
+        "pplx-70b-chat",
+        "pplx-7b-chat"
     ]
 }
 
@@ -693,6 +703,14 @@ Please synthesize a clear, well-organized answer using this context where releva
             payload = {
                 'model': model,
                 'messages': [
+                    {'role': 'user', 'content': message}
+                ]
+            }
+        elif provider == 'perplexity':
+            payload = {
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
                     {'role': 'user', 'content': message}
                 ]
             }
