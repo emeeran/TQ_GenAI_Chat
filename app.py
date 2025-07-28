@@ -27,6 +27,7 @@ from services.file_manager import FileManager
 from services.xai_service import XAIService
 from urllib3.util.retry import Retry
 from werkzeug.utils import secure_filename
+from config.settings import ALLOWED_EXTENSIONS, SAVE_DIR, EXPORT_DIR, UPLOAD_DIR
 
 # --- Text-to-Speech (TTS) with Multiple Voices ---
 try:
@@ -374,12 +375,10 @@ MODEL_CONFIGS = {
 }
 
 # Initialize paths
-SAVE_DIR = Path(__file__).parent / 'saved_chats'
-EXPORT_DIR = Path(__file__).parent / 'exports'
-
 # Ensure directories exist with proper permissions
 SAVE_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
+UPLOAD_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
 
 # Load cached models and defaults
 def load_cached_models():
@@ -1286,21 +1285,26 @@ def update_models(provider):
         else:
             # For other providers, use current model list as fallback
             models = MODEL_CONFIGS.get(provider, [])
-        
-        if models:
+            if not models:
+                # If still empty, try to use the default/fallback from API_CONFIGS
+                config = API_CONFIGS.get(provider, {})
+                default_model = config.get('default')
+                fallback_model = config.get('fallback')
+                models = []
+                if default_model:
+                    models.append(default_model)
+                if fallback_model and fallback_model != default_model:
+                    models.append(fallback_model)
+            if not models:
+                return jsonify({'error': 'No models found or API error'}), 400
             # Update the model configuration
             MODEL_CONFIGS[provider] = sorted(models)
-            
-            # Update ai_models.py file dynamically (optional - for persistence)
             update_ai_models_file(provider, models)
-            
             return jsonify({
                 'success': True,
                 'models': sorted(models),
                 'message': f'Successfully updated {len(models)} models for {provider}'
             })
-        else:
-            return jsonify({'error': 'No models found or API error'}), 400
             
     except requests.exceptions.Timeout:
         return jsonify({'error': 'Request timeout while fetching models'}), 408
@@ -1553,11 +1557,6 @@ def generate_chat_topic(messages: list) -> str:
         return topic or 'untitled'
     except Exception:
         return f'chat_{datetime.now().strftime("%Y%m%d")}'
-
-ALLOWED_EXTENSIONS = {
-    'pdf', 'epub', 'docx', 'xlsx',
-    'csv', 'md', 'jpg', 'jpeg', 'png'
-}
 
 def allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
