@@ -19,11 +19,28 @@ function toggleTheme() {
     setTheme(current === 'dark' ? 'light' : 'dark');
 }
 
-// On load, set theme
+// On load, set theme and restore saved settings
 document.addEventListener('DOMContentLoaded', () => {
     setTheme(localStorage.getItem('theme') || 'light');
+    
+    // Restore saved provider and model settings
+    const savedProvider = localStorage.getItem('defaultProvider');
+    const savedModel = localStorage.getItem('defaultModel');
+    
+    if (savedProvider && document.getElementById('provider')) {
+        document.getElementById('provider').value = savedProvider;
+    }
+    
     // Always refresh models on page load
-    updateModels();
+    updateModels().then(() => {
+        if (savedModel && document.getElementById('model')) {
+            document.getElementById('model').value = savedModel;
+        }
+        updateProviderModelDisplay();
+    });
+    
+    // Update provider/model display initially
+    updateProviderModelDisplay();
 });
 // Debounce function to limit rapid calls
 const debounce = (func, wait) => {
@@ -51,7 +68,42 @@ const elements = {
 
 // Always refresh models on provider change
 if (elements.provider) {
-    elements.provider.addEventListener('change', updateModels);
+    elements.provider.addEventListener('change', () => {
+        updateModels();
+        // Save provider selection
+        localStorage.setItem('defaultProvider', elements.provider.value);
+        updateProviderModelDisplay();
+    });
+}
+
+// Save model selection when changed
+if (elements.model) {
+    elements.model.addEventListener('change', () => {
+        localStorage.setItem('defaultModel', elements.model.value);
+        updateProviderModelDisplay();
+    });
+}
+
+// Function to update provider/model display at bottom of sidebar
+function updateProviderModelDisplay() {
+    const provider = document.getElementById('provider')?.value || 'N/A';
+    const model = document.getElementById('model')?.value || 'N/A';
+    
+    let displayElement = document.getElementById('provider-model-display');
+    if (!displayElement) {
+        // Create the display element if it doesn't exist
+        displayElement = document.createElement('div');
+        displayElement.id = 'provider-model-display';
+        displayElement.className = 'provider-model-display';
+        
+        // Add to bottom of sidebar
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            sidebar.appendChild(displayElement);
+        }
+    }
+    
+    displayElement.innerHTML = `<strong>${provider} | ${model}</strong>`;
 }
 
 // Persona selector logic
@@ -60,22 +112,77 @@ if (elements.persona) {
     elements.persona.addEventListener('change', async function () {
         if (this.value === 'custom') {
             customTextarea.classList.remove('d-none');
-            elements.personaContent.classList.add('d-none');
         } else {
             customTextarea.classList.add('d-none');
-            elements.personaContent.classList.remove('d-none');
-            // Fetch persona content from backend
-            try {
-                const res = await fetch(`/get_persona_content/${this.value}`);
-                const data = await res.json();
-                elements.personaContent.textContent = data.content || '';
-            } catch (e) {
-                elements.personaContent.textContent = '';
-            }
         }
     });
     // Trigger initial content
     elements.persona.dispatchEvent(new Event('change'));
+}
+
+// Slider value updates
+document.addEventListener('DOMContentLoaded', () => {
+    // Max Tokens slider
+    const maxTokensSlider = document.getElementById('max-tokens');
+    const maxTokensValue = document.getElementById('max-tokens-value');
+    if (maxTokensSlider && maxTokensValue) {
+        maxTokensSlider.addEventListener('input', (e) => {
+            maxTokensValue.textContent = e.target.value;
+            updateSliderProgress(maxTokensSlider);
+        });
+        updateSliderProgress(maxTokensSlider);
+    }
+    
+    // Temperature slider
+    const temperatureSlider = document.getElementById('temperature');
+    const temperatureValue = document.getElementById('temperature-value');
+    if (temperatureSlider && temperatureValue) {
+        temperatureSlider.addEventListener('input', (e) => {
+            temperatureValue.textContent = parseFloat(e.target.value).toFixed(1);
+            updateSliderProgress(temperatureSlider);
+        });
+        updateSliderProgress(temperatureSlider);
+    }
+});
+
+function updateSliderProgress(slider) {
+    const value = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+    slider.style.setProperty('--range-progress', value + '%');
+}
+
+// Copy response functionality
+let lastAiResponseText = '';
+
+function copyLastResponse() {
+    if (lastAiResponseText) {
+        navigator.clipboard.writeText(lastAiResponseText).then(() => {
+            showNotification('Response copied to clipboard!', 'success');
+        }).catch(() => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = lastAiResponseText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            showNotification('Response copied to clipboard!', 'success');
+        });
+    }
+}
+
+// Update processing indicators
+function showInputProgress() {
+    const progressIndicator = document.getElementById('input-progress');
+    if (progressIndicator) {
+        progressIndicator.classList.remove('d-none');
+    }
+}
+
+function hideInputProgress() {
+    const progressIndicator = document.getElementById('input-progress');
+    if (progressIndicator) {
+        progressIndicator.classList.add('d-none');
+    }
 }
 
 // Add request queue
@@ -750,6 +857,10 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
             persona = document.getElementById('custom-persona-textarea').value.trim();
         }
 
+        // Get slider values
+        const maxTokens = document.getElementById('max-tokens')?.value || 4000;
+        const temperature = document.getElementById('temperature')?.value || 0.7;
+
         const messageToSend = message || userInput.value.trim();
 
         if (!messageToSend || !provider || !model) {
@@ -770,10 +881,10 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
             });
         }
 
-        showProcessing(true);
+        showInputProgress();
         showFeedback(false);
 
-        console.log('Sending message:', { provider, model, message: messageToSend });
+        console.log('Sending message:', { provider, model, message: messageToSend, maxTokens, temperature });
 
         // Search for relevant context
         const contextResponse = await fetch('/search_context', {
@@ -801,7 +912,9 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
                 message: messageToSend,
                 provider: provider,
                 model: model,
-                persona: persona
+                persona: persona,
+                max_tokens: parseInt(maxTokens),
+                temperature: parseFloat(temperature)
             }),
             signal: controller.signal
         });
@@ -815,7 +928,7 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
         } catch (jsonErr) {
             // Not valid JSON, show as error
             appendMessage(`Error: ${text || 'Unknown error from server.'}`, false);
-            showProcessing(false);
+            hideInputProgress();
             return;
         }
 
@@ -833,6 +946,18 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
             appendMessage(aiMessage, false, aiMessageIndex);
             if (aiMessage.text) {
                 lastAiResponse = aiMessage.text;
+                lastAiResponseText = aiMessage.text; // Store for copy function
+                // Show copy button
+                document.getElementById('copy-response-btn')?.classList.remove('d-none');
+                
+                // Auto-speak if enabled
+                const autoSpeak = document.getElementById('auto-speak');
+                if (autoSpeak && autoSpeak.checked) {
+                    // Small delay to ensure message is displayed first
+                    setTimeout(() => {
+                        speakText(aiMessage.text);
+                    }, 500);
+                }
             }
             lastMessage = messageToSend;
 
@@ -854,7 +979,7 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
             : `Error: ${error.message}`;
         appendMessage(errorMessage, false);
     } finally {
-        showProcessing(false);
+        hideInputProgress();
     }
 }, 250);
 
@@ -881,6 +1006,10 @@ let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 
+// Speech recognition (browser-based)
+let speechRecognition = null;
+let isListening = false;
+
 // Speech synthesis
 const speechSynthesis = window.speechSynthesis;
 let isSpeaking = false;
@@ -892,35 +1021,95 @@ let voicePitch = 1.0;
 
 async function initializeAudio() {
     try {
-        // Check if audio transcription is available
-        const response = await fetch('/transcribe', { method: 'POST' });
-        const data = await response.json();
-
-        if (response.status === 503) {
-            console.warn('Audio support not available:', data.error);
-            document.getElementById('record-button').style.display = 'none';
-            return;
+        // Initialize browser-based speech recognition
+        if ('webkitSpeechRecognition' in window) {
+            speechRecognition = new webkitSpeechRecognition();
+        } else if ('SpeechRecognition' in window) {
+            speechRecognition = new SpeechRecognition();
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+        if (speechRecognition) {
+            speechRecognition.continuous = false;
+            speechRecognition.interimResults = false;
+            speechRecognition.lang = 'en-US';
 
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-        };
+            speechRecognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('user-input').value = transcript;
+                console.log('Speech recognition result:', transcript);
+                // Visual feedback
+                const input = document.getElementById('user-input');
+                input.style.backgroundColor = '#e8f5e8';
+                setTimeout(() => {
+                    input.style.backgroundColor = '';
+                }, 1000);
+            };
 
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            try {
-                await transcribeAudio(audioBlob);
-            } catch (error) {
-                console.error('Error transcribing audio:', error);
-                alert('Error transcribing audio. Please try again.');
-            } finally {
-                audioChunks = [];
-            }
-        };
+            speechRecognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                let errorMessage = 'Speech recognition error. Please try again.';
+                if (event.error === 'not-allowed') {
+                    errorMessage = 'Microphone access denied. Please enable microphone permissions.';
+                } else if (event.error === 'no-speech') {
+                    errorMessage = 'No speech detected. Please try speaking again.';
+                } else if (event.error === 'network') {
+                    errorMessage = 'Network error. Please check your internet connection.';
+                }
+                alert(errorMessage);
+                isListening = false;
+                updateRecordButton();
+            };
+
+            speechRecognition.onstart = () => {
+                console.log('Speech recognition started');
+                const input = document.getElementById('user-input');
+                input.placeholder = 'Listening... Speak now';
+                input.style.borderColor = '#007bff';
+            };
+
+            speechRecognition.onend = () => {
+                isListening = false;
+                updateRecordButton();
+                const input = document.getElementById('user-input');
+                input.placeholder = 'Type your message...';
+                input.style.borderColor = '';
+            };
+
+            console.log('Browser speech recognition initialized');
+        }
+
+        // Try to initialize media recorder as fallback
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                try {
+                    await transcribeAudio(audioBlob);
+                } catch (error) {
+                    console.error('Error transcribing audio:', error);
+                    alert('Error transcribing audio. Please try again.');
+                } finally {
+                    audioChunks = [];
+                }
+            };
+
+            console.log('Media recorder initialized as fallback');
+        } catch (error) {
+            console.warn('Media recorder initialization failed:', error);
+        }
+
+        // If neither method is available, hide the button
+        if (!speechRecognition && !mediaRecorder) {
+            document.getElementById('record-button').style.display = 'none';
+            console.warn('No speech recognition methods available');
+        }
+
     } catch (error) {
         console.error('Error initializing audio:', error);
         document.getElementById('record-button').style.display = 'none';
@@ -929,25 +1118,73 @@ async function initializeAudio() {
 }
 
 function toggleRecording() {
-    if (!mediaRecorder) {
-        alert('Microphone access not initialized');
+    // Try browser-based speech recognition first
+    if (speechRecognition && !isListening) {
+        isListening = true;
+        updateRecordButton();
+        try {
+            speechRecognition.start();
+            console.log('Started browser speech recognition');
+        } catch (error) {
+            console.error('Failed to start speech recognition:', error);
+            isListening = false;
+            updateRecordButton();
+            // Fallback to media recorder
+            if (mediaRecorder) {
+                startMediaRecording();
+            } else {
+                alert('Speech recognition not available');
+            }
+        }
         return;
     }
 
-    const recordButton = document.getElementById('record-button');
+    // Stop listening if currently active
+    if (isListening) {
+        speechRecognition?.stop();
+        isListening = false;
+        updateRecordButton();
+        return;
+    }
+
+    // Fallback to media recorder
+    if (mediaRecorder) {
+        startMediaRecording();
+    } else {
+        alert('Microphone access not initialized');
+    }
+}
+
+function startMediaRecording() {
+    if (!mediaRecorder) {
+        alert('Media recorder not available');
+        return;
+    }
+
     if (isRecording) {
         mediaRecorder.stop();
-        recordButton.innerHTML = '<i class="fas fa-microphone"></i>';
-        recordButton.classList.remove('btn-danger');
-        recordButton.classList.add('btn-primary');
+        isRecording = false;
     } else {
         audioChunks = [];
         mediaRecorder.start();
+        isRecording = true;
+    }
+    updateRecordButton();
+}
+
+function updateRecordButton() {
+    const recordButton = document.getElementById('record-button');
+    if (isListening || isRecording) {
         recordButton.innerHTML = '<i class="fas fa-stop"></i>';
         recordButton.classList.remove('btn-primary');
         recordButton.classList.add('btn-danger');
+        recordButton.title = 'Stop recording';
+    } else {
+        recordButton.innerHTML = '<i class="fas fa-microphone"></i>';
+        recordButton.classList.remove('btn-danger');
+        recordButton.classList.add('btn-primary');
+        recordButton.title = 'Start voice input';
     }
-    isRecording = !isRecording;
 }
 
 async function transcribeAudio(audioBlob) {
@@ -1033,12 +1270,14 @@ function initializeVoiceControls() {
     const pitchInput = document.getElementById('voice-pitch');
     const rateValue = document.getElementById('voice-rate-value');
     const pitchValue = document.getElementById('voice-pitch-value');
+    const autoSpeakCheckbox = document.getElementById('auto-speak');
 
     // Load saved settings
     const savedSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
     voiceRate = savedSettings.rate || 1.0;
     voicePitch = savedSettings.pitch || 1.0;
     const savedGender = savedSettings.gender || 'all';
+    const autoSpeakEnabled = savedSettings.autoSpeak !== false; // Default to true
 
     // Update UI with saved settings
     rateInput.value = voiceRate;
@@ -1046,8 +1285,14 @@ function initializeVoiceControls() {
     rateValue.textContent = `${voiceRate.toFixed(1)}x`;
     pitchValue.textContent = `${voicePitch.toFixed(1)}x`;
     genderSelect.value = savedGender;
+    autoSpeakCheckbox.checked = autoSpeakEnabled;
 
     // Event listeners
+    autoSpeakCheckbox.addEventListener('change', (e) => {
+        const updatedSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+        updatedSettings.autoSpeak = e.target.checked;
+        localStorage.setItem('voiceSettings', JSON.stringify(updatedSettings));
+    });
     genderSelect.addEventListener('change', (e) => {
         const gender = e.target.value;
         localStorage.setItem('voiceSettings', JSON.stringify({
@@ -1114,6 +1359,16 @@ function cleanTextForSpeech(text) {
 }
 
 function speakText(text) {
+    // If no text provided, use the last AI response
+    if (!text && lastAiResponseText) {
+        text = lastAiResponseText;
+    }
+    
+    if (!text) {
+        alert('No text to speak. Please send a message first.');
+        return;
+    }
+
     if (isSpeaking) {
         speechSynthesis.cancel();
         isSpeaking = false;
@@ -1122,6 +1377,11 @@ function speakText(text) {
     }
 
     const cleanText = cleanTextForSpeech(text);
+
+    if (!cleanText || cleanText.trim().length === 0) {
+        alert('No readable text found.');
+        return;
+    }
 
     // Split text into sentences for better handling
     const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
@@ -1187,10 +1447,14 @@ function updateSpeakButton() {
     const speakButton = document.getElementById('speak-button');
     if (isSpeaking) {
         speakButton.innerHTML = '<i class="fas fa-volume-mute"></i>';
+        speakButton.classList.remove('btn-primary');
         speakButton.classList.add('btn-danger');
+        speakButton.title = 'Stop speaking';
     } else {
         speakButton.innerHTML = '<i class="fas fa-volume-up"></i>';
         speakButton.classList.remove('btn-danger');
+        speakButton.classList.add('btn-primary');
+        speakButton.title = 'Speak response';
     }
 }
 

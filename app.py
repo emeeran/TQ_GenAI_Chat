@@ -2,7 +2,6 @@
 
 
 # --- Imports (PEP 8: all imports at the top) ---
-import anthropic
 import asyncio
 import io
 import json
@@ -28,6 +27,14 @@ from services.xai_service import XAIService
 from urllib3.util.retry import Retry
 from werkzeug.utils import secure_filename
 from config.settings import ALLOWED_EXTENSIONS, SAVE_DIR, EXPORT_DIR, UPLOAD_DIR
+
+# Optional imports - providers may not be installed
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+    print("Warning: anthropic library not installed. Claude models will not be available.")
 
 # --- Text-to-Speech (TTS) with Multiple Voices ---
 try:
@@ -607,6 +614,20 @@ def process_chat_request(data: dict) -> dict:
     model = data['model']
     message = data['message']
     persona = data.get('persona', '')
+    temperature = data.get('temperature', 0.7)
+    max_tokens = data.get('max_tokens', 4000)
+
+    # Convert string values to appropriate types
+    try:
+        temperature = float(temperature)
+        max_tokens = int(max_tokens)
+    except (ValueError, TypeError):
+        temperature = 0.7
+        max_tokens = 4000
+
+    # Validate parameter ranges
+    temperature = max(0.0, min(1.0, temperature))
+    max_tokens = max(100, min(12000, max_tokens))
 
     # Enhanced context handling
     try:
@@ -673,7 +694,9 @@ Please synthesize a clear, well-organized answer using this context where releva
                 'messages': [
                     {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
                     {'role': 'user', 'content': message}
-                ]
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens
             }
         elif provider == 'huggingface':
             allowed_hf_models = ["Qwen/Qwen3-Coder-480B-A35B-Instruct"]
@@ -688,7 +711,9 @@ Please synthesize a clear, well-organized answer using this context where releva
                 'model': f'{model}:novita',
                 'messages': [
                     {'role': 'user', 'content': message}
-                ]
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens
             }
         elif provider == 'openrouter':
             payload = {
@@ -696,14 +721,18 @@ Please synthesize a clear, well-organized answer using this context where releva
                 'messages': [
                     {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
                     {'role': 'user', 'content': message}
-                ]
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens
             }
         elif provider == 'cohere':
             payload = {
                 'model': model,
                 'messages': [
                     {'role': 'user', 'content': message}
-                ]
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens
             }
         elif provider == 'perplexity':
             payload = {
@@ -711,7 +740,9 @@ Please synthesize a clear, well-organized answer using this context where releva
                 'messages': [
                     {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
                     {'role': 'user', 'content': message}
-                ]
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens
             }
         else:
             payload = {
@@ -719,7 +750,9 @@ Please synthesize a clear, well-organized answer using this context where releva
                 'messages': [
                     {'role': 'system', 'content': f"Persona: {persona}\n{markdown_instruction}"},
                     {'role': 'user', 'content': message}
-                ]
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens
             }
         retries = 0
         last_error = None
@@ -1136,6 +1169,9 @@ def process_anthropic_request(model: str, message: str, system_prompt: str) -> d
     api_key = API_CONFIGS['anthropic']['key']
     if not api_key:
         raise ValueError("Anthropic API key not found")
+    
+    if not ANTHROPIC_AVAILABLE:
+        raise ValueError("Anthropic library not installed")
 
     client = anthropic.Anthropic(api_key=api_key)
 
@@ -1472,36 +1508,67 @@ def transcribe():
             raise ValueError("Empty audio file")
 
         recognizer = sr.Recognizer()
+        
+        # Adjust recognizer settings for better accuracy
+        recognizer.energy_threshold = 300
+        recognizer.dynamic_energy_threshold = True
+        recognizer.pause_threshold = 0.8
+        recognizer.operation_timeout = None
+        recognizer.phrase_threshold = 0.3
+        recognizer.non_speaking_duration = 0.5
+        
         audio = AudioSegment.from_file(audio_file)
+        
+        # Normalize audio for better recognition
+        audio = audio.normalize()
+        
+        # Convert to WAV with proper settings
         wav_data = io.BytesIO()
-        audio.export(wav_data, format="wav")
+        audio.export(wav_data, format="wav", parameters=["-ar", "16000", "-ac", "1"])
         wav_data.seek(0)
 
         with sr.AudioFile(wav_data) as source:
+            # Adjust for ambient noise
+            recognizer.adjust_for_ambient_noise(source, duration=0.2)
             audio_data = recognizer.record(source)
+            
             try:
-                text = recognizer.recognize_google(audio_data)
+                # Try Google first
+                text = recognizer.recognize_google(audio_data, language='en-US')
                 return jsonify({
                     'text': text,
-                    'status': 'success'
+                    'status': 'success',
+                    'method': 'google'
                 })
             except sr.UnknownValueError:
-                return jsonify({
-                    'error': 'Could not understand audio',
-                    'status': 'error'
-                }), 400
+                try:
+                    # Fallback to Google with different settings
+                    text = recognizer.recognize_google(audio_data, language='en', show_all=False)
+                    return jsonify({
+                        'text': text,
+                        'status': 'success',
+                        'method': 'google_fallback'
+                    })
+                except sr.UnknownValueError:
+                    return jsonify({
+                        'error': 'Could not understand audio. Please speak clearly and try again.',
+                        'status': 'error',
+                        'suggestion': 'Try speaking more slowly and clearly, or check your microphone settings.'
+                    }), 400
             except sr.RequestError as e:
                 app.logger.error(f"Google Speech Recognition request error: {str(e)}")
                 return jsonify({
-                    'error': f'Google Speech Recognition request failed: {str(e)}',
-                    'status': 'error'
+                    'error': f'Speech recognition service unavailable: {str(e)}',
+                    'status': 'error',
+                    'suggestion': 'Please check your internet connection and try again.'
                 }), 500
 
     except Exception as e:
         app.logger.error(f"Transcription error: {str(e)}")
         return jsonify({
             'error': f'Transcription failed: {str(e)}',
-            'status': 'error'
+            'status': 'error',
+            'suggestion': 'Please check your audio file format and try again.'
         }), 500
 
 @app.route('/save_chat', methods=['POST'])
