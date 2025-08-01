@@ -19,6 +19,99 @@ function toggleTheme() {
     setTheme(current === 'dark' ? 'light' : 'dark');
 }
 
+// Persona loading functionality
+let personaContents = {};
+
+async function loadPersonas() {
+    const personaSelect = document.getElementById('persona');
+    const statusDiv = document.getElementById('persona-status');
+    
+    if (!personaSelect) {
+        console.error('Persona select element not found!');
+        if (statusDiv) statusDiv.textContent = 'Error: Persona select element not found!';
+        return;
+    }
+    
+    if (statusDiv) statusDiv.textContent = 'Fetching personas from server...';
+    
+    try {
+        const resp = await fetch('/personas');
+        if (!resp.ok) throw new Error(`Failed to fetch personas: ${resp.status} ${resp.statusText}`);
+        personaContents = await resp.json();
+        
+        if (statusDiv) statusDiv.textContent = 'Loading persona options...';
+        
+        // Clear existing options
+        personaSelect.innerHTML = '';
+        
+        // Add each persona as an option
+        let optionsAdded = 0;
+        Object.entries(personaContents).forEach(([key, desc]) => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            if (key === 'helpful_assistant') opt.selected = true;
+            personaSelect.appendChild(opt);
+            optionsAdded++;
+        });
+        
+        // Add custom option
+        const customOpt = document.createElement('option');
+        customOpt.value = 'custom';
+        customOpt.textContent = 'Custom Persona...';
+        personaSelect.appendChild(customOpt);
+        
+        if (statusDiv) statusDiv.textContent = `Loaded ${optionsAdded + 1} personas successfully`;
+        
+        updatePersonaContent();
+        console.log(`Successfully loaded ${optionsAdded} personas`);
+    } catch (e) {
+        console.error('Error loading personas:', e);
+        
+        const statusDiv = document.getElementById('persona-status');
+        if (statusDiv) statusDiv.textContent = `Error: ${e.message}`;
+        
+        if (!personaSelect) {
+            console.error('Cannot set fallback personas - personaSelect is null');
+            return;
+        }
+        
+        // Provide a more comprehensive fallback
+        personaSelect.innerHTML = `
+            <option value="helpful_assistant">Helpful Assistant</option>
+            <option value="code_expert">Code Expert</option>
+            <option value="medical_doctor">Medical Doctor</option>
+            <option value="research_scientist">Research Scientist</option>
+            <option value="business_analyst">Business Analyst</option>
+            <option value="legal_advisor">Legal Advisor</option>
+            <option value="custom">Custom Persona...</option>
+        `;
+        
+        if (statusDiv) statusDiv.textContent = 'Using fallback personas due to server error';
+        console.warn('Using fallback personas due to server error');
+    }
+}
+
+function updatePersonaContent() {
+    const personaSelect = document.getElementById('persona');
+    const customInput = document.getElementById('custom-persona-textarea');
+    const contentDiv = document.getElementById('persona-content');
+    
+    if (!personaSelect) return;
+    
+    let persona = personaSelect.value;
+    if (persona === 'custom') {
+        if (customInput) customInput.classList.remove('d-none');
+        if (contentDiv) contentDiv.textContent = customInput?.value || 'Describe your custom persona above.';
+    } else {
+        if (customInput) {
+            customInput.classList.add('d-none');
+            customInput.value = '';
+        }
+        if (contentDiv) contentDiv.textContent = personaContents[persona] || '';
+    }
+}
+
 // On load, set theme and restore saved settings
 document.addEventListener('DOMContentLoaded', () => {
     setTheme(localStorage.getItem('theme') || 'light');
@@ -41,6 +134,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Update provider/model display initially
     updateProviderModelDisplay();
+    
+    // Load personas after a short delay to ensure all elements are ready
+    setTimeout(() => {
+        loadPersonas().then(() => {
+            // Set up persona event listeners after loading
+            const personaSelect = document.getElementById('persona');
+            const customInput = document.getElementById('custom-persona-textarea');
+            
+            if (personaSelect) {
+                personaSelect.addEventListener('change', updatePersonaContent);
+            }
+            if (customInput) {
+                customInput.addEventListener('input', updatePersonaContent);
+            }
+        }).catch(err => {
+            console.error('Error setting up personas:', err);
+        });
+    }, 300);
 });
 // Debounce function to limit rapid calls
 const debounce = (func, wait) => {
@@ -55,15 +166,15 @@ const debounce = (func, wait) => {
     };
 };
 
-// Cache DOM queries
+// Cache DOM queries - Note: elements might be null if called before DOM is ready
 const elements = {
     chatBox: document.getElementById('chat-box'),
     userInput: document.getElementById('user-input'),
     provider: document.getElementById('provider'),
     model: document.getElementById('model'),
-    persona: document.getElementById('persona'),
-    customPersonaInput: document.getElementById('custom-persona-textarea'),
-    personaContent: document.getElementById('persona-content')
+    // persona: document.getElementById('persona'), // Removed - will be handled dynamically
+    // customPersonaInput: document.getElementById('custom-persona-textarea'), // Removed - will be handled dynamically
+    // personaContent: document.getElementById('persona-content') // Removed - will be handled dynamically
 };
 
 // Always refresh models on provider change
@@ -104,20 +215,6 @@ function updateProviderModelDisplay() {
     }
     
     displayElement.innerHTML = `<strong>${provider} | ${model}</strong>`;
-}
-
-// Persona selector logic
-if (elements.persona) {
-    const customTextarea = document.getElementById('custom-persona-textarea');
-    elements.persona.addEventListener('change', async function () {
-        if (this.value === 'custom') {
-            customTextarea.classList.remove('d-none');
-        } else {
-            customTextarea.classList.add('d-none');
-        }
-    });
-    // Trigger initial content
-    elements.persona.dispatchEvent(new Event('change'));
 }
 
 // Slider value updates
@@ -985,8 +1082,32 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
 
 // Add enter key listener for input
 document.getElementById('user-input').addEventListener('keypress', function (event) {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
         sendMessage();
+    }
+});
+
+// Auto-resize textarea functionality
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    const maxHeight = 120; // Max height in pixels (about 6 lines)
+    textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+}
+
+// Set up auto-resize for user input
+document.addEventListener('DOMContentLoaded', function() {
+    const userInput = document.getElementById('user-input');
+    if (userInput) {
+        userInput.addEventListener('input', function() {
+            autoResizeTextarea(this);
+        });
+        
+        // Handle pasted content
+        userInput.addEventListener('paste', function() {
+            setTimeout(() => autoResizeTextarea(this), 0);
+        });
     }
 });
 

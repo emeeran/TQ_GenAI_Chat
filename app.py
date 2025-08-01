@@ -65,9 +65,7 @@ with app.app_context():
 def get_personas():
     from persona import PERSONAS
     # Return the full PERSONAS dictionary for dropdown and display
-    return jsonify(PERSONAS)
-
-# Serve persona content for frontend display (must be after app = Flask(...))
+    return jsonify(PERSONAS)# Serve persona content for frontend display (must be after app = Flask(...))
 @app.route('/get_persona_content/<persona_key>')
 def get_persona_content(persona_key):
     content = PERSONAS.get(persona_key, "")
