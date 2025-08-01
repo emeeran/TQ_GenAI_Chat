@@ -1195,23 +1195,44 @@ def process_xai_request(model: str, message: str, persona: str) -> dict:
 
 @app.route('/get_models/<provider>')
 def get_models(provider):
-    if provider not in MODEL_CONFIGS:
-        return jsonify({'error': f'Invalid provider: {provider}'}), 400
+    try:
+        app.logger.info(f"Getting models for provider: {provider}")
+        
+        if provider not in MODEL_CONFIGS:
+            app.logger.warning(f"Invalid provider requested: {provider}")
+            return jsonify({
+                'error': f'Invalid provider: {provider}',
+                'models': [],
+                'default': None,
+                'fallback': None,
+                'selected': None
+            }), 400
 
-    config = API_CONFIGS.get(provider, {})
-    models = sorted(MODEL_CONFIGS.get(provider, []))
-    default = config.get('default')
-    if default and default not in models:
-        models.append(default)
+        config = API_CONFIGS.get(provider, {})
+        models = sorted(MODEL_CONFIGS.get(provider, []))
+        default = config.get('default')
+        if default and default not in models:
+            models.append(default)
 
-    if provider == "moonshot":
-        app.logger.info(f"Moonshot models returned: {models}")
-    return jsonify({
-        'models': models,
-        'default': default,
-        'fallback': config.get('fallback'),
-        'selected': default or models[0] if models else None
-    })
+        app.logger.info(f"Returning {len(models)} models for {provider}")
+        if provider == "moonshot":
+            app.logger.info(f"Moonshot models returned: {models}")
+        
+        return jsonify({
+            'models': models,
+            'default': default,
+            'fallback': config.get('fallback'),
+            'selected': default or models[0] if models else None
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting models for {provider}: {str(e)}")
+        return jsonify({
+            'error': f'Server error: {str(e)}',
+            'models': [],
+            'default': None,
+            'fallback': None,
+            'selected': None
+        }), 500
 
 @app.route('/update_models/<provider>', methods=['POST'])
 def update_models(provider):
@@ -1254,6 +1275,16 @@ def update_models(provider):
                     model['id'] for model in data.get('data', [])
                     if 'gpt' in model['id'].lower() or 'o1' in model['id'].lower() or 'o3' in model['id'].lower()
                 ]
+                # Update model configuration and return success
+                MODEL_CONFIGS[provider] = sorted(models)
+                update_ai_models_file(provider, models)
+                return jsonify({
+                    'success': True,
+                    'models': sorted(models),
+                    'message': f'Successfully updated {len(models)} models for {provider}'
+                })
+            else:
+                return jsonify({'error': f'Failed to fetch models from {provider}: HTTP {response.status_code}'}), 400
                 
         elif provider == 'anthropic':
             url = 'https://api.anthropic.com/v1/models'
@@ -1266,6 +1297,16 @@ def update_models(provider):
             if response.status_code == 200:
                 data = response.json()
                 models = [model['id'] for model in data.get('data', [])]
+                # Update model configuration and return success
+                MODEL_CONFIGS[provider] = sorted(models)
+                update_ai_models_file(provider, models)
+                return jsonify({
+                    'success': True,
+                    'models': sorted(models),
+                    'message': f'Successfully updated {len(models)} models for {provider}'
+                })
+            else:
+                return jsonify({'error': f'Failed to fetch models from {provider}: HTTP {response.status_code}'}), 400
                 
         elif provider == 'groq':
             url = 'https://api.groq.com/openai/v1/models'
@@ -1281,6 +1322,16 @@ def update_models(provider):
                     model['id'] for model in data.get('data', [])
                     if model.get('active', True) and 'whisper' not in model['id'].lower()
                 ]
+                # Update model configuration and return success
+                MODEL_CONFIGS[provider] = sorted(models)
+                update_ai_models_file(provider, models)
+                return jsonify({
+                    'success': True,
+                    'models': sorted(models),
+                    'message': f'Successfully updated {len(models)} models for {provider}'
+                })
+            else:
+                return jsonify({'error': f'Failed to fetch models from {provider}: HTTP {response.status_code}'}), 400
                 
         else:
             # For other providers, use current model list as fallback
@@ -1810,6 +1861,26 @@ def load_chat(filename):
 @app.route('/')
 def home():
     return render_template('index.html', default_provider='groq')
+
+# Global error handlers for AJAX requests
+@app.errorhandler(404)
+def not_found_error(error):
+    if request.is_json or 'application/json' in request.headers.get('Accept', ''):
+        return jsonify({'error': 'Endpoint not found'}), 404
+    return render_template('index.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    if request.is_json or 'application/json' in request.headers.get('Accept', ''):
+        return jsonify({'error': 'Internal server error'}), 500
+    return render_template('index.html'), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    app.logger.error(f"Unhandled exception: {str(e)}")
+    if request.is_json or 'application/json' in request.headers.get('Accept', '') or request.path.startswith('/get_'):
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+    return render_template('index.html'), 500
 
 def main():
     """Main entry point for the console script"""

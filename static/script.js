@@ -100,16 +100,42 @@ async function processQueue() {
 async function updateModels() {
     const provider = document.getElementById('provider').value;
     const modelSelect = document.getElementById('model');
+    
+    if (!provider) {
+        modelSelect.innerHTML = '<option value="">Select Provider First</option>';
+        modelSelect.disabled = true;
+        return;
+    }
+    
     modelSelect.innerHTML = '<option value="">Loading models...</option>';
     modelSelect.disabled = true;
 
     try {
+        console.log(`Fetching models for provider: ${provider}`);
         const response = await fetch(`/get_models/${provider}`);
+        
+        console.log(`Response status: ${response.status}`);
+        console.log(`Response headers:`, response.headers);
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response received:', text);
+            throw new Error('Server returned non-JSON response');
+        }
+
         const data = await response.json();
+        console.log('Models data received:', data);
+        
+        if (data.error) {
+            throw new Error(`Server error: ${data.error}`);
+        }
+        
         const models = data.models;
         const defaultModel = data.default;
 
@@ -126,14 +152,19 @@ async function updateModels() {
                 modelSelect.appendChild(option);
             });
             modelSelect.disabled = false;
+            console.log(`Successfully loaded ${models.length} models for ${provider}`);
         } else {
             modelSelect.innerHTML = '<option value="">No models available</option>';
             modelSelect.disabled = true;
+            console.warn(`No models available for provider: ${provider}`);
         }
     } catch (error) {
         console.error('Error fetching models:', error);
         modelSelect.innerHTML = '<option value="">Error loading models</option>';
         modelSelect.disabled = true;
+        
+        // Show user-friendly error message
+        showNotification(`Error updating models: ${error.message}`, 'error');
     }
 }
 
@@ -500,16 +531,37 @@ async function updateRetryModels() {
     const modelSelect = document.getElementById('retry-model-select');
     const provider = providerSelect.value;
 
+    if (!provider) {
+        modelSelect.innerHTML = '<option value="">Select Provider First</option>';
+        modelSelect.disabled = true;
+        return;
+    }
+
     modelSelect.innerHTML = '<option value="">Loading models...</option>';
     modelSelect.disabled = true;
 
     try {
+        console.log(`Fetching retry models for provider: ${provider}`);
         const response = await fetch(`/get_models/${provider}`);
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response received:', text);
+            throw new Error('Server returned non-JSON response');
+        }
+
         const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(`Server error: ${data.error}`);
+        }
+        
         const models = data.models;
         const defaultModel = data.default;
 
@@ -525,11 +577,16 @@ async function updateRetryModels() {
                 }
                 modelSelect.appendChild(option);
             });
+            console.log(`Successfully loaded ${models.length} retry models for ${provider}`);
+        } else {
+            modelSelect.innerHTML = '<option value="">No models available</option>';
+            console.warn(`No retry models available for provider: ${provider}`);
         }
         modelSelect.disabled = false;
     } catch (error) {
         console.error('Error fetching retry models:', error);
         modelSelect.innerHTML = '<option value="">Error loading models</option>';
+        modelSelect.disabled = true;
     }
 }
 
