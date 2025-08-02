@@ -13,6 +13,23 @@
 .input-with-progress {
     position: relative;
     flex: 1;
+    min-width: 200px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Dynamic textarea styling */
+.input-with-progress textarea {
+    min-height: 40px;
+    max-height: 200px;
+    width: 100%;
+    resize: none;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    padding: 8px 12px;
+    line-height: 1.4;
+    overflow-y: hidden;
 }
 
 .input-progress {
@@ -42,21 +59,59 @@
     position: fixed;
     bottom: 10px;
     left: 10px;
-    right: calc(75% - 10px);
+    width: calc(25% - 20px);
+    max-width: 280px;
     background: rgba(0, 123, 240, 0.1);
     border: 1px solid rgba(0, 123, 240, 0.3);
     border-radius: 8px;
     padding: 8px 12px;
     text-align: center;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     backdrop-filter: blur(10px);
     z-index: 1000;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 .theme-dark .provider-model-display {
     background: rgba(0, 223, 216, 0.1);
     border-color: rgba(0, 223, 216, 0.3);
     color: #00dfd8;
+}
+
+/* Responsive provider/model display */
+@media (max-width: 768px) {
+    .provider-model-display {
+        width: calc(100% - 20px);
+        max-width: none;
+        font-size: 0.8rem;
+        padding: 6px 8px;
+    }
+}
+
+@media (max-width: 576px) {
+    .provider-model-display {
+        font-size: 0.75rem;
+        padding: 4px 6px;
+    }
+}
+
+/* Audio settings section headers */
+.settings-content h6.text-muted {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 4px;
+    margin-bottom: 12px;
+}
+
+.theme-dark .settings-content h6.text-muted {
+    color: #b0b0b0 !important;
+    border-bottom-color: #444;
 }
 
 /* Fix dropdown text color in dark mode */
@@ -190,6 +245,20 @@ body.theme-dark {
     background: #444;
     color: #fff;
 }
+
+/* Dark theme support for input container */
+.theme-dark .input-container {
+    background: rgba(35, 39, 43, 0.95);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.theme-dark .input-container:hover,
+.theme-dark .input-container:focus-within {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    background: rgba(35, 39, 43, 1);
+}
+
 body {
     font-family: Arial, sans-serif;
     background-color: #f0f0f0;
@@ -388,11 +457,104 @@ body {
 .input-container {
     display: flex;
     gap: 6px;
-    padding: 8px 0;
+    padding: 8px 12px;
     background-color: #f8f9fa;
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    align-items: center;
+    align-items: flex-end;
+    position: relative;
+    transition: all 0.3s ease;
+    width: fit-content;
+    min-width: 800px; /* Doubled from 400px */
+    max-width: 100%;
+    margin: 0 auto;
+    flex-wrap: wrap;
+    justify-self: center;
+}
+
+/* Dynamic container sizing based on content */
+.input-container.expanded {
+    width: 100%;
+    min-width: 100%;
+    margin: 0;
+}
+
+.input-container.compact {
+    width: fit-content;
+    min-width: 400px;
+    margin: 0 auto;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .input-container {
+        min-width: 280px;
+        max-width: 100%;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px 8px;
+    }
+    
+    .input-container.compact {
+        min-width: 280px;
+    }
+    
+    .input-container button {
+        min-width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+    
+    .input-with-progress {
+        min-width: 150px;
+    }
+}
+
+/* Tablet adjustments */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .input-container {
+        min-width: 350px;
+    }
+    
+    .input-container.compact {
+        min-width: 350px;
+    }
+}
+
+/* Animation keyframes for dynamic container */
+@keyframes containerExpand {
+    from {
+        width: fit-content;
+        min-width: 400px;
+    }
+    to {
+        width: 100%;
+        min-width: 100%;
+    }
+}
+
+@keyframes containerShrink {
+    from {
+        width: 100%;
+        min-width: 100%;
+    }
+    to {
+        width: fit-content;
+        min-width: 400px;
+    }
+}
+
+/* Smooth transitions for all dynamic elements */
+.input-container,
+.input-with-progress,
+.input-with-progress textarea {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced focus states */
+.input-container:focus-within {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .input-container input {
@@ -402,21 +564,23 @@ body {
 }
 
 .input-container button {
-    min-width: 36px;
-    max-width: 36px;
-    padding: 0.4rem 0.4rem;
+    min-width: 40px;
+    height: 40px;
+    padding: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .input-container .btn-primary,
 .input-container .btn-secondary {
     font-size: 1.1rem;
-    padding: 0.4rem 0.4rem;
-    min-width: 36px;
-    max-width: 36px;
+    min-width: 40px;
+    height: 40px;
 }
 
 .input-container .btn-primary:last-child {
@@ -618,17 +782,624 @@ body {
     margin-top: 5px;
 }
 
+/* Enhanced Voice Selection Container */
+.voice-selection-container {
+    position: relative;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Audio Section Organization */
+.audio-section {
+    position: relative;
+    padding: 15px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.audio-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.audio-section .section-header {
+    margin-bottom: 12px;
+}
+
+.audio-section .section-header h6 {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+}
+
+.audio-section .section-header h6 i {
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+/* Enhanced Form Switch for Audio Control */
+.form-check.form-switch {
+    padding-left: 2.5em;
+    min-height: 1.5rem;
+}
+
+.form-check.form-switch .form-check-input {
+    width: 2em;
+    margin-left: -2.5em;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255,255,255,1%29'/%3e%3c/svg%3e");
+    background-position: left center;
+    border-radius: 2em;
+    transition: background-position .15s ease-in-out;
+}
+
+.form-check.form-switch .form-check-input:checked {
+    background-position: right center;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-check.form-switch .form-check-label {
+    cursor: pointer;
+}
+
+.form-check.form-switch .form-check-label strong {
+    color: #333;
+}
+
+.form-check.form-switch .form-check-label small {
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
+.voice-controls-row {
+    display: flex;
+    align-items: center;
+}
+
+/* Voice Dropdown Select */
+.voice-select-dropdown {
+    flex: 1;
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.voice-select-dropdown:focus {
+    border-color: #1976d2;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+    outline: none;
+}
+
+.voice-select-dropdown option {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    color: #333;
+    background: white;
+}
+
+.voice-select-dropdown option:hover {
+    background-color: #f0f8ff;
+}
+
+.voice-select-dropdown option:checked,
+.voice-select-dropdown option:selected {
+    background-color: #1976d2 !important;
+    color: white !important;
+    font-weight: 500;
+}
+
+.voice-preview-btn {
+    padding: 8px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    min-width: 50px;
+    flex-shrink: 0;
+}
+
+.voice-preview-btn:hover {
+    background-color: #1976d2;
+    border-color: #1976d2;
+    color: white;
+}
+
+.voice-preview-btn.playing {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+/* Voice Info Display */
+.voice-info {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 8px 12px;
+    border-left: 3px solid #1976d2;
+}
+
+.voice-info.empty {
+    background: #fafafa;
+    border-left-color: #ddd;
+}
+
+.voice-details {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.voice-lang-badge {
+    display: inline-block;
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.voice-default-badge {
+    display: inline-block;
+    background: #e8f5e8;
+    color: #2e7d32;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+/* Old voice select fallback */
 #voice-select {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+/* Enhanced Voice Controls Sliders */
+.voice-controls-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.voice-control-item {
+    margin-bottom: 16px;
+    padding: 8px 0;
+}
+
+.voice-control-label {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #495057;
+    font-size: 0.9rem;
+}
+
 .voice-control-value {
     display: inline-block;
-    min-width: 40px;
+    min-width: 50px;
     text-align: right;
+    color: #1976d2;
+    font-weight: 600;
+    font-size: 0.85rem;
+    background: #e3f2fd;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: auto;
+}
+
+/* Enhanced Range Sliders */
+.form-range.voice-slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #dee2e6 0%, #dee2e6 100%);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 8px 0;
+    transition: all 0.2s ease;
+}
+
+.form-range.voice-slider::-webkit-slider-track {
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(to right, #e9ecef 0%, #e9ecef 100%);
+    border-radius: 4px;
+    border: none;
+}
+
+.form-range.voice-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(25, 118, 210, 0.3);
+    transition: all 0.2s ease;
+}
+
+.form-range.voice-slider::-webkit-slider-thumb:hover {
+    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(25, 118, 210, 0.4);
+}
+
+.form-range.voice-slider::-webkit-slider-thumb:active {
+    transform: scale(1.2);
+    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.5);
+}
+
+/* Firefox slider styling */
+.form-range.voice-slider::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(to right, #e9ecef 0%, #e9ecef 100%);
+    border-radius: 4px;
+    border: none;
+}
+
+.form-range.voice-slider::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(25, 118, 210, 0.3);
+    transition: all 0.2s ease;
+}
+
+/* Speed Slider - Green Theme */
+.form-range.voice-slider.speed-slider::-webkit-slider-thumb {
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    box-shadow: 0 2px 6px rgba(46, 125, 50, 0.3);
+}
+
+.form-range.voice-slider.speed-slider::-webkit-slider-thumb:hover {
+    background: linear-gradient(135deg, #1b5e20 0%, #0d5302 100%);
+    box-shadow: 0 3px 8px rgba(46, 125, 50, 0.4);
+}
+
+.form-range.voice-slider.speed-slider .voice-control-value {
+    background: #e8f5e8;
+    color: #2e7d32;
+}
+
+/* Pitch Slider - Purple Theme */
+.form-range.voice-slider.pitch-slider::-webkit-slider-thumb {
+    background: linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%);
+    box-shadow: 0 2px 6px rgba(123, 31, 162, 0.3);
+}
+
+.form-range.voice-slider.pitch-slider::-webkit-slider-thumb:hover {
+    background: linear-gradient(135deg, #4a148c 0%, #1a237e 100%);
+    box-shadow: 0 3px 8px rgba(123, 31, 162, 0.4);
+}
+
+.form-range.voice-slider.pitch-slider .voice-control-value {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+/* Volume Slider - Orange Theme */
+.form-range.voice-slider.volume-slider::-webkit-slider-thumb {
+    background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+    box-shadow: 0 2px 6px rgba(245, 124, 0, 0.3);
+}
+
+.form-range.voice-slider.volume-slider::-webkit-slider-thumb:hover {
+    background: linear-gradient(135deg, #e65100 0%, #bf360c 100%);
+    box-shadow: 0 3px 8px rgba(245, 124, 0, 0.4);
+}
+
+.form-range.voice-slider.volume-slider .voice-control-value {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+/* Slider progress fill effect */
+.form-range.voice-slider {
+    background: linear-gradient(to right, 
+        #1976d2 0%, 
+        #1976d2 var(--progress, 50%), 
+        #dee2e6 var(--progress, 50%), 
+        #dee2e6 100%);
+}
+
+.form-range.voice-slider.speed-slider {
+    background: linear-gradient(to right, 
+        #2e7d32 0%, 
+        #2e7d32 var(--progress, 50%), 
+        #dee2e6 var(--progress, 50%), 
+        #dee2e6 100%);
+}
+
+.form-range.voice-slider.pitch-slider {
+    background: linear-gradient(to right, 
+        #7b1fa2 0%, 
+        #7b1fa2 var(--progress, 50%), 
+        #dee2e6 var(--progress, 50%), 
+        #dee2e6 100%);
+}
+
+.form-range.voice-slider.volume-slider {
+    background: linear-gradient(to right, 
+        #f57c00 0%, 
+        #f57c00 var(--progress, 50%), 
+        #dee2e6 var(--progress, 50%), 
+        #dee2e6 100%);
+}
+
+/* Slider Icons */
+.slider-icon {
+    display: inline-block;
+    margin-right: 8px;
     color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.slider-icon.speed { color: #2e7d32; }
+.slider-icon.pitch { color: #7b1fa2; }
+.slider-icon.volume { color: #f57c00; }
+
+/* Dark theme overrides */
+.theme-dark .voice-controls-container {
+    background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+    border-color: #404040;
+}
+
+.theme-dark .voice-control-label {
+    color: #e0e0e0;
+}
+
+.theme-dark .form-range.voice-slider::-webkit-slider-track {
+    background: linear-gradient(to right, #404040 0%, #404040 100%);
+}
+
+.theme-dark .form-range.voice-slider {
+    background: linear-gradient(to right, 
+        #1976d2 0%, 
+        #1976d2 var(--progress, 50%), 
+        #404040 var(--progress, 50%), 
+        #404040 100%);
+}
+
+/* Voice Presets Styling */
+.voice-presets {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.voice-presets .btn {
+    font-size: 0.8rem;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border-width: 1px;
+}
+
+.voice-presets .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.voice-presets .btn:active {
+    transform: translateY(0);
+}
+
+.voice-presets .btn-outline-success:hover {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.voice-presets .btn-outline-info:hover {
+    background-color: #0dcaf0;
+    border-color: #0dcaf0;
+}
+
+.voice-presets .btn-outline-warning:hover {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+}
+
+.voice-presets .btn-outline-primary:hover {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Dark theme for voice presets */
+.theme-dark .voice-presets {
+    background: rgba(45, 45, 45, 0.8);
+    border-color: #404040;
+}
+
+.theme-dark .voice-presets h6 {
+    color: #e0e0e0;
+}
+
+/* Responsive adjustments for presets */
+@media (max-width: 768px) {
+    .voice-presets .btn {
+        font-size: 0.75rem;
+        padding: 4px 6px;
+    }
+    
+    .voice-presets {
+        padding: 8px;
+    }
+}
+
+/* Enhanced accessibility for sliders */
+.form-range.voice-slider:focus {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+}
+
+.form-range.voice-slider:focus::-webkit-slider-thumb {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* Voice control animations */
+@keyframes sliderGlow {
+    0% { box-shadow: 0 2px 6px rgba(25, 118, 210, 0.3); }
+    50% { box-shadow: 0 2px 12px rgba(25, 118, 210, 0.6); }
+    100% { box-shadow: 0 2px 6px rgba(25, 118, 210, 0.3); }
+}
+
+.form-range.voice-slider:active::-webkit-slider-thumb {
+    animation: sliderGlow 0.3s ease-in-out;
+}
+
+/* Dark theme support for voice settings */
+.theme-dark .voice-selection-container {
+    background: #2d2d2d;
+    border-color: #404040;
+}
+
+.theme-dark .voice-search {
+    background: #333;
+    border-color: #404040;
+    color: #fff;
+}
+
+.theme-dark .voice-search:focus {
+    background: #404040;
+    border-color: #1976d2;
+}
+
+.theme-dark .voice-select-enhanced {
+    background: #333;
+    border-color: #404040;
+    color: #fff;
+}
+
+.theme-dark .voice-select-enhanced option {
+    background: #333;
+    color: #fff;
+}
+
+.theme-dark .voice-select-enhanced option:hover {
+    background-color: #404040;
+}
+
+.theme-dark .voice-info {
+    background: #333;
+    color: #ccc;
+}
+
+.theme-dark .voice-lang-badge {
+    background: #1976d2;
+    color: white;
+}
+
+/* Responsive design for audio settings */
+@media (max-width: 768px) {
+    .voice-selection-container {
+        padding: 8px;
+    }
+    
+    .voice-search-container {
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .voice-search {
+        font-size: 0.85rem;
+    }
+    
+    .voice-preview-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .voice-select-enhanced {
+        min-height: 120px;
+        max-height: 150px;
+        font-size: 0.85rem;
+    }
+    
+    .voice-info {
+        padding: 6px 8px;
+    }
+    
+    .voice-details {
+        font-size: 0.8rem;
+    }
+    
+    .voice-lang-badge,
+    .voice-default-badge {
+        font-size: 0.7rem;
+        padding: 1px 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .voice-selection-container {
+        padding: 6px;
+        margin: 0 -6px;
+    }
+    
+    .voice-select-enhanced {
+        min-height: 100px;
+        max-height: 120px;
+    }
+}
+
+/* Accessibility improvements */
+.voice-search:focus,
+.voice-select-enhanced:focus {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+}
+
+.voice-preview-btn:focus {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .voice-selection-container {
+        border: 2px solid;
+    }
+    
+    .voice-select-enhanced option:checked,
+    .voice-select-enhanced option:selected {
+        background-color: HighlightText !important;
+        color: Highlight !important;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .voice-search,
+    .voice-select-enhanced,
+    .voice-preview-btn {
+        transition: none;
+    }
 }
 
 /* Clean up and fix settings styles */

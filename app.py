@@ -165,6 +165,95 @@ def create_request_session():
     session.mount("http://", adapter)
     return session
 
+# Fact-checking function using Moonshot AI Kimi-k2 and Groq
+def fact_check_response(response_text: str) -> str:
+    """
+    Fact-check the AI response using Moonshot AI Kimi-2 (primary) and Groq (fallback).
+    Returns a corrected version if factual errors are found.
+    """
+    try:
+        fact_check_prompt = f"""Please thoroughly fact-check the following AI response for any factual errors, outdated information, or inaccuracies. If you find any issues, provide a corrected version. If the response is factually accurate, return it as-is with [VERIFIED] at the start.
+
+Response to fact-check:
+{response_text}
+
+Instructions:
+1. Check for factual accuracy
+2. Verify dates, statistics, and claims
+3. If corrections are needed, provide the corrected version
+4. If accurate, prepend [VERIFIED] to the original response"""
+
+        # Try Moonshot AI Kimi-2 first for thorough fact-checking
+        moonshot_key = os.getenv("MOONSHOT_API_KEY", "").strip()
+        if moonshot_key:
+            try:
+                session = create_request_session()
+                headers = {'Authorization': f'Bearer {moonshot_key}', 'Content-Type': 'application/json'}
+                payload = {
+                    'model': 'kimi-k2-instruct',
+                    'messages': [
+                        {'role': 'system', 'content': 'You are a thorough fact-checker with access to current information. Verify accuracy and correct errors.'},
+                        {'role': 'user', 'content': fact_check_prompt}
+                    ],
+                    'temperature': 0.1,
+                    'max_tokens': 4000
+                }
+                
+                response = session.post(
+                    'https://api.moonshot.ai/v1/chat/completions',
+                    headers=headers,
+                    json=payload,
+                    timeout=(10, 30)
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'choices' in result and result['choices']:
+                        fact_checked = result['choices'][0]['message']['content']
+                        app.logger.info("Fact-checking completed with Moonshot AI Kimi-k2 (primary)")
+                        return fact_checked
+            except Exception as e:
+                app.logger.warning(f"Moonshot AI fact-checking failed: {e}")
+
+        # Fallback to Groq for fast fact-checking
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        if groq_key:
+            try:
+                session = create_request_session()
+                headers = {'Authorization': f'Bearer {groq_key}', 'Content-Type': 'application/json'}
+                payload = {
+                    'model': 'llama-3.3-70b-versatile',
+                    'messages': [
+                        {'role': 'system', 'content': 'You are a thorough fact-checker. Verify information accuracy and correct errors.'},
+                        {'role': 'user', 'content': fact_check_prompt}
+                    ],
+                    'temperature': 0.1,
+                    'max_tokens': 4000
+                }
+                
+                response = session.post(
+                    'https://api.groq.com/openai/v1/chat/completions',
+                    headers=headers,
+                    json=payload,
+                    timeout=(10, 30)
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'choices' in result and result['choices']:
+                        fact_checked = result['choices'][0]['message']['content']
+                        app.logger.info("Fact-checking completed with Groq (fallback)")
+                        return fact_checked
+            except Exception as e:
+                app.logger.warning(f"Groq fact-checking failed: {e}")
+        
+        app.logger.warning("Fact-checking unavailable - no API keys or services failed")
+        return response_text
+        
+    except Exception as e:
+        app.logger.error(f"Fact-checking error: {e}")
+        return response_text
+
 # Ensure .env is loaded with verbose debugging
 env_path = Path(__file__).parent / '.env'
 if not env_path.exists():
@@ -509,6 +598,20 @@ def chat():
             return jsonify({'error': f'API key not configured for {provider}'}), 401
 
         response = process_chat_request(data)
+        
+        # Add fact-checking if enabled
+        if response.get('response', {}).get('text'):
+            original_text = response['response']['text']
+            fact_checked_text = fact_check_response(original_text)
+            
+            # Update response with fact-checked version
+            response['response']['text'] = fact_checked_text
+            
+            # Add metadata about fact-checking
+            if 'metadata' not in response['response']:
+                response['response']['metadata'] = {}
+            response['response']['metadata']['fact_checked'] = True
+            
         return jsonify(response)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -898,10 +1001,10 @@ Please synthesize a clear, well-organized answer using this context where releva
 
     # --- Preferred verification provider/model ---
     PREFERRED_VERIFIERS = [
-        ('openai', 'gpt-4o'),
-        ('anthropic', 'claude-3-5-sonnet-latest'),
-        ('openai', 'gpt-4-turbo'),
-        ('anthropic', 'claude-3-opus-20240229')
+        ('moonshot', 'kimi-k2-instruct'),
+        ('groq', 'llama-3.3-70b-versatile'),
+        ('moonshot', 'moonshot-v1-32k'),
+        ('groq', 'deepseek-r1-distill-llama-70b')
     ]
     verification_result = None
     try:

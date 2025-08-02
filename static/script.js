@@ -183,6 +183,7 @@ if (elements.provider) {
         updateModels();
         // Save provider selection
         localStorage.setItem('defaultProvider', elements.provider.value);
+        // Update display immediately
         updateProviderModelDisplay();
     });
 }
@@ -191,6 +192,7 @@ if (elements.provider) {
 if (elements.model) {
     elements.model.addEventListener('change', () => {
         localStorage.setItem('defaultModel', elements.model.value);
+        // Update display immediately
         updateProviderModelDisplay();
     });
 }
@@ -214,7 +216,17 @@ function updateProviderModelDisplay() {
         }
     }
     
+    // Add animation for updates
+    displayElement.style.transition = 'all 0.3s ease';
+    displayElement.style.transform = 'scale(1.05)';
+    
+    // Update content
     displayElement.innerHTML = `<strong>${provider} | ${model}</strong>`;
+    
+    // Reset scale after animation
+    setTimeout(() => {
+        displayElement.style.transform = 'scale(1)';
+    }, 150);
 }
 
 // Slider value updates
@@ -240,11 +252,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         updateSliderProgress(temperatureSlider);
     }
+    
+    // Set up real-time provider/model display updates
+    setupProviderModelDisplayUpdates();
 });
+
+// Function to set up real-time updates for provider/model display
+function setupProviderModelDisplayUpdates() {
+    // Update display initially
+    updateProviderModelDisplay();
+    
+    // Set up a periodic update to catch any missed changes
+    setInterval(updateProviderModelDisplay, 1000);
+    
+    // Also update when window regains focus (in case updates were missed)
+    window.addEventListener('focus', updateProviderModelDisplay);
+}
 
 function updateSliderProgress(slider) {
     const value = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
     slider.style.setProperty('--range-progress', value + '%');
+}
+
+// Function to remove thinking tags from AI responses
+function removeThinkingTags(text) {
+    if (!text) return text;
+    
+    // Remove <thinking>...</thinking> blocks (case insensitive, multiline)
+    return text.replace(/<thinking[\s\S]*?<\/thinking>/gi, '').trim();
 }
 
 // Copy response functionality
@@ -356,6 +391,8 @@ async function updateModels() {
                 modelSelect.appendChild(option);
             });
             modelSelect.disabled = false;
+            // Update display after models are loaded and default is selected
+            updateProviderModelDisplay();
             console.log(`Successfully loaded ${models.length} models for ${provider}`);
         } else {
             modelSelect.innerHTML = '<option value="">No models available</option>';
@@ -404,7 +441,11 @@ function appendMessage(message, isUser = false, messageIndex = null) {
     } else {
         // AI message: check for verification
         const content = typeof message === 'object' ? message : { text: message };
-        const markdown = content.text || message;
+        let markdown = content.text || message;
+        
+        // Remove thinking tags from response display
+        markdown = removeThinkingTags(markdown);
+        
         // Convert markdown to HTML
         const html = marked.parse(markdown, {
             gfm: true,
@@ -463,7 +504,7 @@ function appendMessage(message, isUser = false, messageIndex = null) {
     }
 
     if (!isUser && message.text) {
-        lastAiResponse = message.text;
+        lastAiResponse = removeThinkingTags(message.text);
     }
 }
 
@@ -881,6 +922,8 @@ async function updateModelsFromProvider() {
         if (data.success) {
             // Refresh the model dropdown
             await updateModels();
+            // Update display after models refresh
+            updateProviderModelDisplay();
             
             alert(`✅ ${data.message}\n\nFound ${data.models.length} models:\n${data.models.slice(0, 5).join(', ')}${data.models.length > 5 ? '...' : ''}`);
         } else {
@@ -970,6 +1013,9 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
             appendMessage(messageToSend, true, userMessageIndex);
             userInput.value = '';
             
+            // Reset the input container to default state
+            resetInputContainer();
+            
             // Add user message to chat history immediately
             chatHistory.push({
                 content: messageToSend,
@@ -1042,8 +1088,10 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
             }
             appendMessage(aiMessage, false, aiMessageIndex);
             if (aiMessage.text) {
-                lastAiResponse = aiMessage.text;
-                lastAiResponseText = aiMessage.text; // Store for copy function
+                // Remove thinking tags from stored text for copy/speak functions
+                const cleanText = removeThinkingTags(aiMessage.text);
+                lastAiResponse = cleanText;
+                lastAiResponseText = cleanText; // Store for copy function
                 // Show copy button
                 document.getElementById('copy-response-btn')?.classList.remove('d-none');
                 
@@ -1052,15 +1100,19 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
                 if (autoSpeak && autoSpeak.checked) {
                     // Small delay to ensure message is displayed first
                     setTimeout(() => {
-                        speakText(aiMessage.text);
+                        speakText(cleanText);
                     }, 500);
                 }
             }
             lastMessage = messageToSend;
 
-            // Add AI response to chat history
+            // Add AI response to chat history (with thinking tags removed)
+            const cleanedAiMessage = { ...aiMessage };
+            if (cleanedAiMessage.text) {
+                cleanedAiMessage.text = removeThinkingTags(cleanedAiMessage.text);
+            }
             chatHistory.push({
-                content: aiMessage,
+                content: cleanedAiMessage,
                 isUser: false,
                 timestamp: new Date().toISOString()
             });
@@ -1088,18 +1140,72 @@ document.getElementById('user-input').addEventListener('keypress', function (eve
     }
 });
 
-// Auto-resize textarea functionality
+// Auto-resize textarea functionality with dynamic container
 function autoResizeTextarea(textarea) {
+    // Reset height to auto to get the correct scrollHeight
     textarea.style.height = 'auto';
-    const maxHeight = 120; // Max height in pixels (about 6 lines)
-    textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    
+    const minHeight = 40; // Minimum height
+    const maxHeight = 200; // Maximum height
+    const scrollHeight = textarea.scrollHeight;
+    
+    // Set the new height
+    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+    textarea.style.height = newHeight + 'px';
+    
+    // Handle overflow
+    textarea.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
+    
+    // Dynamically resize the container based on content
+    resizeInputContainer(textarea);
+}
+
+// Function to dynamically resize the input container
+function resizeInputContainer(textarea) {
+    const container = textarea.closest('.input-container');
+    if (!container) return;
+    
+    const textLength = textarea.value.length;
+    const lineCount = textarea.value.split('\n').length;
+    const hasContent = textLength > 0;
+    
+    // Add classes based on content
+    if (textLength > 100 || lineCount > 2) {
+        container.classList.add('expanded');
+        container.classList.remove('compact');
+    } else if (hasContent) {
+        container.classList.remove('expanded');
+        container.classList.add('compact');
+    } else {
+        container.classList.remove('expanded', 'compact');
+    }
+    
+    // Animate the container changes
+    container.style.transition = 'all 0.3s ease';
+}
+
+// Function to reset input container to default state
+function resetInputContainer() {
+    const userInput = document.getElementById('user-input');
+    const container = userInput?.closest('.input-container');
+    
+    if (container) {
+        container.classList.remove('expanded', 'compact');
+        container.style.transform = '';
+        container.style.boxShadow = '';
+    }
+    
+    if (userInput) {
+        // Reset textarea height
+        autoResizeTextarea(userInput);
+    }
 }
 
 // Set up auto-resize for user input
 document.addEventListener('DOMContentLoaded', function() {
     const userInput = document.getElementById('user-input');
     if (userInput) {
+        // Handle input events
         userInput.addEventListener('input', function() {
             autoResizeTextarea(this);
         });
@@ -1108,6 +1214,33 @@ document.addEventListener('DOMContentLoaded', function() {
         userInput.addEventListener('paste', function() {
             setTimeout(() => autoResizeTextarea(this), 0);
         });
+        
+        // Handle focus/blur for container animation
+        userInput.addEventListener('focus', function() {
+            const container = this.closest('.input-container');
+            if (container) {
+                container.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                container.style.transform = 'translateY(-1px)';
+            }
+        });
+        
+        userInput.addEventListener('blur', function() {
+            const container = this.closest('.input-container');
+            if (container) {
+                container.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                container.style.transform = 'translateY(0)';
+            }
+        });
+        
+        // Handle backspace and delete for dynamic resizing
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                setTimeout(() => autoResizeTextarea(this), 0);
+            }
+        });
+        
+        // Initialize the container state
+        autoResizeTextarea(userInput);
     }
 });
 
@@ -1139,6 +1272,7 @@ let isSpeaking = false;
 let selectedVoice = null;
 let voiceRate = 1.0;
 let voicePitch = 1.0;
+let voiceVolume = 1.0;
 
 async function initializeAudio() {
     try {
@@ -1337,42 +1471,276 @@ async function transcribeAudio(audioBlob) {
 function updateVoiceList() {
     const voiceSelect = document.getElementById('voice-select');
     const genderSelect = document.getElementById('voice-gender');
+    const languageSelect = document.getElementById('voice-language');
+    const voiceCount = document.getElementById('voice-count');
+    const voiceInfo = document.getElementById('voice-info');
+    
     const voices = speechSynthesis.getVoices();
     console.log('Available voices from browser:', voices); // Log all available voices
     const selectedGender = genderSelect.value;
+    const selectedLanguage = languageSelect.value;
 
-    // Filter voices by language and gender
+    // Filter voices by language and gender only (no search)
     const filteredVoices = voices.filter(voice => {
-        const isEnglish = voice.lang.startsWith('en-') || voice.lang === 'en';
-        if (selectedGender === 'all') return isEnglish;
-        // Simple gender detection based on voice name
-        const isFemale = voice.name.toLowerCase().includes('female') ||
-            voice.name.toLowerCase().includes('woman');
-        const isMale = voice.name.toLowerCase().includes('male') ||
-            voice.name.toLowerCase().includes('man');
-        return isEnglish && (
-            (selectedGender === 'female' && isFemale) ||
-            (selectedGender === 'male' && isMale)
-        );
+        // Language filtering
+        let languageMatch = true;
+        if (selectedLanguage !== 'all') {
+            languageMatch = voice.lang.startsWith(selectedLanguage + '-') || voice.lang === selectedLanguage;
+        }
+        
+        // Gender filtering
+        let genderMatch = true;
+        if (selectedGender !== 'all') {
+            // Enhanced gender detection based on voice name patterns
+            const isFemale = voice.name.toLowerCase().includes('female') ||
+                voice.name.toLowerCase().includes('woman') ||
+                voice.name.toLowerCase().includes('zira') ||
+                voice.name.toLowerCase().includes('susan') ||
+                voice.name.toLowerCase().includes('helen') ||
+                voice.name.toLowerCase().includes('cortana') ||
+                voice.name.toLowerCase().includes('samantha') ||
+                voice.name.toLowerCase().includes('victoria') ||
+                voice.name.toLowerCase().includes('karen') ||
+                voice.name.toLowerCase().includes('moira');
+                
+            const isMale = voice.name.toLowerCase().includes('male') ||
+                voice.name.toLowerCase().includes('man') ||
+                // Common US Male Voice Names
+                voice.name.toLowerCase().includes('david') ||
+                voice.name.toLowerCase().includes('mark') ||
+                voice.name.toLowerCase().includes('richard') ||
+                voice.name.toLowerCase().includes('alex') ||
+                voice.name.toLowerCase().includes('daniel') ||
+                voice.name.toLowerCase().includes('fred') ||
+                voice.name.toLowerCase().includes('tom') ||
+                voice.name.toLowerCase().includes('ralph') ||
+                voice.name.toLowerCase().includes('bruce') ||
+                voice.name.toLowerCase().includes('reed') ||
+                voice.name.toLowerCase().includes('junior') ||
+                // Additional US Male Voices
+                voice.name.toLowerCase().includes('aaron') ||
+                voice.name.toLowerCase().includes('adam') ||
+                voice.name.toLowerCase().includes('andrew') ||
+                voice.name.toLowerCase().includes('anthony') ||
+                voice.name.toLowerCase().includes('arthur') ||
+                voice.name.toLowerCase().includes('austin') ||
+                voice.name.toLowerCase().includes('benjamin') ||
+                voice.name.toLowerCase().includes('brian') ||
+                voice.name.toLowerCase().includes('calvin') ||
+                voice.name.toLowerCase().includes('carlos') ||
+                voice.name.toLowerCase().includes('chad') ||
+                voice.name.toLowerCase().includes('charles') ||
+                voice.name.toLowerCase().includes('christopher') ||
+                voice.name.toLowerCase().includes('craig') ||
+                voice.name.toLowerCase().includes('derek') ||
+                voice.name.toLowerCase().includes('edward') ||
+                voice.name.toLowerCase().includes('eric') ||
+                voice.name.toLowerCase().includes('evan') ||
+                voice.name.toLowerCase().includes('frank') ||
+                voice.name.toLowerCase().includes('gary') ||
+                voice.name.toLowerCase().includes('george') ||
+                voice.name.toLowerCase().includes('gregory') ||
+                voice.name.toLowerCase().includes('harrison') ||
+                voice.name.toLowerCase().includes('henry') ||
+                voice.name.toLowerCase().includes('jacob') ||
+                voice.name.toLowerCase().includes('james') ||
+                voice.name.toLowerCase().includes('jason') ||
+                voice.name.toLowerCase().includes('jeffrey') ||
+                voice.name.toLowerCase().includes('jeremy') ||
+                voice.name.toLowerCase().includes('john') ||
+                voice.name.toLowerCase().includes('jonathan') ||
+                voice.name.toLowerCase().includes('joseph') ||
+                voice.name.toLowerCase().includes('joshua') ||
+                voice.name.toLowerCase().includes('justin') ||
+                voice.name.toLowerCase().includes('keith') ||
+                voice.name.toLowerCase().includes('kevin') ||
+                voice.name.toLowerCase().includes('lance') ||
+                voice.name.toLowerCase().includes('larry') ||
+                voice.name.toLowerCase().includes('lawrence') ||
+                voice.name.toLowerCase().includes('louis') ||
+                voice.name.toLowerCase().includes('marcus') ||
+                voice.name.toLowerCase().includes('matthew') ||
+                voice.name.toLowerCase().includes('michael') ||
+                voice.name.toLowerCase().includes('nathan') ||
+                voice.name.toLowerCase().includes('nicholas') ||
+                voice.name.toLowerCase().includes('patrick') ||
+                voice.name.toLowerCase().includes('paul') ||
+                voice.name.toLowerCase().includes('peter') ||
+                voice.name.toLowerCase().includes('phillip') ||
+                voice.name.toLowerCase().includes('robert') ||
+                voice.name.toLowerCase().includes('ronald') ||
+                voice.name.toLowerCase().includes('ryan') ||
+                voice.name.toLowerCase().includes('samuel') ||
+                voice.name.toLowerCase().includes('scott') ||
+                voice.name.toLowerCase().includes('sean') ||
+                voice.name.toLowerCase().includes('stephen') ||
+                voice.name.toLowerCase().includes('steven') ||
+                voice.name.toLowerCase().includes('thomas') ||
+                voice.name.toLowerCase().includes('timothy') ||
+                voice.name.toLowerCase().includes('tyler') ||
+                voice.name.toLowerCase().includes('victor') ||
+                voice.name.toLowerCase().includes('vincent') ||
+                voice.name.toLowerCase().includes('walter') ||
+                voice.name.toLowerCase().includes('wayne') ||
+                voice.name.toLowerCase().includes('william') ||
+                voice.name.toLowerCase().includes('zachary') ||
+                // System/Platform specific US male voices
+                voice.name.toLowerCase().includes('cortana') && voice.name.toLowerCase().includes('male') ||
+                voice.name.toLowerCase().includes('siri') && voice.name.toLowerCase().includes('male') ||
+                voice.name.toLowerCase().includes('narrator') ||
+                voice.name.toLowerCase().includes('steve') ||
+                voice.name.toLowerCase().includes('mike') ||
+                voice.name.toLowerCase().includes('jim') ||
+                voice.name.toLowerCase().includes('bob') ||
+                voice.name.toLowerCase().includes('joe') ||
+                voice.name.toLowerCase().includes('tony') ||
+                voice.name.toLowerCase().includes('mike') ||
+                voice.name.toLowerCase().includes('dave') ||
+                voice.name.toLowerCase().includes('chris') ||
+                voice.name.toLowerCase().includes('matt') ||
+                // Windows voices
+                voice.name.toLowerCase().includes('ben') ||
+                voice.name.toLowerCase().includes('callie') && voice.name.toLowerCase().includes('male') ||
+                // macOS voices  
+                voice.name.toLowerCase().includes('albert') ||
+                voice.name.toLowerCase().includes('bad news') ||
+                voice.name.toLowerCase().includes('bahh') ||
+                voice.name.toLowerCase().includes('bells') ||
+                voice.name.toLowerCase().includes('boing') ||
+                voice.name.toLowerCase().includes('bruce') ||
+                voice.name.toLowerCase().includes('bubbles') ||
+                voice.name.toLowerCase().includes('deranged') ||
+                voice.name.toLowerCase().includes('good news') ||
+                voice.name.toLowerCase().includes('hysterical') ||
+                voice.name.toLowerCase().includes('junior') ||
+                voice.name.toLowerCase().includes('pipe organ') ||
+                voice.name.toLowerCase().includes('ralph') ||
+                voice.name.toLowerCase().includes('trinoids') ||
+                voice.name.toLowerCase().includes('whisper') ||
+                voice.name.toLowerCase().includes('zarvox');
+            
+            genderMatch = (selectedGender === 'female' && isFemale) ||
+                         (selectedGender === 'male' && isMale);
+        }
+        
+        return languageMatch && genderMatch;
     });
 
+    // Update voice count
+    if (voiceCount) {
+        voiceCount.textContent = `${filteredVoices.length} voice${filteredVoices.length !== 1 ? 's' : ''}`;
+    }
+
     voiceSelect.innerHTML = '';
+    if (filteredVoices.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No voices available for selected filters';
+        voiceSelect.appendChild(option);
+        
+        if (voiceInfo) {
+            voiceInfo.className = 'voice-info empty mt-2';
+            voiceInfo.innerHTML = '<small class="text-muted">No voices available</small>';
+        }
+        return;
+    }
+
+    // Sort voices by name for better UX
+    filteredVoices.sort((a, b) => a.name.localeCompare(b.name));
+
     filteredVoices.forEach(voice => {
         const option = document.createElement('option');
         option.value = voice.name;
-        option.textContent = `${voice.name} (${voice.lang})`;
+        option.textContent = `${voice.name}`;
+        option.dataset.lang = voice.lang;
+        option.dataset.default = voice.default;
+        
         if (voice.default) {
             option.selected = true;
             selectedVoice = voice;
+            updateVoiceInfo(voice);
         }
         voiceSelect.appendChild(option);
     });
 
-    // Sort by name
-    const options = Array.from(voiceSelect.options);
-    options.sort((a, b) => a.text.localeCompare(b.text));
-    voiceSelect.innerHTML = '';
-    options.forEach(option => voiceSelect.appendChild(option));
+    // Add voice selection change handler for info display
+    voiceSelect.addEventListener('change', function() {
+        const selectedVoiceName = this.value;
+        const voice = voices.find(v => v.name === selectedVoiceName);
+        if (voice) {
+            updateVoiceInfo(voice);
+        }
+    });
+}
+
+function updateVoiceInfo(voice) {
+    const voiceInfo = document.getElementById('voice-info');
+    if (!voiceInfo || !voice) return;
+    
+    voiceInfo.className = 'voice-info mt-2';
+    voiceInfo.innerHTML = `
+        <div class="voice-details">
+            <strong>${voice.name}</strong>
+            <span class="voice-lang-badge">${voice.lang}</span>
+            ${voice.default ? '<span class="voice-default-badge">Default</span>' : ''}
+            <br>
+            <small class="text-muted">
+                ${voice.localService ? 'Local voice' : 'Online voice'} • 
+                ${voice.voiceURI || 'System voice'}
+            </small>
+        </div>
+    `;
+}
+
+function previewVoice() {
+    const voiceSelect = document.getElementById('voice-select');
+    const previewBtn = document.getElementById('voice-preview-btn');
+    const selectedVoiceName = voiceSelect.value;
+    
+    if (!selectedVoiceName) {
+        alert('Please select a voice first');
+        return;
+    }
+    
+    const voices = speechSynthesis.getVoices();
+    const voice = voices.find(v => v.name === selectedVoiceName);
+    
+    if (!voice) {
+        alert('Selected voice not found');
+        return;
+    }
+    
+    // Stop any ongoing speech
+    speechSynthesis.cancel();
+    
+    // Update button state
+    previewBtn.classList.add('playing');
+    previewBtn.innerHTML = '<i class="fas fa-stop"></i>';
+    previewBtn.title = 'Stop preview';
+    
+    // Create test utterance
+    const testText = `Hello! This is a preview of the ${voice.name} voice. How do you like the way I sound?`;
+    const utterance = new SpeechSynthesisUtterance(testText);
+    utterance.voice = voice;
+    utterance.rate = voiceRate;
+    utterance.pitch = voicePitch;
+    utterance.volume = voiceVolume;
+    
+    // Reset button when finished
+    utterance.onend = () => {
+        previewBtn.classList.remove('playing');
+        previewBtn.innerHTML = '<i class="fas fa-play"></i>';
+        previewBtn.title = 'Preview selected voice';
+    };
+    
+    utterance.onerror = () => {
+        previewBtn.classList.remove('playing');
+        previewBtn.innerHTML = '<i class="fas fa-play"></i>';
+        previewBtn.title = 'Preview selected voice';
+        alert('Error playing voice preview');
+    };
+    
+    speechSynthesis.speak(utterance);
 }
 
 function toggleVoiceSettings() {
@@ -1387,6 +1755,8 @@ function toggleVoiceSettings() {
 function initializeVoiceControls() {
     const voiceSelect = document.getElementById('voice-select');
     const genderSelect = document.getElementById('voice-gender');
+    const languageSelect = document.getElementById('voice-language');
+    const previewBtn = document.getElementById('voice-preview-btn');
     const rateInput = document.getElementById('voice-rate');
     const pitchInput = document.getElementById('voice-pitch');
     const rateValue = document.getElementById('voice-rate-value');
@@ -1397,15 +1767,22 @@ function initializeVoiceControls() {
     const savedSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
     voiceRate = savedSettings.rate || 1.0;
     voicePitch = savedSettings.pitch || 1.0;
+    voiceVolume = savedSettings.volume || 1.0;
     const savedGender = savedSettings.gender || 'all';
+    const savedLanguage = savedSettings.language || 'all';
     const autoSpeakEnabled = savedSettings.autoSpeak !== false; // Default to true
 
     // Update UI with saved settings
+    const volumeInput = document.getElementById('voice-volume');
+    const volumeValue = document.getElementById('voice-volume-value');
     rateInput.value = voiceRate;
     pitchInput.value = voicePitch;
+    if (volumeInput) volumeInput.value = voiceVolume;
     rateValue.textContent = `${voiceRate.toFixed(1)}x`;
     pitchValue.textContent = `${voicePitch.toFixed(1)}x`;
+    if (volumeValue) volumeValue.textContent = Math.round(voiceVolume * 100) + '%';
     genderSelect.value = savedGender;
+    languageSelect.value = savedLanguage;
     autoSpeakCheckbox.checked = autoSpeakEnabled;
 
     // Event listeners
@@ -1414,44 +1791,201 @@ function initializeVoiceControls() {
         updatedSettings.autoSpeak = e.target.checked;
         localStorage.setItem('voiceSettings', JSON.stringify(updatedSettings));
     });
+
     genderSelect.addEventListener('change', (e) => {
         const gender = e.target.value;
-        localStorage.setItem('voiceSettings', JSON.stringify({
-            ...savedSettings,
-            gender: gender
-        }));
+        const currentSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+        currentSettings.gender = gender;
+        localStorage.setItem('voiceSettings', JSON.stringify(currentSettings));
         updateVoiceList(); // Refresh voice list with gender filter
     });
+
+    languageSelect.addEventListener('change', (e) => {
+        const language = e.target.value;
+        const currentSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+        currentSettings.language = language;
+        localStorage.setItem('voiceSettings', JSON.stringify(currentSettings));
+        updateVoiceList(); // Refresh voice list with language filter
+    });
+
+    // Enhanced keyboard navigation for voice select dropdown
+    if (voiceSelect) {
+        voiceSelect.addEventListener('keydown', (e) => {
+            // Space bar to preview selected voice
+            if (e.code === 'Space') {
+                e.preventDefault();
+                previewVoice();
+            }
+            // P key to preview
+            if (e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.altKey) {
+                e.preventDefault();
+                previewVoice();
+            }
+        });
+    }
+
+    // Voice preview functionality
+    if (previewBtn) {
+        previewBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (previewBtn.classList.contains('playing')) {
+                // Stop current speech
+                speechSynthesis.cancel();
+                previewBtn.classList.remove('playing');
+                previewBtn.innerHTML = '<i class="fas fa-play"></i>';
+                previewBtn.title = 'Preview selected voice';
+            } else {
+                previewVoice();
+            }
+        });
+    }
 
     voiceSelect.addEventListener('change', (e) => {
         const voices = speechSynthesis.getVoices();
         selectedVoice = voices.find(voice => voice.name === e.target.value);
-        localStorage.setItem('voiceSettings', JSON.stringify({
-            ...savedSettings,
-            voice: selectedVoice?.name
-        }));
+        const currentSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+        currentSettings.voice = selectedVoice?.name;
+        localStorage.setItem('voiceSettings', JSON.stringify(currentSettings));
+        
+        // Update voice info display
+        if (selectedVoice) {
+            updateVoiceInfo(selectedVoice);
+        }
     });
 
     rateInput.addEventListener('input', (e) => {
         voiceRate = parseFloat(e.target.value);
         rateValue.textContent = `${voiceRate.toFixed(1)}x`;
-        localStorage.setItem('voiceSettings', JSON.stringify({
-            ...savedSettings,
-            rate: voiceRate
-        }));
+        
+        // Update slider progress visual
+        updateSliderProgress(rateInput, voiceRate, 0.5, 2);
+        
+        const currentSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+        currentSettings.rate = voiceRate;
+        localStorage.setItem('voiceSettings', JSON.stringify(currentSettings));
     });
 
     pitchInput.addEventListener('input', (e) => {
         voicePitch = parseFloat(e.target.value);
         pitchValue.textContent = `${voicePitch.toFixed(1)}x`;
-        localStorage.setItem('voiceSettings', JSON.stringify({
-            ...savedSettings,
-            pitch: voicePitch
-        }));
+        
+        // Update slider progress visual
+        updateSliderProgress(pitchInput, voicePitch, 0.5, 2);
+        
+        const currentSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+        currentSettings.pitch = voicePitch;
+        localStorage.setItem('voiceSettings', JSON.stringify(currentSettings));
     });
+
+    // Volume control event listener
+    if (volumeInput) {
+        volumeInput.addEventListener('input', (e) => {
+            voiceVolume = parseFloat(e.target.value);
+            volumeValue.textContent = Math.round(voiceVolume * 100) + '%';
+            
+            // Update slider progress visual
+            updateSliderProgress(volumeInput, voiceVolume, 0, 1);
+            
+            const currentSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+            currentSettings.volume = voiceVolume;
+            localStorage.setItem('voiceSettings', JSON.stringify(currentSettings));
+        });
+    }
+
+    // Initialize slider progress visuals
+    updateSliderProgress(rateInput, voiceRate, 0.5, 2);
+    updateSliderProgress(pitchInput, voicePitch, 0.5, 2);
+    if (volumeInput) {
+        updateSliderProgress(volumeInput, voiceVolume, 0, 1);
+    }
 
     updateVoiceList();
     speechSynthesis.onvoiceschanged = updateVoiceList;
+}
+
+// Function to update slider progress visual
+function updateSliderProgress(slider, value, min, max) {
+    if (!slider) return;
+    
+    const progress = ((value - min) / (max - min)) * 100;
+    slider.style.setProperty('--progress', `${progress}%`);
+}
+
+// Voice preset functions
+function applyVoicePreset(presetName) {
+    const rateInput = document.getElementById('voice-rate');
+    const pitchInput = document.getElementById('voice-pitch');
+    const volumeInput = document.getElementById('voice-volume');
+    const rateValue = document.getElementById('voice-rate-value');
+    const pitchValue = document.getElementById('voice-pitch-value');
+    const volumeValue = document.getElementById('voice-volume-value');
+    
+    let rate, pitch, volume;
+    
+    switch(presetName) {
+        case 'normal':
+            rate = 1.0;
+            pitch = 1.0;
+            volume = 1.0;
+            break;
+        case 'slow':
+            rate = 0.7;
+            pitch = 1.0;
+            volume = 1.0;
+            break;
+        case 'fast':
+            rate = 1.4;
+            pitch = 1.0;
+            volume = 1.0;
+            break;
+        case 'deep':
+            rate = 0.9;
+            pitch = 0.7;
+            volume = 1.0;
+            break;
+        default:
+            return;
+    }
+    
+    // Update sliders and values
+    if (rateInput) {
+        rateInput.value = rate;
+        voiceRate = rate;
+        rateValue.textContent = `${rate.toFixed(1)}x`;
+        updateSliderProgress(rateInput, rate, 0.5, 2);
+    }
+    
+    if (pitchInput) {
+        pitchInput.value = pitch;
+        voicePitch = pitch;
+        pitchValue.textContent = `${pitch.toFixed(1)}x`;
+        updateSliderProgress(pitchInput, pitch, 0.5, 2);
+    }
+    
+    if (volumeInput) {
+        volumeInput.value = volume;
+        voiceVolume = volume;
+        volumeValue.textContent = Math.round(volume * 100) + '%';
+        updateSliderProgress(volumeInput, volume, 0, 1);
+    }
+    
+    // Save settings
+    const currentSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+    currentSettings.rate = rate;
+    currentSettings.pitch = pitch;
+    currentSettings.volume = volume;
+    localStorage.setItem('voiceSettings', JSON.stringify(currentSettings));
+    
+    // Provide audio feedback
+    setTimeout(() => {
+        const testText = `Voice preset "${presetName}" applied successfully.`;
+        const utterance = new SpeechSynthesisUtterance(testText);
+        if (selectedVoice) utterance.voice = selectedVoice;
+        utterance.rate = rate;
+        utterance.pitch = pitch;
+        utterance.volume = volume;
+        speechSynthesis.speak(utterance);
+    }, 100);
 }
 
 function cleanTextForSpeech(text) {
@@ -1486,7 +2020,7 @@ function speakText(text) {
     }
     
     if (!text) {
-        alert('No text to speak. Please send a message first.');
+        showNotification('No text to speak. Please send a message first.', 'warning');
         return;
     }
 
@@ -1494,64 +2028,68 @@ function speakText(text) {
         speechSynthesis.cancel();
         isSpeaking = false;
         updateSpeakButton();
+        showNotification('Speech stopped', 'info');
         return;
     }
 
     const cleanText = cleanTextForSpeech(text);
 
     if (!cleanText || cleanText.trim().length === 0) {
-        alert('No readable text found.');
+        showNotification('No readable text found.', 'warning');
         return;
     }
 
-    // Split text into sentences for better handling
-    const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
-    let currentSentence = 0;
-
-    function speakNextSentence() {
-        if (currentSentence >= sentences.length || !isSpeaking) {
-            isSpeaking = false;
-            updateSpeakButton();
-            return;
-        }
-
-        const utterance = new SpeechSynthesisUtterance(sentences[currentSentence]);
-
-        // Apply voice settings
-        if (selectedVoice) utterance.voice = selectedVoice;
-        utterance.rate = voiceRate;
-        utterance.pitch = voicePitch;
-        utterance.volume = 1.0;
-
-        utterance.onend = () => {
-            currentSentence++;
-            speakNextSentence();
-        };
-
-        utterance.onerror = (event) => {
-            console.error('Speech synthesis error:', event);
-            isSpeaking = false;
-            updateSpeakButton();
-            alert('Text-to-speech error. Please try again.');
-        };
-
-        try {
-            speechSynthesis.speak(utterance);
-        } catch (error) {
-            console.error('Speech synthesis failed:', error);
-            alert('Text-to-speech failed. Please check your browser settings.');
-            isSpeaking = false;
-            updateSpeakButton();
-        }
-    }
-
+    // Enhanced speech with better error handling
     try {
+        // Split text into sentences for better handling
+        const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
+        let currentSentence = 0;
+
+        function speakNextSentence() {
+            if (currentSentence >= sentences.length || !isSpeaking) {
+                isSpeaking = false;
+                updateSpeakButton();
+                showNotification('Speech completed', 'success');
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(sentences[currentSentence]);
+
+            // Apply voice settings
+            if (selectedVoice) utterance.voice = selectedVoice;
+            utterance.rate = voiceRate;
+            utterance.pitch = voicePitch;
+            utterance.volume = voiceVolume;
+
+            utterance.onend = () => {
+                currentSentence++;
+                speakNextSentence();
+            };
+
+            utterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                isSpeaking = false;
+                updateSpeakButton();
+                showNotification('Text-to-speech error. Please try again.', 'error');
+            };
+
+            try {
+                speechSynthesis.speak(utterance);
+            } catch (error) {
+                console.error('Speech synthesis failed:', error);
+                showNotification('Text-to-speech failed. Please check your browser settings.', 'error');
+                isSpeaking = false;
+                updateSpeakButton();
+            }
+        }
+
         isSpeaking = true;
         updateSpeakButton();
         speakNextSentence();
+        
     } catch (error) {
         console.error('Speech synthesis initialization failed:', error);
-        alert('Text-to-speech initialization failed. Please check your browser settings.');
+        showNotification('Text-to-speech initialization failed. Please check your browser settings.', 'error');
         isSpeaking = false;
         updateSpeakButton();
     }
@@ -1576,6 +2114,37 @@ function updateSpeakButton() {
         speakButton.classList.remove('btn-danger');
         speakButton.classList.add('btn-primary');
         speakButton.title = 'Speak response';
+    }
+}
+
+// Voice preview function
+function previewVoice() {
+    const previewText = "Hello! This is a preview of the selected voice with current settings.";
+    speakText(previewText);
+}
+
+// Enhanced stop speech function
+function stopSpeech() {
+    if (speechSynthesis.speaking || isSpeaking) {
+        speechSynthesis.cancel();
+        isSpeaking = false;
+        updateSpeakButton();
+        showNotification('Speech stopped', 'info');
+    }
+}
+
+// Enhanced voice volume control
+function updateVoiceVolume() {
+    const volumeSlider = document.getElementById('voice-volume');
+    const volumeValue = document.getElementById('voice-volume-value');
+    if (volumeSlider && volumeValue) {
+        voiceVolume = parseFloat(volumeSlider.value);
+        volumeValue.textContent = Math.round(voiceVolume * 100) + '%';
+        
+        // Save to localStorage
+        const savedSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
+        savedSettings.volume = voiceVolume;
+        localStorage.setItem('voiceSettings', JSON.stringify(savedSettings));
     }
 }
 

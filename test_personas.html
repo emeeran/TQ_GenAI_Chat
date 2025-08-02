@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Persona Test</title>
+</head>
+<body>
+    <h1>Persona Loading Test</h1>
+    <div>
+        <label>Personas:</label>
+        <select id="persona-test">
+            <option>Loading...</option>
+        </select>
+    </div>
+    <div id="status">Initializing...</div>
+    <div id="debug"></div>
+
+    <script>
+        async function testPersonaLoad() {
+            const select = document.getElementById('persona-test');
+            const status = document.getElementById('status');
+            const debug = document.getElementById('debug');
+            
+            try {
+                status.textContent = 'Fetching personas...';
+                const resp = await fetch('/personas');
+                status.textContent = `Response status: ${resp.status}`;
+                
+                if (!resp.ok) {
+                    throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                }
+                
+                const personas = await resp.json();
+                debug.innerHTML = `<pre>${JSON.stringify(personas, null, 2)}</pre>`;
+                
+                select.innerHTML = '';
+                Object.keys(personas).forEach(key => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    select.appendChild(opt);
+                });
+                
+                status.textContent = `Loaded ${Object.keys(personas).length} personas successfully`;
+                
+            } catch (error) {
+                status.textContent = `Error: ${error.message}`;
+                debug.textContent = error.stack;
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', testPersonaLoad);
+    </script>
+</body>
+</html>

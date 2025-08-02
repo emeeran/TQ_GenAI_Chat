@@ -7,7 +7,7 @@
     <title>TQ AI Chat</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ range(1, 10000) | random }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -149,49 +149,196 @@
                     </div>
                 </div>
 
-                <!-- Voice Settings -->
+                <!-- Audio Settings -->
                 <div class="settings-group">
                     <div class="settings-header" data-section="voice">
                         <h4><i class="fas fa-microphone"></i> Audio Settings</h4>
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div class="settings-content" id="voice-settings">
-                        <div class="mb-3">
-                            <div class="form-check">
+                        
+                        <!-- Audio Enable/Disable -->
+                        <div class="audio-section mb-4">
+                            <div class="section-header">
+                                <h6 class="text-primary mb-2">
+                                    <i class="fas fa-power-off me-1"></i>Audio Control
+                                </h6>
+                            </div>
+                            <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="auto-speak" checked>
                                 <label class="form-check-label" for="auto-speak">
-                                    Auto-speak responses
+                                    <strong>Auto-speak responses</strong>
+                                    <small class="d-block text-muted">Automatically read AI responses aloud</small>
                                 </label>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="voice-gender">Voice Gender</label>
-                            <select class="form-control" id="voice-gender">
-                                <option value="all">All</option>
-                                <option value="female">Female</option>
-                                <option value="male">Male</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="voice-select">Voice Selection</label>
-                            <select class="form-control" id="voice-select">
-                                <option value="">Loading voices...</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="voice-rate">Speed</label>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="range" class="form-range flex-grow-1" id="voice-rate" min="0.5" max="2"
-                                    step="0.1" value="1">
-                                <span class="text-muted" id="voice-rate-value">1.0x</span>
+
+                        <!-- Voice Selection -->
+                        <div class="audio-section mb-4">
+                            <div class="section-header">
+                                <h6 class="text-primary mb-2">
+                                    <i class="fas fa-user-friends me-1"></i>Voice Selection
+                                </h6>
+                            </div>
+                            
+                            <!-- Voice Filters -->
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label for="voice-language" class="form-label small text-muted">Language</label>
+                                    <select class="form-control form-control-sm" id="voice-language">
+                                        <option value="all">All Languages</option>
+                                        <option value="en">English</option>
+                                        <option value="es">Spanish</option>
+                                        <option value="fr">French</option>
+                                        <option value="de">German</option>
+                                        <option value="it">Italian</option>
+                                        <option value="pt">Portuguese</option>
+                                        <option value="ru">Russian</option>
+                                        <option value="ja">Japanese</option>
+                                        <option value="ko">Korean</option>
+                                        <option value="zh">Chinese</option>
+                                        <option value="ar">Arabic</option>
+                                        <option value="hi">Hindi</option>
+                                        <option value="ta">Tamil</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="voice-gender" class="form-label small text-muted">Gender</label>
+                                    <select class="form-control form-control-sm" id="voice-gender">
+                                        <option value="all">All</option>
+                                        <option value="female">Female</option>
+                                        <option value="male">Male</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Voice Dropdown -->
+                            <div class="mb-3">
+                                <label for="voice-select" class="form-label d-flex justify-content-between align-items-center">
+                                    <span class="small text-muted">Choose Voice</span>
+                                    <small class="text-muted" id="voice-count">Loading...</small>
+                                </label>
+                                <div class="voice-selection-container">
+                                    <div class="voice-controls-row d-flex gap-2 mb-2">
+                                        <select class="form-control voice-select-dropdown" id="voice-select"
+                                                title="Select a voice for text-to-speech">
+                                            <option value="">Loading voices...</option>
+                                        </select>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm voice-preview-btn" 
+                                                id="voice-preview-btn" title="Preview selected voice">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                    </div>
+                                    <div class="voice-info mt-2" id="voice-info">
+                                        <small class="text-muted">Select a voice to see details</small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="voice-pitch">Pitch</label>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="range" class="form-range flex-grow-1" id="voice-pitch" min="0.5" max="2"
-                                    step="0.1" value="1">
-                                <span class="text-muted" id="voice-pitch-value">1.0x</span>
+
+                        <!-- Voice Controls -->
+                        <div class="audio-section mb-4">
+                            <div class="section-header">
+                                <h6 class="text-primary mb-3">
+                                    <i class="fas fa-sliders-h me-1"></i>Voice Controls
+                                </h6>
+                            </div>
+                            <div class="voice-controls-container">
+                                <!-- Speed Control -->
+                                <div class="voice-control-item">
+                                    <div class="voice-control-label">
+                                        <span><i class="fas fa-tachometer-alt slider-icon speed"></i>Speed</span>
+                                        <span class="voice-control-value" id="voice-rate-value">1.0x</span>
+                                    </div>
+                                    <input type="range" class="form-range voice-slider speed-slider" id="voice-rate" 
+                                           min="0.5" max="2" step="0.1" value="1"
+                                           title="Adjust speech speed (0.5x to 2.0x)">
+                                    <div class="d-flex justify-content-between text-muted small">
+                                        <span>0.5x</span>
+                                        <span>1.0x</span>
+                                        <span>2.0x</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Pitch Control -->
+                                <div class="voice-control-item">
+                                    <div class="voice-control-label">
+                                        <span><i class="fas fa-music slider-icon pitch"></i>Pitch</span>
+                                        <span class="voice-control-value" id="voice-pitch-value">1.0x</span>
+                                    </div>
+                                    <input type="range" class="form-range voice-slider pitch-slider" id="voice-pitch" 
+                                           min="0.5" max="2" step="0.1" value="1"
+                                           title="Adjust voice pitch (0.5x to 2.0x)">
+                                    <div class="d-flex justify-content-between text-muted small">
+                                        <span>0.5x</span>
+                                        <span>1.0x</span>
+                                        <span>2.0x</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Volume Control -->
+                                <div class="voice-control-item">
+                                    <div class="voice-control-label">
+                                        <span><i class="fas fa-volume-up slider-icon volume"></i>Volume</span>
+                                        <span class="voice-control-value" id="voice-volume-value">100%</span>
+                                    </div>
+                                    <input type="range" class="form-range voice-slider volume-slider" id="voice-volume" 
+                                           min="0" max="1" step="0.1" value="1"
+                                           title="Adjust speech volume (0% to 100%)">
+                                    <div class="d-flex justify-content-between text-muted small">
+                                        <span>0%</span>
+                                        <span>50%</span>
+                                        <span>100%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div class="audio-section mb-4">
+                            <div class="section-header">
+                                <h6 class="text-primary mb-2">
+                                    <i class="fas fa-magic me-1"></i>Quick Presets
+                                </h6>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <button class="btn btn-sm btn-outline-success w-100" onclick="applyVoicePreset('normal')" title="Reset to default settings">
+                                        <i class="fas fa-undo me-1"></i>Normal
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-sm btn-outline-info w-100" onclick="applyVoicePreset('slow')" title="Slower speech for clarity">
+                                        <i class="fas fa-turtle me-1"></i>Slow & Clear
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-sm btn-outline-warning w-100" onclick="applyVoicePreset('fast')" title="Faster speech for efficiency">
+                                        <i class="fas fa-rabbit me-1"></i>Fast
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-sm btn-outline-primary w-100" onclick="applyVoicePreset('deep')" title="Lower pitch for deeper voice">
+                                        <i class="fas fa-mountain me-1"></i>Deep Voice
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Voice Actions -->
+                        <div class="audio-section">
+                            <div class="section-header">
+                                <h6 class="text-primary mb-2">
+                                    <i class="fas fa-play-circle me-1"></i>Voice Actions
+                                </h6>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary flex-grow-1" onclick="previewVoice()" title="Test current voice settings">
+                                    <i class="fas fa-play me-1"></i>Preview Voice
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="stopSpeech()" title="Stop all speech">
+                                    <i class="fas fa-stop me-1"></i>Stop
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -250,7 +397,7 @@
 
     <!-- Removed file list modal as requested -->
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v={{ range(1, 10000) | random }}"></script>
     <script>
         function setDefaultModel() {
             const modelSelect = document.getElementById('model');
