@@ -306,18 +306,25 @@
             const customInput = document.getElementById('custom-persona-textarea');
             const contentDiv = document.getElementById('persona-content');
             try {
-                const resp = await fetch('/personas');
-                console.log('Fetching /personas, status:', resp.status);
-                if (!resp.ok) throw new Error('Failed to fetch personas');
-                personaContents = await resp.json();
-                console.log('Persona contents received:', personaContents);
+                const resp = await fetch('/get_personas?' + new Date().getTime());
+                console.log('Fetching /get_personas, status:', resp.status);
+                if (!resp.ok) throw new Error(`Failed to fetch personas: ${resp.status} ${resp.statusText}`);
+                const data = await resp.json();
+                console.log('Persona data received:', data);
+                
+                if (!data.personas || !Array.isArray(data.personas)) {
+                    throw new Error('Invalid personas data structure');
+                }
+                
+                personaContents = {};
                 personaSelect.innerHTML = '';
-                Object.entries(personaContents).forEach(([key, desc]) => {
+                data.personas.forEach(persona => {
                     const opt = document.createElement('option');
-                    opt.value = key;
-                    opt.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    if (key === 'helpful_assistant') opt.selected = true;
+                    opt.value = persona.id;
+                    opt.textContent = persona.name;
+                    if (persona.id === 'helpful_assistant') opt.selected = true;
                     personaSelect.appendChild(opt);
+                    personaContents[persona.id] = persona.content;
                 });
                 // Add custom option
                 const customOpt = document.createElement('option');
@@ -325,10 +332,11 @@
                 customOpt.textContent = 'Custom Persona...';
                 personaSelect.appendChild(customOpt);
                 updatePersonaContent();
+                console.log('Personas loaded successfully:', data.personas.length);
             } catch (e) {
                 console.error('Error loading personas:', e);
                 console.error('Error details:', e.message, e.stack);
-                // Provide a more comprehensive fallback
+                // Provide a more comprehensive fallback without alert
                 personaSelect.innerHTML = `
                     <option value="helpful_assistant">Helpful Assistant</option>
                     <option value="code_expert">Code Expert</option>
@@ -337,9 +345,9 @@
                     <option value="custom">Custom Persona...</option>
                 `;
                 if (contentDiv) {
-                    contentDiv.textContent = 'Error loading persona details. Using default personas.';
+                    contentDiv.textContent = 'Using default personas. (Could not load from server)';
                 }
-                alert('Could not load personas from server. Using default options.');
+                console.warn('Using fallback personas due to loading error');
             }
             personaSelect.addEventListener('change', updatePersonaContent);
             if (customInput) customInput.addEventListener('input', updatePersonaContent);

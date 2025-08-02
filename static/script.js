@@ -110,6 +110,9 @@ function updateProviderModelDisplay() {
 if (elements.persona) {
     const customTextarea = document.getElementById('custom-persona-textarea');
     elements.persona.addEventListener('change', async function () {
+        // Save persona selection
+        localStorage.setItem('defaultPersona', this.value);
+        
         if (this.value === 'custom') {
             customTextarea.classList.remove('d-none');
         } else {

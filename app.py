@@ -61,12 +61,6 @@ app.config['MAX_FILES'] = 10
 with app.app_context():
     file_manager = FileManager()
 
-@app.route('/personas')
-def get_personas():
-    from persona import PERSONAS
-    # Return the full PERSONAS dictionary for dropdown and display
-    return jsonify(PERSONAS)
-
 # Serve persona content for frontend display (must be after app = Flask(...))
 @app.route('/get_persona_content/<persona_key>')
 def get_persona_content(persona_key):
@@ -166,6 +160,95 @@ def create_request_session():
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
+
+# Fact-checking function using Moonshot AI Kimi-k2 and Groq
+def fact_check_response(response_text: str) -> str:
+    """
+    Fact-check the AI response using Moonshot AI Kimi-2 (primary) and Groq (fallback).
+    Returns a corrected version if factual errors are found.
+    """
+    try:
+        fact_check_prompt = f"""Please thoroughly fact-check the following AI response for any factual errors, outdated information, or inaccuracies. If you find any issues, provide a corrected version. If the response is factually accurate, return it as-is with [VERIFIED] at the start.
+
+Response to fact-check:
+{response_text}
+
+Instructions:
+1. Check for factual accuracy
+2. Verify dates, statistics, and claims
+3. If corrections are needed, provide the corrected version
+4. If accurate, prepend [VERIFIED] to the original response"""
+
+        # Try Moonshot AI Kimi-2 first for thorough fact-checking
+        moonshot_key = os.getenv("MOONSHOT_API_KEY", "").strip()
+        if moonshot_key:
+            try:
+                session = create_request_session()
+                headers = {'Authorization': f'Bearer {moonshot_key}', 'Content-Type': 'application/json'}
+                payload = {
+                    'model': 'kimi-k2-instruct',
+                    'messages': [
+                        {'role': 'system', 'content': 'You are a thorough fact-checker with access to current information. Verify accuracy and correct errors.'},
+                        {'role': 'user', 'content': fact_check_prompt}
+                    ],
+                    'temperature': 0.1,
+                    'max_tokens': 4000
+                }
+                
+                response = session.post(
+                    'https://api.moonshot.ai/v1/chat/completions',
+                    headers=headers,
+                    json=payload,
+                    timeout=(10, 30)
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'choices' in result and result['choices']:
+                        fact_checked = result['choices'][0]['message']['content']
+                        app.logger.info("Fact-checking completed with Moonshot AI Kimi-k2 (primary)")
+                        return fact_checked
+            except Exception as e:
+                app.logger.warning(f"Moonshot AI fact-checking failed: {e}")
+
+        # Fallback to Groq for fast fact-checking
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        if groq_key:
+            try:
+                session = create_request_session()
+                headers = {'Authorization': f'Bearer {groq_key}', 'Content-Type': 'application/json'}
+                payload = {
+                    'model': 'llama-3.3-70b-versatile',
+                    'messages': [
+                        {'role': 'system', 'content': 'You are a thorough fact-checker. Verify information accuracy and correct errors.'},
+                        {'role': 'user', 'content': fact_check_prompt}
+                    ],
+                    'temperature': 0.1,
+                    'max_tokens': 4000
+                }
+                
+                response = session.post(
+                    'https://api.groq.com/openai/v1/chat/completions',
+                    headers=headers,
+                    json=payload,
+                    timeout=(10, 30)
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'choices' in result and result['choices']:
+                        fact_checked = result['choices'][0]['message']['content']
+                        app.logger.info("Fact-checking completed with Groq (fallback)")
+                        return fact_checked
+            except Exception as e:
+                app.logger.warning(f"Groq fact-checking failed: {e}")
+        
+        app.logger.warning("Fact-checking unavailable - no API keys or services failed")
+        return response_text
+        
+    except Exception as e:
+        app.logger.error(f"Fact-checking error: {e}")
+        return response_text
 
 # Ensure .env is loaded with verbose debugging
 env_path = Path(__file__).parent / '.env'
@@ -511,6 +594,20 @@ def chat():
             return jsonify({'error': f'API key not configured for {provider}'}), 401
 
         response = process_chat_request(data)
+        
+        # Add fact-checking if enabled
+        if response.get('response', {}).get('text'):
+            original_text = response['response']['text']
+            fact_checked_text = fact_check_response(original_text)
+            
+            # Update response with fact-checked version
+            response['response']['text'] = fact_checked_text
+            
+            # Add metadata about fact-checking
+            if 'metadata' not in response['response']:
+                response['response']['metadata'] = {}
+            response['response']['metadata']['fact_checked'] = True
+            
         return jsonify(response)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -898,12 +995,24 @@ Please synthesize a clear, well-organized answer using this context where releva
 
     # --- Step 2: Authenticity Verification ---
 
-    # --- Preferred verification provider/model ---
+    # --- Preferred verification provider/model (prioritizing free open-source models) ---
     PREFERRED_VERIFIERS = [
-        ('openai', 'gpt-4o'),
-        ('anthropic', 'claude-3-5-sonnet-latest'),
-        ('openai', 'gpt-4-turbo'),
-        ('anthropic', 'claude-3-opus-20240229')
+        # Groq - Free and fast open-source models
+        ('groq', 'llama-3.3-70b-versatile'),           # Meta's Llama 3.3 70B - very capable
+        ('groq', 'deepseek-r1-distill-llama-70b'),     # DeepSeek R1 distilled - excellent reasoning
+        ('groq', 'llama3-70b-8192'),                   # Meta's Llama 3 70B - reliable
+        ('groq', 'mixtral-8x7b-32768'),                # Mistral's Mixtral 8x7B - good performance
+        
+        # Moonshot - Free quota available
+        ('moonshot', 'kimi-k2-instruct'),              # Moonshot's Kimi - good for Chinese/English
+        ('moonshot', 'moonshot-v1-32k'),               # Moonshot v1 - solid general purpose
+        
+        # HuggingFace - Free inference
+        ('huggingface', 'Qwen/Qwen3-Coder-480B-A35B-Instruct'),  # Alibaba's Qwen 3 - excellent coding
+        
+        # DeepSeek - Free tier available
+        ('deepseek', 'deepseek-chat'),                  # DeepSeek Chat - good reasoning
+        ('deepseek', 'deepseek-coder'),                 # DeepSeek Coder - for code verification
     ]
     verification_result = None
     try:
@@ -1268,6 +1377,54 @@ def get_models(provider):
             'default': None,
             'fallback': None,
             'selected': None
+        }), 500
+
+@app.route('/get_personas')
+def get_personas():
+    """Get available personas for the chat interface"""
+    try:
+        from persona import PERSONAS
+        
+        # Convert persona strings to structured data for frontend
+        personas = []
+        for key, persona_text in PERSONAS.items():
+            # Create readable name from key
+            name = key.replace('_', ' ').title()
+            
+            # Extract first line as description if it's a structured persona
+            lines = persona_text.strip().split('\n')
+            first_line = lines[0] if lines else ''
+            
+            # Try to extract a brief description from the text
+            description = ''
+            if 'You are' in first_line:
+                description = first_line
+            elif len(lines) > 1:
+                description = lines[1] if lines[1].strip() else first_line
+            else:
+                description = first_line[:100] + '...' if len(first_line) > 100 else first_line
+            
+            personas.append({
+                'id': key,
+                'name': name,
+                'description': description,
+                'content': persona_text
+            })
+        
+        # Sort personas by name for consistent UI
+        personas.sort(key=lambda x: x['name'])
+        
+        app.logger.info(f"Returning {len(personas)} personas")
+        return jsonify({
+            'personas': personas,
+            'default': 'helpful_assistant'
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting personas: {str(e)}")
+        return jsonify({
+            'error': f'Server error: {str(e)}',
+            'personas': [],
+            'default': 'helpful_assistant'
         }), 500
 
 @app.route('/update_models/<provider>', methods=['POST'])
