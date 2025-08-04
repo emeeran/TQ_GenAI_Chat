@@ -399,3 +399,93 @@ class DocumentStore:
             return []
         finally:
             conn.close()
+
+    def get_all_documents(self, limit: int = None, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get all documents with optional pagination"""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            if limit:
+                cursor.execute(
+                    'SELECT * FROM documents ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+                    (limit, offset)
+                )
+            else:
+                cursor.execute('SELECT * FROM documents ORDER BY timestamp DESC')
+                
+            results = []
+            for row in cursor.fetchall():
+                doc = dict(row)
+                
+                # Parse metadata JSON
+                if doc.get('metadata'):
+                    doc['metadata'] = json.loads(doc['metadata'])
+                else:
+                    doc['metadata'] = {}
+                    
+                # Add formatted timestamp
+                doc['formatted_timestamp'] = datetime.fromtimestamp(doc['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+                
+                # Add file size from metadata if available
+                if 'file_size' in doc['metadata']:
+                    doc['file_size'] = doc['metadata']['file_size']
+                else:
+                    doc['file_size'] = len(doc['content']) if doc['content'] else 0
+                    
+                results.append(doc)
+                
+            return results
+            
+        except sqlite3.Error as e:
+            current_app.logger.error(f"Database error retrieving documents: {str(e)}")
+            return []
+        finally:
+            conn.close()
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get database statistics"""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            # Count total documents
+            cursor.execute('SELECT COUNT(*) as total_documents FROM documents')
+            total_documents = cursor.fetchone()['total_documents']
+            
+            # Calculate total file size (from metadata or content length fallback)
+            cursor.execute('SELECT metadata, content FROM documents')
+            total_size = 0
+            for row in cursor.fetchall():
+                metadata = json.loads(row['metadata']) if row['metadata'] else {}
+                if 'file_size' in metadata:
+                    total_size += metadata['file_size']
+                else:
+                    total_size += len(row['content']) if row['content'] else 0
+            
+            # Get document types
+            cursor.execute('SELECT type, COUNT(*) as count FROM documents GROUP BY type')
+            types = {row['type']: row['count'] for row in cursor.fetchall()}
+            
+            # Get recent activity (last 24 hours)
+            recent_threshold = int(time.time()) - (24 * 60 * 60)
+            cursor.execute('SELECT COUNT(*) as recent_count FROM documents WHERE timestamp > ?', (recent_threshold,))
+            recent_documents = cursor.fetchone()['recent_count']
+            
+            return {
+                'total_documents': total_documents,
+                'total_size': total_size,
+                'document_types': types,
+                'recent_documents': recent_documents
+            }
+            
+        except sqlite3.Error as e:
+            current_app.logger.error(f"Database error getting statistics: {str(e)}")
+            return {
+                'total_documents': 0,
+                'total_size': 0,
+                'document_types': {},
+                'recent_documents': 0
+            }
+        finally:
+            conn.close()

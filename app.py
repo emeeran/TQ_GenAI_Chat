@@ -89,7 +89,15 @@ def get_models(provider):
             return jsonify({'error': f'Provider {provider} not available'}), 404
         
         models = model_manager.get_models(provider)
-        return jsonify({'models': models})
+        
+        # Get the default model for this provider
+        provider_instance = provider_manager.get_provider(provider)
+        default_model = provider_instance.config.default_model if provider_instance else None
+        
+        return jsonify({
+            'models': models,
+            'default': default_model
+        })
     except Exception as e:
         app.logger.error(f"Error getting models for {provider}: {str(e)}")
         return jsonify({'error': 'Failed to get models'}), 500
@@ -163,6 +171,61 @@ def search_context():
 
     except Exception as e:
         app.logger.error(f"Context search error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# --- Document Management Routes ---
+@app.route('/documents/list', methods=['GET'])
+def list_documents():
+    """Get list of all uploaded documents with statistics"""
+    try:
+        # Get pagination parameters
+        limit = request.args.get('limit', type=int)
+        offset = request.args.get('offset', default=0, type=int)
+        
+        # Get documents and statistics
+        documents = file_manager.get_all_documents(limit=limit, offset=offset)
+        stats = file_manager.get_document_statistics()
+        
+        # Format documents for frontend
+        formatted_documents = []
+        for doc in documents:
+            formatted_doc = {
+                'id': doc['id'],
+                'filename': doc['title'],
+                'file_size': doc.get('file_size', 0),
+                'timestamp': doc['timestamp'],
+                'formatted_timestamp': doc.get('formatted_timestamp', ''),
+                'type': doc['type'],
+                'metadata': doc.get('metadata', {})
+            }
+            formatted_documents.append(formatted_doc)
+        
+        return jsonify({
+            'documents': formatted_documents,
+            'stats': stats
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Documents list error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/documents/delete/<doc_id>', methods=['DELETE'])
+def delete_document(doc_id):
+    """Delete a document by ID"""
+    try:
+        from core.document_store import DocumentStore
+        document_store = DocumentStore()
+        
+        success = document_store.delete_document(doc_id)
+        if success:
+            return jsonify({'message': 'Document deleted successfully'})
+        else:
+            return jsonify({'error': 'Document not found'}), 404
+            
+    except Exception as e:
+        app.logger.error(f"Document deletion error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 

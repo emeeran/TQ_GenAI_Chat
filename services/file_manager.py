@@ -48,6 +48,20 @@ class FileManager:
             if 'filename' not in r and 'title' in r:
                 r['filename'] = r['title']
         return results
+    
+    def get_all_documents(self, limit: int = None, offset: int = 0):
+        """Get all documents from document store"""
+        from core.document_store import DocumentStore
+        if not hasattr(self, '_document_store'):
+            self._document_store = DocumentStore()
+        return self._document_store.get_all_documents(limit=limit, offset=offset)
+    
+    def get_document_statistics(self):
+        """Get document statistics"""
+        from core.document_store import DocumentStore
+        if not hasattr(self, '_document_store'):
+            self._document_store = DocumentStore()
+        return self._document_store.get_statistics()
     """Service for managing file operations in the application"""
 
     def __init__(self):
