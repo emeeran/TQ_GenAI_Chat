@@ -50,8 +50,6 @@ dependencies = [
     # Async & Performance
     "aiohttp>=3.9.1",
     "aiofiles>=23.2.1",
-    "aiosqlite>=0.19.0",
-    "redis>=5.0.1",
 
     # Environment & Configuration
     "python-dotenv>=1.0.0",
@@ -153,10 +151,3 @@ exclude_lines = [
 ]
 fail_under = 80
 show_missing = true
-
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["app"]
-exclude = ["*.pyc", "__pycache__", ".git", ".venv", "node_modules", "*.log"]
