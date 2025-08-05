@@ -70,7 +70,14 @@ def index():
 @app.route('/get_personas')
 def get_personas():
     """Get available personas"""
-    return jsonify(list(PERSONAS.keys()))
+    personas_list = []
+    for key, content in PERSONAS.items():
+        personas_list.append({
+            'id': key,
+            'name': key.replace('_', ' ').title(),
+            'content': content
+        })
+    return jsonify({'personas': personas_list})
 
 
 @app.route('/get_persona_content/<persona_key>')
@@ -89,7 +96,12 @@ def get_models(provider):
             return jsonify({'error': f'Provider {provider} not available'}), 404
         
         models = model_manager.get_models(provider)
-        return jsonify({'models': models})
+        default_model = model_manager.get_default_model(provider)
+        
+        return jsonify({
+            'models': models,
+            'default': default_model
+        })
     except Exception as e:
         app.logger.error(f"Error getting models for {provider}: {str(e)}")
         return jsonify({'error': 'Failed to get models'}), 500
@@ -99,16 +111,18 @@ def get_models(provider):
 def update_models(provider):
     """Update models for a provider"""
     try:
-        data = request.get_json()
-        if not data or 'models' not in data:
-            return jsonify({'error': 'Models data required'}), 400
+        if not provider_manager.is_provider_available(provider):
+            return jsonify({'error': f'Provider {provider} not available'}), 404
+
+        # For now, just refresh the existing models list
+        # In a real implementation, this would fetch fresh models from the provider API
+        models = model_manager.get_models(provider)
         
-        models = data['models']
-        if not isinstance(models, list):
-            return jsonify({'error': 'Models must be a list'}), 400
-        
-        model_manager.update_models(provider, models)
-        return jsonify({'message': f'Models updated for {provider}', 'count': len(models)})
+        return jsonify({
+            'success': True,
+            'message': f'Models refreshed for {provider}',
+            'models': models
+        })
     except Exception as e:
         app.logger.error(f"Error updating models for {provider}: {str(e)}")
         return jsonify({'error': 'Failed to update models'}), 500
@@ -297,17 +311,129 @@ def upload_audio():
         return jsonify({'error': 'Audio processing failed'}), 500
 
 
+# --- Chat Management Routes ---
+@app.route('/save_chat', methods=['POST'])
+def save_chat():
+    """Save chat history"""
+    try:
+        data = request.get_json()
+        if not data or 'history' not in data:
+            return jsonify({'error': 'No chat history provided'}), 400
+
+        history = data['history']
+        timestamp = data.get('timestamp', time.strftime('%Y-%m-%d %H:%M:%S'))
+
+        # Generate filename
+        timestamp_str = time.strftime('%Y%m%d_%H%M%S')
+        filename = f'chat_{timestamp_str}.json'
+        file_path = SAVE_DIR / filename
+
+        # Save chat data
+        chat_data = {
+            'history': history,
+            'timestamp': timestamp,
+            'saved_at': time.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(chat_data, f, indent=2, ensure_ascii=False)
+
+        return jsonify({'filename': filename, 'path': str(file_path)})
+
+    except Exception as e:
+        app.logger.error(f"Save chat error: {str(e)}")
+        return jsonify({'error': 'Failed to save chat'}), 500
+
+
+@app.route('/list_saved_chats')
+def list_saved_chats():
+    """List all saved chats"""
+    try:
+        chats = []
+        if SAVE_DIR.exists():
+            for file_path in SAVE_DIR.glob('chat_*.json'):
+                try:
+                    stat = file_path.stat()
+                    chats.append({
+                        'filename': file_path.name,
+                        'display_name': file_path.stem.replace('chat_', 'Chat '),
+                        'modified': stat.st_mtime,
+                        'size': stat.st_size
+                    })
+                except Exception as e:
+                    app.logger.warning(f"Error reading chat file {file_path}: {str(e)}")
+                    continue
+
+        # Sort by modification time (newest first)
+        chats.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return jsonify({'chats': chats})
+
+    except Exception as e:
+        app.logger.error(f"List chats error: {str(e)}")
+        return jsonify({'error': 'Failed to list chats'}), 500
+
+
+@app.route('/load_chat/<filename>')
+def load_chat(filename):
+    """Load a specific chat"""
+    try:
+        # Sanitize filename
+        filename = secure_filename(filename)
+        file_path = SAVE_DIR / filename
+
+        if not file_path.exists():
+            return jsonify({'error': 'Chat file not found'}), 404
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            chat_data = json.load(f)
+
+        return jsonify(chat_data)
+
+    except Exception as e:
+        app.logger.error(f"Load chat error: {str(e)}")
+        return jsonify({'error': 'Failed to load chat'}), 500
+
+
+@app.route('/set_default_model/<provider>', methods=['POST'])
+def set_default_model(provider):
+    """Set default model for a provider"""
+    try:
+        data = request.get_json()
+        if not data or 'model' not in data:
+            return jsonify({'error': 'Model name required'}), 400
+
+        model = data['model']
+        
+        if not provider_manager.is_provider_available(provider):
+            return jsonify({'error': f'Provider {provider} not available'}), 404
+
+        # Set default model in model manager
+        model_manager.set_default_model(provider, model)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Default model set for {provider}',
+            'provider': provider,
+            'model': model
+        })
+
+    except Exception as e:
+        app.logger.error(f"Set default model error: {str(e)}")
+        return jsonify({'error': 'Failed to set default model'}), 500
+
+
 # --- Export Routes ---
 @app.route('/export_chat', methods=['POST'])
 def export_chat():
     """Export chat history"""
     try:
         data = request.get_json()
-        if not data or 'messages' not in data:
-            return jsonify({'error': 'No messages provided'}), 400
+        if not data or 'history' not in data:
+            return jsonify({'error': 'No chat history provided'}), 400
 
-        export_format = data.get('format', 'json').lower()
-        messages = data['messages']
+        export_format = data.get('format', 'md').lower()
+        history = data['history']
 
         # Generate filename
         timestamp = time.strftime('%Y%m%d_%H%M%S')
@@ -317,11 +443,21 @@ def export_chat():
         # Export based on format
         if export_format == 'json':
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(messages, f, indent=2, ensure_ascii=False)
+                json.dump(history, f, indent=2, ensure_ascii=False)
+        elif export_format == 'md':
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(f"# Chat Export - {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                for msg in history:
+                    role = "**User**" if msg.get('isUser', False) else "**Assistant**"
+                    content = msg.get('content', '')
+                    f.write(f"{role}:\n{content}\n\n---\n\n")
         elif export_format == 'txt':
             with open(file_path, 'w', encoding='utf-8') as f:
-                for msg in messages:
-                    f.write(f"{msg.get('role', 'user')}: {msg.get('content', '')}\n\n")
+                f.write(f"Chat Export - {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                for msg in history:
+                    role = "User" if msg.get('isUser', False) else "Assistant"
+                    content = msg.get('content', '')
+                    f.write(f"{role}: {content}\n\n")
         else:
             return jsonify({'error': 'Unsupported export format'}), 400
 

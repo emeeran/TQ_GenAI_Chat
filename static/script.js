@@ -22,15 +22,15 @@ function toggleTheme() {
 // On load, set theme and restore saved settings
 document.addEventListener('DOMContentLoaded', () => {
     setTheme(localStorage.getItem('theme') || 'light');
-    
+
     // Restore saved provider and model settings
     const savedProvider = localStorage.getItem('defaultProvider');
     const savedModel = localStorage.getItem('defaultModel');
-    
+
     if (savedProvider && document.getElementById('provider')) {
         document.getElementById('provider').value = savedProvider;
     }
-    
+
     // Always refresh models on page load
     updateModels().then(() => {
         if (savedModel && document.getElementById('model')) {
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateProviderModelDisplay();
     });
-    
+
     // Update provider/model display initially
     updateProviderModelDisplay();
 });
@@ -88,21 +88,21 @@ if (elements.model) {
 function updateProviderModelDisplay() {
     const provider = document.getElementById('provider')?.value || 'N/A';
     const model = document.getElementById('model')?.value || 'N/A';
-    
+
     let displayElement = document.getElementById('provider-model-display');
     if (!displayElement) {
         // Create the display element if it doesn't exist
         displayElement = document.createElement('div');
         displayElement.id = 'provider-model-display';
         displayElement.className = 'provider-model-display';
-        
+
         // Add to bottom of sidebar
         const sidebar = document.querySelector('.sidebar');
         if (sidebar) {
             sidebar.appendChild(displayElement);
         }
     }
-    
+
     displayElement.innerHTML = `<strong>${provider} | ${model}</strong>`;
 }
 
@@ -112,7 +112,7 @@ if (elements.persona) {
     elements.persona.addEventListener('change', async function () {
         // Save persona selection
         localStorage.setItem('defaultPersona', this.value);
-        
+
         if (this.value === 'custom') {
             customTextarea.classList.remove('d-none');
         } else {
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         updateSliderProgress(maxTokensSlider);
     }
-    
+
     // Temperature slider
     const temperatureSlider = document.getElementById('temperature');
     const temperatureValue = document.getElementById('temperature-value');
@@ -210,23 +210,23 @@ async function processQueue() {
 async function updateModels() {
     const provider = document.getElementById('provider').value;
     const modelSelect = document.getElementById('model');
-    
+
     if (!provider) {
         modelSelect.innerHTML = '<option value="">Select Provider First</option>';
         modelSelect.disabled = true;
         return;
     }
-    
+
     modelSelect.innerHTML = '<option value="">Loading models...</option>';
     modelSelect.disabled = true;
 
     try {
         console.log(`Fetching models for provider: ${provider}`);
         const response = await fetch(`/get_models/${provider}`);
-        
+
         console.log(`Response status: ${response.status}`);
         console.log(`Response headers:`, response.headers);
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -241,11 +241,11 @@ async function updateModels() {
 
         const data = await response.json();
         console.log('Models data received:', data);
-        
+
         if (data.error) {
             throw new Error(`Server error: ${data.error}`);
         }
-        
+
         const models = data.models;
         const defaultModel = data.default;
 
@@ -272,7 +272,7 @@ async function updateModels() {
         console.error('Error fetching models:', error);
         modelSelect.innerHTML = '<option value="">Error loading models</option>';
         modelSelect.disabled = true;
-        
+
         // Show user-friendly error message
         showNotification(`Error updating models: ${error.message}`, 'error');
     }
@@ -282,7 +282,7 @@ function appendMessage(message, isUser = false, messageIndex = null) {
     const chatBox = document.getElementById('chat-box');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
-    
+
     // Add message index as data attribute for editing
     if (messageIndex !== null) {
         messageDiv.setAttribute('data-message-index', messageIndex);
@@ -377,12 +377,12 @@ function editMessage(messageIndex) {
     if (messageIndex === null || messageIndex >= chatHistory.length) {
         return;
     }
-    
+
     const messageToEdit = chatHistory[messageIndex];
     if (!messageToEdit.isUser) {
         return; // Only allow editing user messages
     }
-    
+
     // Create edit modal
     const modal = document.createElement('div');
     modal.className = 'modal fade show';
@@ -411,9 +411,9 @@ function editMessage(messageIndex) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
+
     // Focus on the textarea
     setTimeout(() => {
         document.getElementById('edit-message-text').focus();
@@ -422,24 +422,24 @@ function editMessage(messageIndex) {
 
 function submitEditedMessage(messageIndex) {
     const newMessageText = document.getElementById('edit-message-text').value.trim();
-    
+
     if (!newMessageText) {
         alert('Message cannot be empty');
         return;
     }
-    
+
     // Remove the modal
     document.querySelector('.modal').remove();
-    
+
     // Update the message in chat history
     chatHistory[messageIndex].content = newMessageText;
-    
+
     // Remove all messages after this one from chat history
     chatHistory = chatHistory.slice(0, messageIndex + 1);
-    
+
     // Re-render the conversation
     reRenderConversation();
-    
+
     // Resubmit the edited message
     sendMessage(newMessageText, false);
 }
@@ -447,7 +447,7 @@ function submitEditedMessage(messageIndex) {
 function reRenderConversation() {
     const chatBox = document.getElementById('chat-box');
     chatBox.innerHTML = '';
-    
+
     chatHistory.forEach((msg, index) => {
         appendMessage(msg.content, msg.isUser, index);
     });
@@ -542,7 +542,7 @@ async function loadChatFile(filename) {
         chatHistory = data.history;
         const chatBox = document.getElementById('chat-box');
         chatBox.innerHTML = '';
-        
+
         // Re-render with proper indices
         chatHistory.forEach((msg, index) => {
             appendMessage(msg.content, msg.isUser, index);
@@ -653,7 +653,7 @@ async function updateRetryModels() {
     try {
         console.log(`Fetching retry models for provider: ${provider}`);
         const response = await fetch(`/get_models/${provider}`);
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -667,11 +667,11 @@ async function updateRetryModels() {
         }
 
         const data = await response.json();
-        
+
         if (data.error) {
             throw new Error(`Server error: ${data.error}`);
         }
-        
+
         const models = data.models;
         const defaultModel = data.default;
 
@@ -761,7 +761,7 @@ function provideFeedback(isPositive) {
 
 async function updateModelsFromProvider() {
     const provider = document.getElementById('provider').value;
-    
+
     if (!provider) {
         alert('Please select a provider first');
         return;
@@ -769,7 +769,7 @@ async function updateModelsFromProvider() {
 
     const updateBtn = document.getElementById('update-models-btn');
     const originalText = updateBtn.innerHTML;
-    
+
     try {
         // Show loading state
         updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
@@ -787,7 +787,7 @@ async function updateModelsFromProvider() {
         if (data.success) {
             // Refresh the model dropdown
             await updateModels();
-            
+
             alert(`✅ ${data.message}\n\nFound ${data.models.length} models:\n${data.models.slice(0, 5).join(', ')}${data.models.length > 5 ? '...' : ''}`);
         } else {
             throw new Error(data.error || 'Failed to update models');
@@ -805,12 +805,12 @@ async function updateModelsFromProvider() {
 async function setDefaultModel() {
     const provider = document.getElementById('provider').value;
     const model = document.getElementById('model').value;
-    
+
     if (!provider) {
         alert('Please select a provider first');
         return;
     }
-    
+
     if (!model) {
         alert('Please select a model first');
         return;
@@ -818,7 +818,7 @@ async function setDefaultModel() {
 
     const setDefaultBtn = document.getElementById('set-default-btn');
     const originalText = setDefaultBtn.innerHTML;
-    
+
     try {
         // Show loading state
         setDefaultBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting...';
@@ -875,7 +875,7 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
             const userMessageIndex = chatHistory.length;
             appendMessage(messageToSend, true, userMessageIndex);
             userInput.value = '';
-            
+
             // Add user message to chat history immediately
             chatHistory.push({
                 content: messageToSend,
@@ -952,7 +952,7 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
                 lastAiResponseText = aiMessage.text; // Store for copy function
                 // Show copy button
                 document.getElementById('copy-response-btn')?.classList.remove('d-none');
-                
+
                 // Auto-speak if enabled
                 const autoSpeak = document.getElementById('auto-speak');
                 if (autoSpeak && autoSpeak.checked) {
@@ -1366,7 +1366,7 @@ function speakText(text) {
     if (!text && lastAiResponseText) {
         text = lastAiResponseText;
     }
-    
+
     if (!text) {
         alert('No text to speak. Please send a message first.');
         return;
@@ -1635,31 +1635,31 @@ async function uploadFiles() {
                                         const isLong = doc.preview.length > maxPreview;
                                         const shortText = doc.preview.substring(0, maxPreview);
                                         const fullText = doc.preview;
-                                        const msgId = `doc-preview-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+                                        const msgId = `doc-preview-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
                                         let html = `<div id="${msgId}">`;
                                         html += `<strong>Extracted text from ${f.filename}:</strong><br><pre style='white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;'>`;
                                         html += isLong ? shortText + '...' : shortText;
                                         html += '</pre>';
                                         if (isLong) {
-                                            html += `<button class='btn btn-link btn-sm' style='padding:0;margin-top:-0.5em;' onclick="toggleDocPreview('${msgId}', this, \`${fullText.replace(/`/g, '\`').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') }\`, \`${shortText.replace(/`/g, '\`').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') }\`)">Show more</button>`;
+                                            html += `<button class='btn btn-link btn-sm' style='padding:0;margin-top:-0.5em;' onclick="toggleDocPreview('${msgId}', this, \`${fullText.replace(/`/g, '\`').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}\`, \`${shortText.replace(/`/g, '\`').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}\`)">Show more</button>`;
                                         }
                                         html += '</div>';
                                         appendMessage(html, false, true);
                                     }
-// Toggle function for document preview expansion
-function toggleDocPreview(msgId, btn, fullText, shortText) {
-    const container = document.getElementById(msgId);
-    if (!container) return;
-    const pre = container.querySelector('pre');
-    if (!pre) return;
-    if (btn.textContent === 'Show more') {
-        pre.textContent = fullText;
-        btn.textContent = 'Show less';
-    } else {
-        pre.textContent = shortText + '...';
-        btn.textContent = 'Show more';
-    }
-}
+                                    // Toggle function for document preview expansion
+                                    function toggleDocPreview(msgId, btn, fullText, shortText) {
+                                        const container = document.getElementById(msgId);
+                                        if (!container) return;
+                                        const pre = container.querySelector('pre');
+                                        if (!pre) return;
+                                        if (btn.textContent === 'Show more') {
+                                            pre.textContent = fullText;
+                                            btn.textContent = 'Show less';
+                                        } else {
+                                            pre.textContent = shortText + '...';
+                                            btn.textContent = 'Show more';
+                                        }
+                                    }
                                 }
                             } catch (e) {
                                 appendMessage(`(Could not fetch extracted text for ${f.filename})`, false);
@@ -1707,8 +1707,26 @@ function toggleDocPreview(msgId, btn, fullText, shortText) {
 }
 
 function showNotification(message, type = 'info') {
-    // Simple notification display
-    alert(`${type.toUpperCase()}: ${message}`);
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} notification-toast`;
+    notification.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+            <span>${message}</span>
+            <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+
+    // Add to page
+    document.body.appendChild(notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
 }
 
 function createFileUploadItem(file) {

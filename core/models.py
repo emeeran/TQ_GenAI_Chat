@@ -135,7 +135,9 @@ class ModelManager:
         self.models_cache_file = self.cache_dir / 'models_cache.json'
         self.defaults_cache_file = self.cache_dir / 'defaults_cache.json'
         self.models = DEFAULT_MODELS.copy()
+        self.defaults = {}
         self.load_cached_models()
+        self.load_defaults_cache()
 
     def load_cached_models(self):
         """Load cached models and defaults"""
@@ -193,6 +195,46 @@ class ModelManager:
     def is_model_available(self, provider: str, model: str) -> bool:
         """Check if a model is available for a provider"""
         return model in self.models.get(provider, [])
+
+    def load_defaults_cache(self):
+        """Load cached default models"""
+        try:
+            if self.defaults_cache_file.exists():
+                with open(self.defaults_cache_file) as f:
+                    self.defaults = json.load(f)
+            else:
+                self.defaults = {}
+        except Exception as e:
+            if current_app:
+                current_app.logger.warning(f"Failed to load defaults cache: {str(e)}")
+            self.defaults = {}
+
+    def save_defaults_cache(self):
+        """Save default models to cache"""
+        try:
+            with open(self.defaults_cache_file, 'w') as f:
+                json.dump(self.defaults, f, indent=2)
+        except Exception as e:
+            if current_app:
+                current_app.logger.warning(f"Failed to save defaults cache: {str(e)}")
+
+    def set_default_model(self, provider: str, model: str):
+        """Set default model for a provider"""
+        if not hasattr(self, 'defaults'):
+            self.load_defaults_cache()
+        
+        if not self.is_model_available(provider, model):
+            raise ValueError(f"Model {model} not available for provider {provider}")
+        
+        self.defaults[provider] = model
+        self.save_defaults_cache()
+
+    def get_default_model(self, provider: str) -> str | None:
+        """Get default model for a provider"""
+        if not hasattr(self, 'defaults'):
+            self.load_defaults_cache()
+        
+        return self.defaults.get(provider)
 
 
 # Global model manager instance
