@@ -18,7 +18,7 @@ from flask_cors import CORS
 from pydub import AudioSegment
 from werkzeug.utils import secure_filename
 
-from config.settings import ALLOWED_EXTENSIONS, SAVE_DIR, EXPORT_DIR, UPLOAD_DIR
+from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
 from core.chat_handler import create_chat_handler
 from core.file_processor import FileProcessor, status_tracker
 from core.models import model_manager
@@ -96,9 +96,9 @@ def get_models(provider):
         models = model_manager.get_models(provider)
         if not models:
             return jsonify({'error': f'No models defined for provider {provider}'}), 404
-        
+
         default_model = model_manager.get_default_model(provider)
-        
+
         return jsonify({
             'models': models,
             'default': default_model
@@ -119,7 +119,7 @@ def update_models(provider):
 
         # For now, just refresh the existing models list
         # In a real implementation, this would fetch fresh models from the provider API
-        
+
         return jsonify({
             'success': True,
             'message': f'Models refreshed for {provider}',
@@ -148,7 +148,7 @@ def chat():
 
         response = chat_handler.process_chat_request(data)
         return jsonify(response)
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -202,13 +202,13 @@ def tts():
         text = data.get('text', '')
         voice_id = data.get('voice_id')
         lang = data.get('lang', 'en')
-        
+
         if not text:
             return jsonify({'error': 'No text provided'}), 400
-        
+
         audio_data, content_type = tts_engine.synthesize(text, voice_id, lang)
         return audio_data, 200, {'Content-Type': content_type}
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -236,12 +236,12 @@ def upload_files():
         for file in files:
             if file.filename == '':
                 continue
-                
+
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 file_path = Path(app.config['UPLOAD_FOLDER']) / filename
                 file.save(file_path)
-                
+
                 # Start async processing
                 asyncio.create_task(process_file_async(filename, str(file_path)))
                 results.append({'filename': filename, 'status': 'processing'})
@@ -368,7 +368,7 @@ def list_saved_chats():
 
         # Sort by modification time (newest first)
         chats.sort(key=lambda x: x['modified'], reverse=True)
-        
+
         return jsonify({'chats': chats})
 
     except Exception as e:
@@ -387,7 +387,7 @@ def load_chat(filename):
         if not file_path.exists():
             return jsonify({'error': 'Chat file not found'}), 404
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             chat_data = json.load(f)
 
         return jsonify(chat_data)
@@ -406,7 +406,7 @@ def set_default_model(provider):
             return jsonify({'error': 'Model name required'}), 400
 
         model = data['model']
-        
+
         # Check if we have model definitions for this provider
         models = model_manager.get_models(provider)
         if not models:
@@ -414,7 +414,7 @@ def set_default_model(provider):
 
         # Set default model in model manager
         model_manager.set_default_model(provider, model)
-        
+
         return jsonify({
             'success': True,
             'message': f'Default model set for {provider}',
@@ -484,17 +484,17 @@ async def process_file_async(filename, file_path):
     try:
         processor = FileProcessor()
         content = await processor.process_file(file_path, filename)
-        
+
         # Add to document store
         file_manager.add_document(filename, content)
-        
+
         # Update status
         PROCESSING_STATUS[filename] = {
             'status': 'completed',
             'timestamp': time.time(),
             'size': len(content)
         }
-        
+
     except Exception as e:
         app.logger.error(f"File processing error for {filename}: {str(e)}")
         PROCESSING_ERRORS[filename] = str(e)

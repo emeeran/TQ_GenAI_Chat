@@ -2,22 +2,23 @@
 API Services Module
 Provides a unified interface for interacting with various AI API providers.
 """
-import os
-import json
-import time
 import asyncio
-from typing import Dict, List, Optional, Union, Any, Callable
-from functools import lru_cache
 import hashlib
+import json
+import os
+import time
+from functools import lru_cache
+from typing import Any
 
-import requests
 import anthropic
-from flask import current_app
-
+import requests
 from config.settings import (
-    REQUEST_TIMEOUT, CONNECT_TIMEOUT, READ_TIMEOUT, 
-    MAX_RETRIES, API_POOL_CONFIG, RATE_LIMIT
+    CONNECT_TIMEOUT,
+    MAX_RETRIES,
+    RATE_LIMIT,
+    READ_TIMEOUT,
 )
+from flask import current_app
 
 
 class APIServices:
@@ -25,7 +26,7 @@ class APIServices:
     Unified API service for multiple AI providers
     Handles authentication, rate limiting, and response formatting
     """
-    
+
     def __init__(self):
         """Initialize API connections and validate API keys"""
         # Load API keys
@@ -35,12 +36,12 @@ class APIServices:
             "anthropic": os.getenv("ANTHROPIC_API_KEY", ""),
             "mistral": os.getenv("MISTRAL_API_KEY", ""),
         }
-        
+
         # Validate required API keys
         for provider in ["openai", "groq"]:
             if not self.api_keys[provider]:
                 current_app.logger.warning(f"{provider.upper()}_API_KEY not set.")
-        
+
         # Configure endpoints
         self.endpoints = {
             "openai": "https://api.openai.com/v1/chat/completions",
@@ -48,14 +49,14 @@ class APIServices:
             "anthropic": "https://api.anthropic.com/v1/messages",
             "mistral": "https://api.mistral.ai/v1/chat/completions",
         }
-        
+
         # Rate limiting trackers
         self.request_times = {provider: [] for provider in self.endpoints}
         self._rate_limit_lock = asyncio.Lock()
-        
+
         # Configure session with retry strategy
         self.session = self._create_request_session()
-        
+
     def _create_request_session(self) -> requests.Session:
         """Create and configure a requests session with retry handling"""
         retry_strategy = requests.packages.urllib3.util.retry.Retry(
@@ -63,21 +64,21 @@ class APIServices:
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
         )
-        
+
         session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(max_retries=retry_strategy)
         session.mount("https://", adapter)
         session.mount("http://", adapter)
         return session
-    
+
     async def _enforce_rate_limit(self, provider: str) -> None:
         """Enforce rate limiting for API calls"""
         async with self._rate_limit_lock:
             # Remove timestamps older than 60 seconds
             current_time = time.time()
-            self.request_times[provider] = [t for t in self.request_times[provider] 
+            self.request_times[provider] = [t for t in self.request_times[provider]
                                          if current_time - t < 60]
-            
+
             # Check if we've hit the rate limit
             if len(self.request_times[provider]) >= RATE_LIMIT:
                 # Calculate sleep time based on oldest request
@@ -85,30 +86,30 @@ class APIServices:
                 if sleep_time > 0:
                     current_app.logger.warning(f"Rate limit hit for {provider}, sleeping for {sleep_time:.2f}s")
                     await asyncio.sleep(sleep_time)
-                
+
                 # Clear old entries after sleeping
-                self.request_times[provider] = [t for t in self.request_times[provider] 
+                self.request_times[provider] = [t for t in self.request_times[provider]
                                              if current_time - t < 60]
-                
+
             # Add current request time
             self.request_times[provider].append(current_time)
-    
+
     @lru_cache(maxsize=100)
     def _get_request_hash(self, provider: str, model: str, messages: str, **kwargs) -> str:
         """Generate a hash for request caching"""
         key_str = f"{provider}|{model}|{messages}|{json.dumps(kwargs, sort_keys=True)}"
         return hashlib.md5(key_str.encode()).hexdigest()
-    
-    async def generate_completion(self, 
+
+    async def generate_completion(self,
                                 provider: str,
                                 model: str,
-                                messages: List[Dict[str, str]],
-                                max_tokens: Optional[int] = None,
+                                messages: list[dict[str, str]],
+                                max_tokens: int | None = None,
                                 temperature: float = 0.7,
-                                **kwargs) -> Dict[str, Any]:
+                                **kwargs) -> dict[str, Any]:
         """
         Generate a completion from the specified provider and model
-        
+
         Args:
             provider: The API provider to use (openai, groq, etc.)
             model: The specific model to use
@@ -116,20 +117,20 @@ class APIServices:
             max_tokens: Maximum tokens to generate
             temperature: Temperature parameter for generation
             **kwargs: Additional provider-specific parameters
-            
+
         Returns:
             Dict containing the completion and metadata
         """
         # Validate provider and model
         if provider not in self.endpoints:
             raise ValueError(f"Unsupported provider: {provider}")
-        
+
         if not self.api_keys.get(provider):
             raise ValueError(f"API key not configured for {provider}")
-        
+
         # Apply rate limiting
         await self._enforce_rate_limit(provider)
-        
+
         # Generate based on provider
         if provider == "openai":
             return await self._generate_openai(model, messages, max_tokens, temperature, **kwargs)
@@ -141,34 +142,34 @@ class APIServices:
             return await self._generate_mistral(model, messages, max_tokens, temperature, **kwargs)
         else:
             raise ValueError(f"Provider {provider} implementation not available")
-    
-    async def _generate_openai(self, 
-                              model: str, 
-                              messages: List[Dict[str, str]],
-                              max_tokens: Optional[int] = None,
+
+    async def _generate_openai(self,
+                              model: str,
+                              messages: list[dict[str, str]],
+                              max_tokens: int | None = None,
                               temperature: float = 0.7,
-                              **kwargs) -> Dict[str, Any]:
+                              **kwargs) -> dict[str, Any]:
         """Generate a completion using OpenAI's API"""
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_keys['openai']}"
         }
-        
+
         # Configure request payload
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature
         }
-        
+
         # Add max_tokens if specified
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-            
+
         # Add additional parameters
         for key, value in kwargs.items():
             payload[key] = value
-        
+
         try:
             response = self.session.post(
                 self.endpoints["openai"],
@@ -176,10 +177,10 @@ class APIServices:
                 json=payload,
                 timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             # Extract and return the response content
             if "choices" in result and result["choices"]:
                 return {
@@ -190,41 +191,41 @@ class APIServices:
                 }
             else:
                 raise ValueError("Unexpected response format from OpenAI API")
-                
+
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"OpenAI API request failed: {str(e)}")
             if hasattr(e, 'response') and e.response:
                 current_app.logger.error(f"Status code: {e.response.status_code}")
                 current_app.logger.error(f"Response: {e.response.text}")
             raise ValueError(f"OpenAI API request failed: {str(e)}")
-    
-    async def _generate_groq(self, 
-                            model: str, 
-                            messages: List[Dict[str, str]],
-                            max_tokens: Optional[int] = None,
+
+    async def _generate_groq(self,
+                            model: str,
+                            messages: list[dict[str, str]],
+                            max_tokens: int | None = None,
                             temperature: float = 0.7,
-                            **kwargs) -> Dict[str, Any]:
+                            **kwargs) -> dict[str, Any]:
         """Generate a completion using Groq's API"""
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_keys['groq']}"
         }
-        
+
         # Configure request payload
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature
         }
-        
+
         # Add max_tokens if specified
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-            
+
         # Add additional parameters
         for key, value in kwargs.items():
             payload[key] = value
-        
+
         try:
             response = self.session.post(
                 self.endpoints["groq"],
@@ -232,10 +233,10 @@ class APIServices:
                 json=payload,
                 timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             # Extract and return the response content
             if "choices" in result and result["choices"]:
                 return {
@@ -246,34 +247,34 @@ class APIServices:
                 }
             else:
                 raise ValueError("Unexpected response format from Groq API")
-                
+
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"Groq API request failed: {str(e)}")
             if hasattr(e, 'response') and e.response:
                 current_app.logger.error(f"Status code: {e.response.status_code}")
                 current_app.logger.error(f"Response: {e.response.text}")
             raise ValueError(f"Groq API request failed: {str(e)}")
-    
-    async def _generate_anthropic(self, 
-                                 model: str, 
-                                 messages: List[Dict[str, str]],
-                                 max_tokens: Optional[int] = None,
+
+    async def _generate_anthropic(self,
+                                 model: str,
+                                 messages: list[dict[str, str]],
+                                 max_tokens: int | None = None,
                                  temperature: float = 0.7,
-                                 **kwargs) -> Dict[str, Any]:
+                                 **kwargs) -> dict[str, Any]:
         """Generate a completion using Anthropic's API"""
         # Create Anthropic client
         client = anthropic.Anthropic(api_key=self.api_keys["anthropic"])
-        
+
         # Convert messages format if needed
         anthropic_messages = []
         system_prompt = ""
-        
+
         for msg in messages:
             if msg["role"] == "system":
                 system_prompt = msg["content"]
             else:
                 anthropic_messages.append(msg)
-        
+
         try:
             # Build parameters dictionary
             params = {
@@ -281,61 +282,61 @@ class APIServices:
                 "messages": anthropic_messages,
                 "temperature": temperature,
             }
-            
+
             # Add system prompt if provided
             if system_prompt:
                 params["system"] = system_prompt
-                
+
             # Add max_tokens if specified
             if max_tokens is not None:
                 params["max_tokens"] = max_tokens
-            
+
             # Add additional parameters
             for key, value in kwargs.items():
                 if key not in ["model", "messages", "system", "temperature", "max_tokens"]:
                     params[key] = value
-            
+
             # Make the API call
             result = client.messages.create(**params)
-            
+
             return {
                 "content": result.content[0].text,
                 "model": model,
                 "provider": "anthropic",
                 "raw_response": result.model_dump()
             }
-        
+
         except Exception as e:
             current_app.logger.error(f"Anthropic API request failed: {str(e)}")
             raise ValueError(f"Anthropic API request failed: {str(e)}")
-    
-    async def _generate_mistral(self, 
-                               model: str, 
-                               messages: List[Dict[str, str]],
-                               max_tokens: Optional[int] = None,
+
+    async def _generate_mistral(self,
+                               model: str,
+                               messages: list[dict[str, str]],
+                               max_tokens: int | None = None,
                                temperature: float = 0.7,
-                               **kwargs) -> Dict[str, Any]:
+                               **kwargs) -> dict[str, Any]:
         """Generate a completion using Mistral's API"""
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_keys['mistral']}"
         }
-        
+
         # Configure request payload
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature
         }
-        
+
         # Add max_tokens if specified
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-            
+
         # Add additional parameters
         for key, value in kwargs.items():
             payload[key] = value
-        
+
         try:
             response = self.session.post(
                 self.endpoints["mistral"],
@@ -343,10 +344,10 @@ class APIServices:
                 json=payload,
                 timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             # Extract and return the response content
             if "choices" in result and result["choices"]:
                 return {
@@ -357,29 +358,32 @@ class APIServices:
                 }
             else:
                 raise ValueError("Unexpected response format from Mistral API")
-                
+
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"Mistral API request failed: {str(e)}")
             if hasattr(e, 'response') and e.response:
                 current_app.logger.error(f"Status code: {e.response.status_code}")
                 current_app.logger.error(f"Response: {e.response.text}")
             raise ValueError(f"Mistral API request failed: {str(e)}")
-    
-    def get_available_models(self, provider: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
+
+    def get_available_models(self, provider: str | None = None) -> dict[str, list[dict[str, Any]]]:
         """
         Get available models for the specified provider or all providers
-        
+
         Args:
             provider: Optional provider name to filter models
-            
+
         Returns:
             Dictionary of provider -> list of models
         """
         from ai_models import (
-            OPENAI_MODELS, GROQ_MODELS, ANTHROPIC_MODELS, 
-            MISTRAL_MODELS, XAI_MODELS
+            ANTHROPIC_MODELS,
+            GROQ_MODELS,
+            MISTRAL_MODELS,
+            OPENAI_MODELS,
+            XAI_MODELS,
         )
-        
+
         all_models = {
             "openai": list(OPENAI_MODELS.values()),
             "groq": list(GROQ_MODELS.values()),
@@ -387,7 +391,7 @@ class APIServices:
             "mistral": list(MISTRAL_MODELS.values()),
             "xai": list(XAI_MODELS.values()),
         }
-        
+
         if provider:
             if provider in all_models:
                 return {provider: all_models[provider]}

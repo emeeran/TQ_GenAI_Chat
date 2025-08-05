@@ -1,9 +1,10 @@
 """Web interface views."""
 
-from flask import render_template, jsonify
+from flask import jsonify, render_template
+
 from app.web import web_bp
-from core.services import get_service
 from core.errors import handle_errors
+from core.services import get_service
 
 
 @web_bp.route('/')
@@ -19,7 +20,7 @@ def get_models_legacy(provider):
     """Get available models for a specific provider (legacy route)"""
     try:
         provider_factory = get_service("provider_factory")
-        
+
         # Get the provider instance
         provider_instance = provider_factory.get_provider(provider)
         if not provider_instance:
@@ -27,16 +28,16 @@ def get_models_legacy(provider):
                 'error': f'Provider {provider} not available',
                 'models': []
             }), 404
-        
+
         # Get models from the provider
         models = provider_instance.get_models()
-        
+
         return jsonify({
             'provider': provider,
             'models': models,
             'default': models[0] if models else None
         })
-        
+
     except Exception as e:
         return jsonify({
             'error': f'Failed to get models for {provider}: {str(e)}',
@@ -54,7 +55,7 @@ def list_documents_legacy():
             'documents': [],
             'total': 0
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -87,13 +88,13 @@ def get_personas_legacy():
                 'system_prompt': 'You are a technical expert specializing in programming, software development, and technical problem-solving.'
             }
         ]
-        
+
         return jsonify({
             'success': True,
             'personas': personas,
             'default': 'default'
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,

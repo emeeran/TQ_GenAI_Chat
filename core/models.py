@@ -9,7 +9,6 @@ from pathlib import Path
 
 from flask import current_app
 
-
 # Default model configurations
 DEFAULT_MODELS = {
     "openai": [
@@ -222,10 +221,10 @@ class ModelManager:
         """Set default model for a provider"""
         if not hasattr(self, 'defaults'):
             self.load_defaults_cache()
-        
+
         if not self.is_model_available(provider, model):
             raise ValueError(f"Model {model} not available for provider {provider}")
-        
+
         self.defaults[provider] = model
         self.save_defaults_cache()
 
@@ -233,7 +232,7 @@ class ModelManager:
         """Get default model for a provider"""
         if not hasattr(self, 'defaults'):
             self.load_defaults_cache()
-        
+
         return self.defaults.get(provider)
 
 

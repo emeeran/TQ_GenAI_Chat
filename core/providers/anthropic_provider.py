@@ -1,13 +1,14 @@
 """Anthropic provider implementation"""
 import os
-from typing import List, Dict, Any
+
 import anthropic
-from .base import AIProviderInterface, ChatRequest, ChatResponse, ChatMessage
+
+from .base import AIProviderInterface, ChatRequest, ChatResponse
 
 
 class AnthropicProvider(AIProviderInterface):
     """Anthropic Claude API provider implementation"""
-    
+
     def __init__(self):
         api_key = os.getenv("ANTHROPIC_API_KEY", "")
         if not api_key:
@@ -21,33 +22,33 @@ class AnthropicProvider(AIProviderInterface):
             "claude-3-opus-20240229",
             "claude-3-sonnet-20240229"
         ]
-    
+
     @property
     def name(self) -> str:
         return "anthropic"
-    
-    def get_models(self) -> List[str]:
+
+    def get_models(self) -> list[str]:
         return self._models
-    
+
     def is_available(self) -> bool:
         return bool(os.getenv("ANTHROPIC_API_KEY"))
-    
+
     def chat_completion(self, request: ChatRequest) -> ChatResponse:
         """Process chat completion using Anthropic API"""
         if not self.client:
             raise Exception("Anthropic client not initialized - API key missing")
-            
+
         try:
             # Extract system message if present
             system_message = ""
             messages = []
-            
+
             for msg in request.messages:
                 if msg.role == "system":
                     system_message = msg.content
                 else:
                     messages.append({"role": msg.role, "content": msg.content})
-            
+
             response = self.client.messages.create(
                 model=request.model,
                 max_tokens=request.max_tokens or 4000,
@@ -55,7 +56,7 @@ class AnthropicProvider(AIProviderInterface):
                 system=system_message,
                 messages=messages
             )
-            
+
             return ChatResponse(
                 content=response.content[0].text,
                 model=request.model,
@@ -66,6 +67,6 @@ class AnthropicProvider(AIProviderInterface):
                 },
                 provider=self.name
             )
-            
+
         except Exception as e:
             raise Exception(f"Anthropic API error: {str(e)}")

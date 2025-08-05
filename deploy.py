@@ -4,16 +4,11 @@ TQ GenAI Chat - Deployment and Testing Script
 Comprehensive setup, testing, and deployment automation
 """
 
-import asyncio
-import json
-import os
+import logging
+import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import shutil
-import logging
 
 # Configure logging
 logging.basicConfig(
@@ -28,14 +23,14 @@ logger = logging.getLogger(__name__)
 
 class DeploymentManager:
     """Manage deployment, testing, and setup operations"""
-    
+
     def __init__(self, project_root: Path = None):
         self.project_root = project_root or Path(__file__).parent
         self.venv_path = self.project_root / 'venv'
         self.requirements_file = self.project_root / 'requirements.txt'
         self.env_file = self.project_root / '.env'
-        
-    def run_command(self, command: str, check: bool = True, cwd: Path = None) -> Tuple[int, str, str]:
+
+    def run_command(self, command: str, check: bool = True, cwd: Path = None) -> tuple[int, str, str]:
         """Run shell command and return result"""
         try:
             result = subprocess.run(
@@ -50,95 +45,95 @@ class DeploymentManager:
             logger.error(f"Command failed: {command}")
             logger.error(f"Error: {e.stderr}")
             return e.returncode, e.stdout, e.stderr
-    
-    def check_prerequisites(self) -> Dict[str, bool]:
+
+    def check_prerequisites(self) -> dict[str, bool]:
         """Check if all prerequisites are installed"""
         checks = {}
-        
+
         # Check Python version
         python_version = sys.version_info
         checks['python'] = python_version >= (3, 9)
         logger.info(f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}")
-        
+
         # Check Redis
         redis_code, _, _ = self.run_command('redis-cli ping', check=False)
         checks['redis'] = redis_code == 0
-        
+
         # Check Git
         git_code, _, _ = self.run_command('git --version', check=False)
         checks['git'] = git_code == 0
-        
+
         # Check Node.js (optional)
         node_code, _, _ = self.run_command('node --version', check=False)
         checks['nodejs'] = node_code == 0
-        
+
         # Check Docker (optional)
         docker_code, _, _ = self.run_command('docker --version', check=False)
         checks['docker'] = docker_code == 0
-        
+
         return checks
-    
+
     def setup_virtual_environment(self) -> bool:
         """Create and setup virtual environment"""
         try:
             if self.venv_path.exists():
                 logger.info("Virtual environment already exists")
                 return True
-            
+
             logger.info("Creating virtual environment...")
             # Use sys.executable to get the correct Python path
             python_executable = sys.executable
             code, _, stderr = self.run_command(f'{python_executable} -m venv {self.venv_path}')
-            
+
             if code != 0:
                 logger.error(f"Failed to create virtual environment: {stderr}")
                 return False
-            
+
             logger.info("Virtual environment created successfully")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error setting up virtual environment: {e}")
             return False
-    
+
     def install_dependencies(self) -> bool:
         """Install Python dependencies"""
         try:
             if not self.requirements_file.exists():
                 logger.error("Requirements file not found")
                 return False
-            
+
             # Determine pip path
             if sys.platform == 'win32':
                 pip_path = self.venv_path / 'Scripts' / 'pip'
             else:
                 pip_path = self.venv_path / 'bin' / 'pip'
-            
+
             logger.info("Installing dependencies...")
             code, stdout, stderr = self.run_command(
                 f'{pip_path} install -r {self.requirements_file}'
             )
-            
+
             if code != 0:
                 logger.error(f"Failed to install dependencies: {stderr}")
                 return False
-            
+
             logger.info("Dependencies installed successfully")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error installing dependencies: {e}")
             return False
-    
+
     def setup_environment_file(self) -> bool:
         """Create .env file from template"""
         try:
             env_template = self.project_root / '.env.example'
-            
+
             if self.env_file.exists():
                 logger.info(".env file already exists")
                 return True
-            
+
             if not env_template.exists():
                 # Create a basic .env template
                 env_content = """# TQ GenAI Chat - Environment Configuration
@@ -186,25 +181,25 @@ DATADOG_API_KEY=
             else:
                 shutil.copy(env_template, self.env_file)
                 logger.info("Copied .env.example to .env")
-            
+
             logger.warning("Please edit .env file with your actual API keys!")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error setting up environment file: {e}")
             return False
-    
+
     def test_redis_connection(self) -> bool:
         """Test Redis connection"""
         try:
             import redis
-            
+
             # Try to connect to Redis
             redis_client = redis.from_url('redis://localhost:6379/0')
             redis_client.ping()
             logger.info("Redis connection test: PASSED")
             return True
-            
+
         except Exception as e:
             logger.error(f"Redis connection test: FAILED - {e}")
             logger.info("Please ensure Redis server is running:")
@@ -212,7 +207,7 @@ DATADOG_API_KEY=
             logger.info("  macOS: brew services start redis")
             logger.info("  Windows: docker run -d -p 6379:6379 redis:alpine")
             return False
-    
+
     def run_tests(self) -> bool:
         """Run comprehensive test suite"""
         try:
@@ -221,30 +216,30 @@ DATADOG_API_KEY=
                 python_path = self.venv_path / 'Scripts' / 'python'
             else:
                 python_path = self.venv_path / 'bin' / 'python'
-            
+
             logger.info("Running test suite...")
-            
+
             # Create basic test if none exists
             test_file = self.project_root / 'test_app.py'
             if not test_file.exists():
                 self.create_basic_tests()
-            
+
             # Run tests
             code, stdout, stderr = self.run_command(
                 f'{python_path} -m pytest test_app.py -v'
             )
-            
+
             if code == 0:
                 logger.info("All tests passed!")
                 return True
             else:
                 logger.error(f"Some tests failed: {stderr}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error running tests: {e}")
             return False
-    
+
     def create_basic_tests(self):
         """Create basic test file"""
         test_content = '''"""
@@ -277,11 +272,11 @@ def test_static_files_exist():
     static_path = Path('static')
     required_files = [
         'styles.css',
-        'script.js', 
+        'script.js',
         'manifest.json',
         'sw.js'
     ]
-    
+
     for file in required_files:
         assert (static_path / file).exists(), f"{file} should exist in static folder"
 
@@ -300,15 +295,15 @@ async def test_basic_functionality():
     """Test basic app functionality"""
     try:
         from app import app
-        
+
         with app.test_client() as client:
             # Test health endpoint
             response = client.get('/health')
             assert response.status_code == 200, "Health endpoint should return 200"
-            
+
             data = json.loads(response.data)
             assert 'status' in data, "Health response should include status"
-            
+
     except ImportError:
         pytest.skip("App not available for testing")
 
@@ -325,11 +320,11 @@ def test_redis_availability():
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
 '''
-        
+
         with open(self.project_root / 'test_app.py', 'w') as f:
             f.write(test_content)
         logger.info("Created basic test suite")
-    
+
     def start_development_server(self) -> bool:
         """Start the development server"""
         try:
@@ -338,29 +333,29 @@ if __name__ == '__main__':
                 python_path = self.venv_path / 'Scripts' / 'python'
             else:
                 python_path = self.venv_path / 'bin' / 'python'
-            
+
             logger.info("Starting development server...")
             logger.info("Server will be available at: http://localhost:5000")
             logger.info("Press Ctrl+C to stop the server")
-            
+
             # Start server
             process = subprocess.Popen([
                 str(python_path), 'app.py'
             ], cwd=self.project_root)
-            
+
             try:
                 process.wait()
             except KeyboardInterrupt:
                 logger.info("Stopping server...")
                 process.terminate()
                 process.wait()
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error starting development server: {e}")
             return False
-    
+
     def create_docker_files(self):
         """Create Docker configuration files"""
         # Dockerfile
@@ -393,7 +388,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
 # Start command
 CMD ["python", "app.py"]
 '''
-        
+
         # Docker Compose
         docker_compose_content = '''version: '3.8'
 
@@ -436,7 +431,7 @@ services:
 volumes:
   redis_data:
 '''
-        
+
         # Nginx configuration
         nginx_conf_content = '''events {
     worker_connections 1024;
@@ -473,35 +468,35 @@ http {
     }
 }
 '''
-        
+
         # Write files
         with open(self.project_root / 'Dockerfile', 'w') as f:
             f.write(dockerfile_content)
-        
+
         with open(self.project_root / 'docker-compose.yml', 'w') as f:
             f.write(docker_compose_content)
-        
+
         with open(self.project_root / 'nginx.conf', 'w') as f:
             f.write(nginx_conf_content)
-        
+
         logger.info("Docker configuration files created")
-    
-    def generate_deployment_report(self, checks: Dict[str, bool]) -> str:
+
+    def generate_deployment_report(self, checks: dict[str, bool]) -> str:
         """Generate deployment status report"""
         report = []
         report.append("=" * 60)
         report.append("TQ GenAI Chat - Enhanced Deployment Report")
         report.append("=" * 60)
         report.append("")
-        
+
         # Prerequisites
         report.append("Prerequisites Status:")
         for check, status in checks.items():
             status_icon = "✅" if status else "❌"
             report.append(f"  {status_icon} {check.capitalize()}: {'OK' if status else 'MISSING'}")
-        
+
         report.append("")
-        
+
         # Files status
         important_files = [
             'app.py',
@@ -512,87 +507,86 @@ http {
             'templates/index.html',
             'core/ai_enhancements.py'
         ]
-        
+
         report.append("Core Files Status:")
         for file_path in important_files:
             exists = (self.project_root / file_path).exists()
             status_icon = "✅" if exists else "❌"
             report.append(f"  {status_icon} {file_path}")
-        
+
         report.append("")
-        
+
         # Next steps
         report.append("Next Steps:")
         if not checks.get('redis', False):
             report.append("  1. Install and start Redis server")
         if not (self.project_root / '.env').exists():
             report.append("  2. Configure .env file with API keys")
-        
+
         report.append("  3. Run: python deploy.py --test")
         report.append("  4. Run: python deploy.py --start")
         report.append("")
-        
+
         # URLs
         report.append("Access URLs:")
         report.append("  - Development: http://localhost:5000")
         report.append("  - Health Check: http://localhost:5000/health")
         report.append("  - API Docs: http://localhost:5000/api/docs")
         report.append("")
-        
+
         report.append("=" * 60)
-        
+
         return "\n".join(report)
 
 def main():
     """Main deployment script"""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='TQ GenAI Chat Deployment')
     parser.add_argument('--setup', action='store_true', help='Setup environment and dependencies')
     parser.add_argument('--test', action='store_true', help='Run test suite')
     parser.add_argument('--start', action='store_true', help='Start development server')
     parser.add_argument('--docker', action='store_true', help='Create Docker configuration')
     parser.add_argument('--check', action='store_true', help='Check prerequisites only')
-    
+
     args = parser.parse_args()
-    
+
     # Initialize deployment manager
     deployer = DeploymentManager()
-    
+
     # Check prerequisites
     logger.info("Checking prerequisites...")
     checks = deployer.check_prerequisites()
-    
+
     if args.check:
-        report = deployer.generate_deployment_report(checks)
-        print(report)
+        deployer.generate_deployment_report(checks)
         return
-    
+
     # Setup environment
     if args.setup or not any(vars(args).values()):
         logger.info("Setting up enhanced environment...")
-        
+
         # Create virtual environment
         if not deployer.setup_virtual_environment():
             logger.error("Failed to setup virtual environment")
             return
-        
+
         # Install dependencies
         if not deployer.install_dependencies():
             logger.error("Failed to install dependencies")
             return
-        
+
         # Setup .env file
         if not deployer.setup_environment_file():
             logger.error("Failed to setup environment file")
             return
-        
+
         # Test Redis
         if not deployer.test_redis_connection():
             logger.warning("Redis not available - some features may not work")
-        
+
         logger.info("Setup completed successfully!")
-    
+
     # Run tests
     if args.test:
         logger.info("Running tests...")
@@ -601,21 +595,20 @@ def main():
         else:
             logger.error("Some tests failed")
             return
-    
+
     # Create Docker files
     if args.docker:
         deployer.create_docker_files()
         logger.info("Docker configuration created")
         logger.info("To run with Docker: docker-compose up --build")
-    
+
     # Start development server
     if args.start:
         deployer.start_development_server()
-    
+
     # Generate final report
     if not args.start:
-        report = deployer.generate_deployment_report(checks)
-        print(report)
+        deployer.generate_deployment_report(checks)
 
 if __name__ == '__main__':
     main()

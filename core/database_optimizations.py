@@ -4,16 +4,16 @@ and efficient document storage for the TQ GenAI Chat application.
 """
 
 import asyncio
+import hashlib
+import json
 import logging
 import sqlite3
 import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
-from queue import Queue, Empty
-import hashlib
-import json
+from queue import Empty, Queue
+from typing import Any
 
 try:
     import redis
@@ -44,7 +44,7 @@ class ConnectionPool:
             if conn:
                 self.pool.put(conn)
 
-    def _create_connection(self) -> Optional[sqlite3.Connection]:
+    def _create_connection(self) -> sqlite3.Connection | None:
         """Create a new database connection with optimizations."""
         try:
             conn = sqlite3.connect(
@@ -53,7 +53,7 @@ class ConnectionPool:
                 timeout=30.0,
                 isolation_level=None  # Enable autocommit mode
             )
-            
+
             # Enable SQLite optimizations
             conn.execute("PRAGMA journal_mode=WAL")  # Write-Ahead Logging
             conn.execute("PRAGMA synchronous=NORMAL")  # Faster but still safe
@@ -61,10 +61,10 @@ class ConnectionPool:
             conn.execute("PRAGMA temp_store=MEMORY")  # Use memory for temp tables
             conn.execute("PRAGMA mmap_size=268435456")  # 256MB memory-mapped I/O
             conn.execute("PRAGMA optimize")  # Auto-optimize on connection
-            
+
             # Custom row factory for better performance
             conn.row_factory = sqlite3.Row
-            
+
             return conn
         except Exception as e:
             logger.error(f"Failed to create database connection: {e}")
@@ -128,7 +128,7 @@ class OptimizedDocumentStore:
         self.database_path = database_path
         self.pool = ConnectionPool(database_path)
         self.redis_client = None
-        
+
         # Initialize Redis if available
         if REDIS_AVAILABLE and redis_url:
             try:
@@ -168,8 +168,8 @@ class OptimizedDocumentStore:
             # Full-text search table
             conn.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
-                    filename, content, 
-                    content='documents', 
+                    filename, content,
+                    content='documents',
                     content_rowid='id'
                 )
             """)
@@ -177,23 +177,23 @@ class OptimizedDocumentStore:
             # Triggers to keep FTS in sync
             conn.execute("""
                 CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents BEGIN
-                    INSERT INTO documents_fts(rowid, filename, content) 
+                    INSERT INTO documents_fts(rowid, filename, content)
                     VALUES (new.id, new.filename, new.content);
                 END
             """)
 
             conn.execute("""
                 CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
-                    INSERT INTO documents_fts(documents_fts, rowid, filename, content) 
+                    INSERT INTO documents_fts(documents_fts, rowid, filename, content)
                     VALUES('delete', old.id, old.filename, old.content);
                 END
             """)
 
             conn.execute("""
                 CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
-                    INSERT INTO documents_fts(documents_fts, rowid, filename, content) 
+                    INSERT INTO documents_fts(documents_fts, rowid, filename, content)
                     VALUES('delete', old.id, old.filename, old.content);
-                    INSERT INTO documents_fts(rowid, filename, content) 
+                    INSERT INTO documents_fts(rowid, filename, content)
                     VALUES (new.id, new.filename, new.content);
                 END
             """)
@@ -225,7 +225,7 @@ class OptimizedDocumentStore:
         """Add a document with deduplication and caching."""
         # Calculate content hash for deduplication
         content_hash = hashlib.sha256(content.encode()).hexdigest()
-        
+
         # Check cache first
         if self.redis_client:
             cached_id = self.redis_client.get(f"doc_hash:{content_hash}")
@@ -239,7 +239,7 @@ class OptimizedDocumentStore:
                 "SELECT id FROM documents WHERE content_hash = ?",
                 (content_hash,)
             ).fetchone()
-            
+
             if result:
                 doc_id = result['id']
                 # Update last accessed time
@@ -247,11 +247,11 @@ class OptimizedDocumentStore:
                     "UPDATE documents SET last_accessed = CURRENT_TIMESTAMP WHERE id = ?",
                     (doc_id,)
                 )
-                
+
                 # Cache the result
                 if self.redis_client:
                     self.redis_client.setex(f"doc_hash:{content_hash}", 3600, doc_id)
-                
+
                 logger.info(f"Document with hash {content_hash} already exists with ID {doc_id}")
                 return doc_id
 
@@ -266,9 +266,9 @@ class OptimizedDocumentStore:
                 len(content),
                 json.dumps(metadata) if metadata else None
             ))
-            
+
             doc_id = cursor.lastrowid
-            
+
             # Cache the new document
             if self.redis_client:
                 self.redis_client.setex(f"doc_hash:{content_hash}", 3600, doc_id)
@@ -284,7 +284,7 @@ class OptimizedDocumentStore:
     def search_documents(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search documents using full-text search with caching."""
         cache_key = f"search:{hashlib.md5(query.encode()).hexdigest()}:{limit}"
-        
+
         # Check cache first
         if self.redis_client:
             cached_results = self.redis_client.get(cache_key)
@@ -323,10 +323,10 @@ class OptimizedDocumentStore:
 
             return documents
 
-    def get_document(self, doc_id: int) -> Optional[dict[str, Any]]:
+    def get_document(self, doc_id: int) -> dict[str, Any] | None:
         """Get a document by ID with caching."""
         cache_key = f"doc:{doc_id}"
-        
+
         # Check cache first
         if self.redis_client:
             cached_doc = self.redis_client.get(cache_key)
@@ -337,7 +337,7 @@ class OptimizedDocumentStore:
         with self.pool.get_connection() as conn:
             result = conn.execute("""
                 SELECT id, filename, content, upload_date, metadata, file_size
-                FROM documents 
+                FROM documents
                 WHERE id = ?
             """, (doc_id,)).fetchone()
 
@@ -366,11 +366,11 @@ class OptimizedDocumentStore:
             return document
 
     def add_chat_history(
-        self, 
-        session_id: str, 
-        user_message: str, 
-        ai_response: str, 
-        provider: str, 
+        self,
+        session_id: str,
+        user_message: str,
+        ai_response: str,
+        provider: str,
         model: str,
         response_time_ms: int = None,
         token_count: int = None,
@@ -379,8 +379,8 @@ class OptimizedDocumentStore:
         """Add chat history entry with optimized insertion."""
         with self.pool.get_connection() as conn:
             cursor = conn.execute("""
-                INSERT INTO chat_history 
-                (session_id, user_message, ai_response, provider, model, 
+                INSERT INTO chat_history
+                (session_id, user_message, ai_response, provider, model,
                  response_time_ms, token_count, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -388,13 +388,13 @@ class OptimizedDocumentStore:
                 response_time_ms, token_count,
                 json.dumps(metadata) if metadata else None
             ))
-            
+
             return cursor.lastrowid
 
     def get_chat_history(self, session_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Get chat history for a session with caching."""
         cache_key = f"chat_history:{session_id}:{limit}"
-        
+
         # Check cache first
         if self.redis_client:
             cached_history = self.redis_client.get(cache_key)
@@ -404,9 +404,9 @@ class OptimizedDocumentStore:
         # Get from database
         with self.pool.get_connection() as conn:
             results = conn.execute("""
-                SELECT id, user_message, ai_response, provider, model, 
+                SELECT id, user_message, ai_response, provider, model,
                        timestamp, response_time_ms, token_count, metadata
-                FROM chat_history 
+                FROM chat_history
                 WHERE session_id = ?
                 ORDER BY timestamp DESC
                 LIMIT ?
@@ -436,21 +436,21 @@ class OptimizedDocumentStore:
     def cleanup_old_data(self, days: int = 30) -> dict[str, int]:
         """Clean up old data to maintain performance."""
         cutoff_date = time.time() - (days * 24 * 60 * 60)
-        
+
         with self.pool.get_connection() as conn:
             # Clean up old chat history
             chat_deleted = conn.execute("""
-                DELETE FROM chat_history 
+                DELETE FROM chat_history
                 WHERE timestamp < datetime(?, 'unixepoch')
             """, (cutoff_date,)).rowcount
 
             # Clean up unused documents (not accessed in specified days)
             docs_deleted = conn.execute("""
-                DELETE FROM documents 
+                DELETE FROM documents
                 WHERE last_accessed < datetime(?, 'unixepoch')
                 AND id NOT IN (
-                    SELECT DISTINCT d.id 
-                    FROM documents d 
+                    SELECT DISTINCT d.id
+                    FROM documents d
                     JOIN chat_history ch ON ch.metadata LIKE '%"document_id":' || d.id || '%'
                     WHERE ch.timestamp > datetime(?, 'unixepoch')
                 )
@@ -469,7 +469,7 @@ class OptimizedDocumentStore:
                     self.redis_client.delete(key)
 
             logger.info(f"Cleanup completed: {chat_deleted} chat entries, {docs_deleted} documents removed")
-            
+
             return {
                 'chat_entries_deleted': chat_deleted,
                 'documents_deleted': docs_deleted
@@ -479,10 +479,10 @@ class OptimizedDocumentStore:
         """Get database statistics."""
         with self.pool.get_connection() as conn:
             stats = {}
-            
+
             # Document statistics
             doc_stats = conn.execute("""
-                SELECT 
+                SELECT
                     COUNT(*) as total_documents,
                     SUM(file_size) as total_size,
                     AVG(file_size) as avg_size,
@@ -490,12 +490,12 @@ class OptimizedDocumentStore:
                     MAX(upload_date) as last_upload
                 FROM documents
             """).fetchone()
-            
+
             stats['documents'] = dict(doc_stats)
-            
+
             # Chat history statistics
             chat_stats = conn.execute("""
-                SELECT 
+                SELECT
                     COUNT(*) as total_chats,
                     COUNT(DISTINCT session_id) as unique_sessions,
                     AVG(response_time_ms) as avg_response_time,
@@ -503,9 +503,9 @@ class OptimizedDocumentStore:
                     MAX(timestamp) as last_chat
                 FROM chat_history
             """).fetchone()
-            
+
             stats['chat_history'] = dict(chat_stats)
-            
+
             # Provider usage
             provider_stats = conn.execute("""
                 SELECT provider, COUNT(*) as usage_count
@@ -513,13 +513,13 @@ class OptimizedDocumentStore:
                 GROUP BY provider
                 ORDER BY usage_count DESC
             """).fetchall()
-            
+
             stats['provider_usage'] = {row['provider']: row['usage_count'] for row in provider_stats}
-            
+
             # Database size
             db_size = Path(self.database_path).stat().st_size if Path(self.database_path).exists() else 0
             stats['database_size_bytes'] = db_size
-            
+
             return stats
 
     def close(self):
@@ -547,12 +547,12 @@ async def schedule_maintenance():
         try:
             # Run cleanup every 24 hours
             await asyncio.sleep(24 * 60 * 60)
-            
+
             store = get_document_store()
             cleanup_results = store.cleanup_old_data(days=30)
-            
+
             logger.info(f"Scheduled maintenance completed: {cleanup_results}")
-            
+
         except Exception as e:
             logger.error(f"Maintenance task failed: {e}")
             await asyncio.sleep(60 * 60)  # Retry in 1 hour
@@ -562,8 +562,8 @@ def initialize_database_optimizations():
     """Initialize database with performance optimizations."""
     store = get_document_store()
     logger.info("Database optimizations initialized")
-    
+
     # Start maintenance task
     asyncio.create_task(schedule_maintenance())
-    
+
     return store

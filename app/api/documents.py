@@ -1,8 +1,8 @@
 """Document management API endpoints"""
 
-from flask import jsonify, request
+from flask import jsonify
+
 from app.api import api_bp
-from core.services import get_service
 from core.errors import handle_errors
 
 
@@ -17,7 +17,7 @@ def list_documents():
             'documents': [],
             'total': 0
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -36,7 +36,7 @@ def upload_document():
             'message': 'Document upload endpoint ready',
             'document_id': None
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -54,7 +54,7 @@ def delete_document(document_id):
             'success': True,
             'message': f'Document {document_id} delete endpoint ready'
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,

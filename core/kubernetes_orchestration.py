@@ -9,12 +9,12 @@ import logging
 import os
 import subprocess
 import tempfile
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -84,15 +84,15 @@ class ServiceConfig:
     resources: ResourceRequirements = field(default_factory=ResourceRequirements)
     autoscaling: AutoScalingConfig = field(default_factory=AutoScalingConfig)
     health_check: HealthCheckConfig = field(default_factory=HealthCheckConfig)
-    environment: Dict[str, str] = field(default_factory=dict)
-    secrets: Dict[str, str] = field(default_factory=dict)
-    config_maps: Dict[str, str] = field(default_factory=dict)
-    volumes: List[Dict[str, Any]] = field(default_factory=list)
+    environment: dict[str, str] = field(default_factory=dict)
+    secrets: dict[str, str] = field(default_factory=dict)
+    config_maps: dict[str, str] = field(default_factory=dict)
+    volumes: list[dict[str, Any]] = field(default_factory=list)
     ingress: bool = False
     ingress_host: str = ""
     ingress_path: str = "/"
     service_mesh: bool = False
-    
+
     @property
     def full_image(self) -> str:
         return f"{self.image}:{self.tag}"
@@ -100,13 +100,13 @@ class ServiceConfig:
 
 class KubernetesManifestGenerator:
     """Generates Kubernetes manifests for TQ GenAI Chat services."""
-    
+
     def __init__(self, namespace: str = "tq-genai-chat", registry: str = ""):
         self.namespace = namespace
         self.registry = registry
         self.manifests = {}
-    
-    def generate_namespace(self) -> Dict[str, Any]:
+
+    def generate_namespace(self) -> dict[str, Any]:
         """Generate namespace manifest."""
         return {
             "apiVersion": "v1",
@@ -119,8 +119,8 @@ class KubernetesManifestGenerator:
                 }
             }
         }
-    
-    def generate_configmap(self, name: str, data: Dict[str, str]) -> Dict[str, Any]:
+
+    def generate_configmap(self, name: str, data: dict[str, str]) -> dict[str, Any]:
         """Generate ConfigMap manifest."""
         return {
             "apiVersion": "v1",
@@ -135,14 +135,14 @@ class KubernetesManifestGenerator:
             },
             "data": data
         }
-    
-    def generate_secret(self, name: str, data: Dict[str, str]) -> Dict[str, Any]:
+
+    def generate_secret(self, name: str, data: dict[str, str]) -> dict[str, Any]:
         """Generate Secret manifest."""
         # Base64 encode secret values
         encoded_data = {}
         for key, value in data.items():
             encoded_data[key] = base64.b64encode(value.encode()).decode()
-        
+
         return {
             "apiVersion": "v1",
             "kind": "Secret",
@@ -157,11 +157,11 @@ class KubernetesManifestGenerator:
             "type": "Opaque",
             "data": encoded_data
         }
-    
-    def generate_deployment(self, config: ServiceConfig, 
-                           strategy: DeploymentStrategy = DeploymentStrategy.ROLLING_UPDATE) -> Dict[str, Any]:
+
+    def generate_deployment(self, config: ServiceConfig,
+                           strategy: DeploymentStrategy = DeploymentStrategy.ROLLING_UPDATE) -> dict[str, Any]:
         """Generate Deployment manifest."""
-        
+
         # Build container spec
         container_spec = {
             "name": config.name,
@@ -215,7 +215,7 @@ class KubernetesManifestGenerator:
                 "failureThreshold": 30
             }
         }
-        
+
         # Add environment variables
         env_vars = []
         for key, value in config.environment.items():
@@ -223,7 +223,7 @@ class KubernetesManifestGenerator:
                 "name": key,
                 "value": value
             })
-        
+
         # Add secrets as environment variables
         for key in config.secrets.keys():
             env_vars.append({
@@ -235,7 +235,7 @@ class KubernetesManifestGenerator:
                     }
                 }
             })
-        
+
         # Add config maps as environment variables
         for key in config.config_maps.keys():
             env_vars.append({
@@ -247,10 +247,10 @@ class KubernetesManifestGenerator:
                     }
                 }
             })
-        
+
         if env_vars:
             container_spec["env"] = env_vars
-        
+
         # Add volume mounts
         if config.volumes:
             volume_mounts = []
@@ -260,7 +260,7 @@ class KubernetesManifestGenerator:
                     "mountPath": volume["mountPath"]
                 })
             container_spec["volumeMounts"] = volume_mounts
-        
+
         # Build deployment spec
         deployment_spec = {
             "replicas": config.replicas,
@@ -284,7 +284,7 @@ class KubernetesManifestGenerator:
                 }
             }
         }
-        
+
         # Add strategy
         if strategy == DeploymentStrategy.ROLLING_UPDATE:
             deployment_spec["strategy"] = {
@@ -298,7 +298,7 @@ class KubernetesManifestGenerator:
             deployment_spec["strategy"] = {
                 "type": "Recreate"
             }
-        
+
         # Add volumes
         if config.volumes:
             volumes = []
@@ -318,7 +318,7 @@ class KubernetesManifestGenerator:
                         }
                     })
             deployment_spec["template"]["spec"]["volumes"] = volumes
-        
+
         # Add service mesh annotations if enabled
         if config.service_mesh:
             annotations = deployment_spec["template"]["metadata"].setdefault("annotations", {})
@@ -328,7 +328,7 @@ class KubernetesManifestGenerator:
                 "prometheus.io/port": str(config.target_port),
                 "prometheus.io/path": "/metrics"
             })
-        
+
         return {
             "apiVersion": "apps/v1",
             "kind": "Deployment",
@@ -343,8 +343,8 @@ class KubernetesManifestGenerator:
             },
             "spec": deployment_spec
         }
-    
-    def generate_service(self, config: ServiceConfig) -> Dict[str, Any]:
+
+    def generate_service(self, config: ServiceConfig) -> dict[str, Any]:
         """Generate Service manifest."""
         return {
             "apiVersion": "v1",
@@ -373,8 +373,8 @@ class KubernetesManifestGenerator:
                 }
             }
         }
-    
-    def generate_hpa(self, config: ServiceConfig) -> Dict[str, Any]:
+
+    def generate_hpa(self, config: ServiceConfig) -> dict[str, Any]:
         """Generate HorizontalPodAutoscaler manifest."""
         return {
             "apiVersion": "autoscaling/v2",
@@ -428,8 +428,8 @@ class KubernetesManifestGenerator:
                 }
             }
         }
-    
-    def generate_ingress(self, config: ServiceConfig, tls_enabled: bool = True) -> Dict[str, Any]:
+
+    def generate_ingress(self, config: ServiceConfig, tls_enabled: bool = True) -> dict[str, Any]:
         """Generate Ingress manifest."""
         ingress_spec = {
             "rules": [
@@ -454,7 +454,7 @@ class KubernetesManifestGenerator:
                 }
             ]
         }
-        
+
         if tls_enabled and config.ingress_host:
             ingress_spec["tls"] = [
                 {
@@ -462,7 +462,7 @@ class KubernetesManifestGenerator:
                     "secretName": f"{config.name}-tls"
                 }
             ]
-        
+
         return {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
@@ -482,8 +482,8 @@ class KubernetesManifestGenerator:
             },
             "spec": ingress_spec
         }
-    
-    def generate_pv(self, name: str, size: str, storage_class: str = "fast-ssd") -> Dict[str, Any]:
+
+    def generate_pv(self, name: str, size: str, storage_class: str = "fast-ssd") -> dict[str, Any]:
         """Generate PersistentVolume manifest."""
         return {
             "apiVersion": "v1",
@@ -506,8 +506,8 @@ class KubernetesManifestGenerator:
                 }
             }
         }
-    
-    def generate_pvc(self, name: str, size: str, storage_class: str = "fast-ssd") -> Dict[str, Any]:
+
+    def generate_pvc(self, name: str, size: str, storage_class: str = "fast-ssd") -> dict[str, Any]:
         """Generate PersistentVolumeClaim manifest."""
         return {
             "apiVersion": "v1",
@@ -534,43 +534,43 @@ class KubernetesManifestGenerator:
 
 class KubernetesDeployer:
     """Deploys and manages Kubernetes resources."""
-    
+
     def __init__(self, kubeconfig_path: str = None):
         self.kubeconfig_path = kubeconfig_path or os.path.expanduser("~/.kube/config")
         self.kubectl_cmd = self._get_kubectl_cmd()
-        
-    def _get_kubectl_cmd(self) -> List[str]:
+
+    def _get_kubectl_cmd(self) -> list[str]:
         """Get kubectl command with kubeconfig."""
         cmd = ["kubectl"]
         if self.kubeconfig_path and os.path.exists(self.kubeconfig_path):
             cmd.extend(["--kubeconfig", self.kubeconfig_path])
         return cmd
-    
-    def apply_manifest(self, manifest: Dict[str, Any]) -> bool:
+
+    def apply_manifest(self, manifest: dict[str, Any]) -> bool:
         """Apply a single manifest."""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
                 yaml.dump(manifest, f, default_flow_style=False)
                 f.flush()
-                
+
                 cmd = self.kubectl_cmd + ["apply", "-f", f.name]
                 result = subprocess.run(cmd, capture_output=True, text=True)
-                
+
                 if result.returncode == 0:
                     logger.info(f"Applied {manifest['kind']}/{manifest['metadata']['name']}")
                     return True
                 else:
                     logger.error(f"Failed to apply manifest: {result.stderr}")
                     return False
-                    
+
         except Exception as e:
             logger.error(f"Error applying manifest: {e}")
             return False
         finally:
             if 'f' in locals():
                 os.unlink(f.name)
-    
-    def apply_manifests(self, manifests: List[Dict[str, Any]]) -> bool:
+
+    def apply_manifests(self, manifests: list[dict[str, Any]]) -> bool:
         """Apply multiple manifests."""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
@@ -579,98 +579,98 @@ class KubernetesDeployer:
                         f.write("---\n")
                     yaml.dump(manifest, f, default_flow_style=False)
                 f.flush()
-                
+
                 cmd = self.kubectl_cmd + ["apply", "-f", f.name]
                 result = subprocess.run(cmd, capture_output=True, text=True)
-                
+
                 if result.returncode == 0:
                     logger.info(f"Applied {len(manifests)} manifests")
                     return True
                 else:
                     logger.error(f"Failed to apply manifests: {result.stderr}")
                     return False
-                    
+
         except Exception as e:
             logger.error(f"Error applying manifests: {e}")
             return False
         finally:
             if 'f' in locals():
                 os.unlink(f.name)
-    
+
     def delete_resource(self, kind: str, name: str, namespace: str = None) -> bool:
         """Delete a Kubernetes resource."""
         try:
             cmd = self.kubectl_cmd + ["delete", kind, name]
             if namespace:
                 cmd.extend(["-n", namespace])
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 logger.info(f"Deleted {kind}/{name}")
                 return True
             else:
                 logger.error(f"Failed to delete {kind}/{name}: {result.stderr}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error deleting resource: {e}")
             return False
-    
-    def get_resource_status(self, kind: str, name: str, namespace: str = None) -> Dict[str, Any]:
+
+    def get_resource_status(self, kind: str, name: str, namespace: str = None) -> dict[str, Any]:
         """Get status of a Kubernetes resource."""
         try:
             cmd = self.kubectl_cmd + ["get", kind, name, "-o", "json"]
             if namespace:
                 cmd.extend(["-n", namespace])
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 return json.loads(result.stdout)
             else:
                 return {"error": result.stderr}
-                
+
         except Exception as e:
             logger.error(f"Error getting resource status: {e}")
             return {"error": str(e)}
-    
+
     def scale_deployment(self, name: str, replicas: int, namespace: str = None) -> bool:
         """Scale a deployment."""
         try:
             cmd = self.kubectl_cmd + ["scale", "deployment", name, f"--replicas={replicas}"]
             if namespace:
                 cmd.extend(["-n", namespace])
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 logger.info(f"Scaled deployment {name} to {replicas} replicas")
                 return True
             else:
                 logger.error(f"Failed to scale deployment: {result.stderr}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error scaling deployment: {e}")
             return False
-    
+
     def rollout_restart(self, name: str, namespace: str = None) -> bool:
         """Restart a deployment."""
         try:
             cmd = self.kubectl_cmd + ["rollout", "restart", "deployment", name]
             if namespace:
                 cmd.extend(["-n", namespace])
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 logger.info(f"Restarted deployment {name}")
                 return True
             else:
                 logger.error(f"Failed to restart deployment: {result.stderr}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error restarting deployment: {e}")
             return False
@@ -678,17 +678,17 @@ class KubernetesDeployer:
 
 class TQGenAIKubernetesOrchestrator:
     """Complete Kubernetes orchestration for TQ GenAI Chat."""
-    
+
     def __init__(self, namespace: str = "tq-genai-chat", registry: str = ""):
         self.namespace = namespace
         self.registry = registry
         self.generator = KubernetesManifestGenerator(namespace, registry)
         self.deployer = KubernetesDeployer()
-        
+
         # Service configurations
         self.services = self._get_service_configs()
-    
-    def _get_service_configs(self) -> Dict[str, ServiceConfig]:
+
+    def _get_service_configs(self) -> dict[str, ServiceConfig]:
         """Get default service configurations."""
         return {
             "main-app": ServiceConfig(
@@ -786,140 +786,140 @@ class TQGenAIKubernetesOrchestrator:
                 ]
             )
         }
-    
-    def generate_all_manifests(self) -> List[Dict[str, Any]]:
+
+    def generate_all_manifests(self) -> list[dict[str, Any]]:
         """Generate all Kubernetes manifests."""
         manifests = []
-        
+
         # Namespace
         manifests.append(self.generator.generate_namespace())
-        
+
         # Persistent Volumes and Claims
         manifests.extend([
             self.generator.generate_pvc("uploads", "10Gi"),
             self.generator.generate_pvc("file-storage", "50Gi"),
             self.generator.generate_pvc("redis-data", "5Gi")
         ])
-        
+
         # Services
         for service_name, config in self.services.items():
             # Secrets
             if config.secrets:
                 manifests.append(self.generator.generate_secret(service_name, config.secrets))
-            
+
             # ConfigMaps
             if config.config_maps:
                 manifests.append(self.generator.generate_configmap(service_name, config.config_maps))
-            
+
             # Deployment
             manifests.append(self.generator.generate_deployment(config))
-            
+
             # Service
             manifests.append(self.generator.generate_service(config))
-            
+
             # HPA (if replicas > 1)
             if config.replicas > 1:
                 manifests.append(self.generator.generate_hpa(config))
-            
+
             # Ingress (if enabled)
             if config.ingress:
                 manifests.append(self.generator.generate_ingress(config))
-        
+
         return manifests
-    
+
     def deploy(self, apply: bool = True) -> bool:
         """Deploy the entire application stack."""
         try:
             manifests = self.generate_all_manifests()
-            
+
             if apply:
                 return self.deployer.apply_manifests(manifests)
             else:
                 # Just generate YAML files
                 output_dir = Path("k8s-manifests")
                 output_dir.mkdir(exist_ok=True)
-                
+
                 for i, manifest in enumerate(manifests):
                     kind = manifest["kind"].lower()
                     name = manifest["metadata"]["name"]
                     filename = f"{i:02d}-{kind}-{name}.yaml"
-                    
+
                     with open(output_dir / filename, 'w') as f:
                         yaml.dump(manifest, f, default_flow_style=False)
-                
+
                 logger.info(f"Generated {len(manifests)} manifests in {output_dir}")
                 return True
-                
+
         except Exception as e:
             logger.error(f"Deployment failed: {e}")
             return False
-    
+
     def update_service(self, service_name: str, **kwargs) -> bool:
         """Update a service configuration and redeploy."""
         if service_name not in self.services:
             logger.error(f"Service {service_name} not found")
             return False
-        
+
         config = self.services[service_name]
-        
+
         # Update configuration
         for key, value in kwargs.items():
             if hasattr(config, key):
                 setattr(config, key, value)
-        
+
         # Generate and apply updated manifests
         manifests = [
             self.generator.generate_deployment(config),
             self.generator.generate_service(config)
         ]
-        
+
         if config.replicas > 1:
             manifests.append(self.generator.generate_hpa(config))
-        
+
         return self.deployer.apply_manifests(manifests)
-    
+
     def scale_service(self, service_name: str, replicas: int) -> bool:
         """Scale a service."""
         if service_name not in self.services:
             logger.error(f"Service {service_name} not found")
             return False
-        
+
         return self.deployer.scale_deployment(service_name, replicas, self.namespace)
-    
-    def get_cluster_status(self) -> Dict[str, Any]:
+
+    def get_cluster_status(self) -> dict[str, Any]:
         """Get status of all deployed resources."""
         status = {
             "namespace": self.namespace,
             "services": {},
             "timestamp": datetime.utcnow().isoformat()
         }
-        
+
         for service_name in self.services.keys():
             service_status = {}
-            
+
             # Deployment status
             deployment_status = self.deployer.get_resource_status(
                 "deployment", service_name, self.namespace
             )
             service_status["deployment"] = deployment_status
-            
+
             # Service status
             svc_status = self.deployer.get_resource_status(
                 "service", f"{service_name}-service", self.namespace
             )
             service_status["service"] = svc_status
-            
+
             # HPA status (if exists)
             hpa_status = self.deployer.get_resource_status(
                 "hpa", f"{service_name}-hpa", self.namespace
             )
             if "error" not in hpa_status:
                 service_status["hpa"] = hpa_status
-            
+
             status["services"][service_name] = service_status
-        
+
         return status
-    
+
     def cleanup(self) -> bool:
         """Clean up all deployed resources."""
         try:
@@ -932,7 +932,7 @@ class TQGenAIKubernetesOrchestrator:
 # CLI interface
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="TQ GenAI Chat Kubernetes Orchestrator")
     parser.add_argument("--namespace", default="tq-genai-chat", help="Kubernetes namespace")
     parser.add_argument("--registry", default="", help="Container registry")
@@ -941,26 +941,21 @@ if __name__ == "__main__":
     parser.add_argument("--status", action="store_true", help="Get cluster status")
     parser.add_argument("--cleanup", action="store_true", help="Clean up resources")
     parser.add_argument("--scale", nargs=2, metavar=("SERVICE", "REPLICAS"), help="Scale service")
-    
+
     args = parser.parse_args()
-    
+
     orchestrator = TQGenAIKubernetesOrchestrator(args.namespace, args.registry)
-    
+
     if args.deploy:
         success = orchestrator.deploy(apply=True)
-        print(f"Deployment {'successful' if success else 'failed'}")
     elif args.generate_only:
         success = orchestrator.deploy(apply=False)
-        print(f"Manifest generation {'successful' if success else 'failed'}")
     elif args.status:
         status = orchestrator.get_cluster_status()
-        print(json.dumps(status, indent=2, default=str))
     elif args.cleanup:
         success = orchestrator.cleanup()
-        print(f"Cleanup {'successful' if success else 'failed'}")
     elif args.scale:
         service_name, replicas = args.scale
         success = orchestrator.scale_service(service_name, int(replicas))
-        print(f"Scaling {'successful' if success else 'failed'}")
     else:
         parser.print_help()

@@ -1,6 +1,7 @@
 """Persona management API endpoints"""
 
 from flask import jsonify
+
 from app.api import api_bp
 from core.errors import handle_errors
 
@@ -37,13 +38,13 @@ def get_personas():
                 'system_prompt': 'You are a data analyst expert in interpreting data, creating insights, and explaining complex analytical concepts.'
             }
         ]
-        
+
         return jsonify({
             'success': True,
             'personas': personas,
             'default': 'default'
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,

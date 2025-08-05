@@ -4,13 +4,14 @@ TQ GenAI Chat Application Factory
 Modern Flask application with dependency injection and modular architecture.
 """
 
-from flask import Flask
-from flask_cors import CORS
 from pathlib import Path
+
+from core.errors import setup_logging
 
 # Import new architectural components
 from core.services import get_service
-from core.errors import setup_logging
+from flask import Flask
+from flask_cors import CORS
 
 
 def create_app(config_name: str = 'development') -> Flask:
@@ -38,10 +39,10 @@ def create_app(config_name: str = 'development') -> Flask:
 
     # Configure CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})
-    
+
     # Setup logging
     setup_logging(app)
-    
+
     # Initialize services (dependency injection)
     with app.app_context():
         # Pre-initialize core services

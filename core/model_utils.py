@@ -1,9 +1,19 @@
 # AI Models Configuration Utilities
 from typing import Any
+
 from ai_models import (
-    ALIBABA_MODELS, ANTHROPIC_MODELS, COHERE_MODELS, DEEPSEEK_MODELS,
-    GEMINI_MODELS, GROQ_MODELS, HUGGINGFACE_MODELS, MISTRAL_MODELS,
-    MOONSHOT_MODELS, OPENAI_MODELS, OPENROUTER_MODELS, XAI_MODELS
+    ALIBABA_MODELS,
+    ANTHROPIC_MODELS,
+    COHERE_MODELS,
+    DEEPSEEK_MODELS,
+    GEMINI_MODELS,
+    GROQ_MODELS,
+    HUGGINGFACE_MODELS,
+    MISTRAL_MODELS,
+    MOONSHOT_MODELS,
+    OPENAI_MODELS,
+    OPENROUTER_MODELS,
+    XAI_MODELS,
 )
 
 ALL_MODELS = {
@@ -72,10 +82,10 @@ API_ENDPOINTS = {
 def get_models(provider: str) -> list[dict[str, Any]]:
     """
     Get all models for a provider
-    
+
     Args:
         provider: The provider name (openai, groq, etc.)
-        
+
     Returns:
         List of model configurations
     """
@@ -88,10 +98,10 @@ def get_models(provider: str) -> list[dict[str, Any]]:
 def get_default_model(provider: str) -> str:
     """
     Get the default model for a provider
-    
+
     Args:
         provider: The provider name
-        
+
     Returns:
         Default model ID
     """
@@ -100,10 +110,10 @@ def get_default_model(provider: str) -> str:
 def get_fallback_model(provider: str) -> str:
     """
     Get the fallback model for a provider
-    
+
     Args:
         provider: The provider name
-        
+
     Returns:
         Fallback model ID
     """
@@ -112,11 +122,11 @@ def get_fallback_model(provider: str) -> str:
 def get_model_info(provider: str, model_id: str) -> dict[str, Any] | None:
     """
     Get detailed information about a specific model
-    
+
     Args:
         provider: The provider name
         model_id: The model identifier
-        
+
     Returns:
         Model configuration or None if not found
     """
@@ -132,7 +142,7 @@ def get_model_info(provider: str, model_id: str) -> dict[str, Any] | None:
 def get_available_providers() -> list[str]:
     """
     Get list of all available providers
-    
+
     Returns:
         List of provider names
     """
@@ -141,10 +151,10 @@ def get_available_providers() -> list[str]:
 def get_api_endpoint(provider: str) -> str:
     """
     Get the API endpoint URL for a provider
-    
+
     Args:
         provider: The provider name
-        
+
     Returns:
         API endpoint URL
     """

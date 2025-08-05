@@ -6,7 +6,6 @@ Replaces scattered configuration with centralized, type-safe config
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional
 from urllib.parse import urlparse
 
 
@@ -23,7 +22,7 @@ class DatabaseConfig:
 class CacheConfig:
     """Cache configuration."""
     type: str = "memory"  # memory, redis, file
-    redis_url: str = "redis://localhost:6379/0" 
+    redis_url: str = "redis://localhost:6379/0"
     ttl: int = 3600
     max_size: int = 1000
 
@@ -36,7 +35,7 @@ class SecurityConfig:
     rate_limit_per_minute: int = 60
     max_file_size: int = 64 * 1024 * 1024  # 64MB
     allowed_origins: list[str] = None
-    
+
     def __post_init__(self):
         if self.allowed_origins is None:
             self.allowed_origins = ["*"]
@@ -53,7 +52,7 @@ class AIProviderConfig:
     timeout: int = 30
     max_retries: int = 3
     rate_limit: int = 60  # requests per minute
-    
+
     @property
     def is_available(self) -> bool:
         """Check if provider is properly configured."""
@@ -68,18 +67,18 @@ class AppConfig:
     host: str = "0.0.0.0"
     port: int = 5000
     workers: int = 4
-    
+
     # Directories
     upload_dir: Path = Path("uploads")
-    export_dir: Path = Path("exports") 
+    export_dir: Path = Path("exports")
     save_dir: Path = Path("saved_chats")
     temp_dir: Path = Path("uploads/temp")
-    
+
     # Performance
     request_timeout: int = 30
     max_content_length: int = 64 * 1024 * 1024
     max_files_per_upload: int = 10
-    
+
     def __post_init__(self):
         # Ensure directories exist
         for directory in [self.upload_dir, self.export_dir, self.save_dir, self.temp_dir]:
@@ -88,17 +87,17 @@ class AppConfig:
 
 class ConfigManager:
     """Centralized configuration management."""
-    
+
     def __init__(self, env: str = None):
         self.env = env or os.getenv("FLASK_ENV", "development")
-        self._providers: Dict[str, AIProviderConfig] = {}
+        self._providers: dict[str, AIProviderConfig] = {}
         self._load_configuration()
-    
+
     def _load_configuration(self):
         """Load configuration from environment variables."""
         # Load AI providers
         self._load_ai_providers()
-    
+
     def _load_ai_providers(self):
         """Load AI provider configurations from environment."""
         providers = {
@@ -108,7 +107,7 @@ class ConfigManager:
                 "fallback_model": "gpt-3.5-turbo"
             },
             "groq": {
-                "endpoint": "https://api.groq.com/openai/v1/chat/completions", 
+                "endpoint": "https://api.groq.com/openai/v1/chat/completions",
                 "default_model": "mixtral-8x7b-32768",
                 "fallback_model": "llama3-8b-8192"
             },
@@ -119,7 +118,7 @@ class ConfigManager:
             },
             "mistral": {
                 "endpoint": "https://api.mistral.ai/v1/chat/completions",
-                "default_model": "mistral-small-latest", 
+                "default_model": "mistral-small-latest",
                 "fallback_model": "mistral-tiny"
             },
             "xai": {
@@ -148,7 +147,7 @@ class ConfigManager:
                 "fallback_model": "qwen-turbo"
             },
             "openrouter": {
-                "endpoint": "https://openrouter.ai/api/v1/chat/completions", 
+                "endpoint": "https://openrouter.ai/api/v1/chat/completions",
                 "default_model": "anthropic/claude-3.5-sonnet",
                 "fallback_model": "meta-llama/llama-3-8b-instruct"
             },
@@ -168,10 +167,10 @@ class ConfigManager:
                 "fallback_model": "llama-3.1-sonar-small-128k-chat"
             }
         }
-        
+
         for name, config in providers.items():
             api_key = os.getenv(f"{name.upper()}_API_KEY", "")
-            
+
             self._providers[name] = AIProviderConfig(
                 name=name,
                 api_key=api_key,
@@ -179,7 +178,7 @@ class ConfigManager:
                 default_model=config["default_model"],
                 fallback_model=config["fallback_model"]
             )
-    
+
     @property
     def app(self) -> AppConfig:
         """Get application configuration."""
@@ -190,8 +189,8 @@ class ConfigManager:
             port=int(os.getenv("PORT", "5000")),
             workers=int(os.getenv("WORKERS", "4"))
         )
-    
-    @property 
+
+    @property
     def database(self) -> DatabaseConfig:
         """Get database configuration."""
         return DatabaseConfig(
@@ -200,7 +199,7 @@ class ConfigManager:
             max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
             pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "30"))
         )
-    
+
     @property
     def cache(self) -> CacheConfig:
         """Get cache configuration."""
@@ -210,7 +209,7 @@ class ConfigManager:
             ttl=int(os.getenv("CACHE_TTL", "3600")),
             max_size=int(os.getenv("CACHE_MAX_SIZE", "1000"))
         )
-    
+
     @property
     def security(self) -> SecurityConfig:
         """Get security configuration."""
@@ -222,30 +221,30 @@ class ConfigManager:
             max_file_size=int(os.getenv("MAX_FILE_SIZE", "67108864")),  # 64MB
             allowed_origins=origins if origins != ["*"] else ["*"]
         )
-    
-    def get_provider(self, name: str) -> Optional[AIProviderConfig]:
+
+    def get_provider(self, name: str) -> AIProviderConfig | None:
         """Get AI provider configuration."""
         return self._providers.get(name)
-    
-    def get_available_providers(self) -> Dict[str, AIProviderConfig]:
+
+    def get_available_providers(self) -> dict[str, AIProviderConfig]:
         """Get all available (configured) providers."""
         return {
             name: config for name, config in self._providers.items()
             if config.is_available
         }
-    
+
     def validate_configuration(self) -> list[str]:
         """Validate configuration and return any errors."""
         errors = []
-        
+
         # Check critical environment variables
         if self.security.secret_key == "dev-key-change-in-production" and self.env == "production":
             errors.append("SECRET_KEY must be set in production")
-        
+
         # Check that at least one AI provider is configured
         if not self.get_available_providers():
             errors.append("At least one AI provider API key must be configured")
-        
+
         # Validate Redis URL if using Redis cache
         if self.cache.type == "redis":
             try:
@@ -254,7 +253,7 @@ class ConfigManager:
                     errors.append("Invalid REDIS_URL format")
             except Exception:
                 errors.append("Invalid REDIS_URL format")
-        
+
         return errors
 
 
@@ -265,15 +264,15 @@ config_manager = ConfigManager()
 # Flask configuration classes for compatibility
 class BaseConfig:
     """Base configuration class."""
-    
+
     def __init__(self):
         self.config = config_manager
-        
+
         # Flask settings
         self.SECRET_KEY = self.config.security.secret_key
         self.MAX_CONTENT_LENGTH = self.config.security.max_file_size
         self.JSON_SORT_KEYS = False
-        
+
         # Application settings
         self.UPLOAD_FOLDER = str(self.config.app.upload_dir)
         self.EXPORT_FOLDER = str(self.config.app.export_dir)
@@ -282,7 +281,7 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     """Development configuration."""
-    
+
     def __init__(self):
         super().__init__()
         self.DEBUG = True
@@ -291,7 +290,7 @@ class DevelopmentConfig(BaseConfig):
 
 class ProductionConfig(BaseConfig):
     """Production configuration."""
-    
+
     def __init__(self):
         super().__init__()
         self.DEBUG = False
@@ -300,7 +299,7 @@ class ProductionConfig(BaseConfig):
 
 class TestingConfig(BaseConfig):
     """Testing configuration."""
-    
+
     def __init__(self):
         super().__init__()
         self.DEBUG = True
@@ -310,7 +309,7 @@ class TestingConfig(BaseConfig):
 
 config = {
     'development': DevelopmentConfig(),
-    'production': ProductionConfig(), 
+    'production': ProductionConfig(),
     'testing': TestingConfig(),
     'default': DevelopmentConfig()
 }

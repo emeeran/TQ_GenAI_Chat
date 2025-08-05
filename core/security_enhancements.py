@@ -5,22 +5,22 @@ API key management, rate limiting, input validation, and audit logging.
 
 import hashlib
 import hmac
+import json
 import logging
+import re
 import secrets
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any
-import re
-import json
 from pathlib import Path
+from typing import Any
 
 try:
+    import base64
+
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-    import base64
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
@@ -53,7 +53,7 @@ class APIKeyManager:
     def __init__(self, master_key: str = None):
         if not CRYPTO_AVAILABLE:
             raise ImportError("cryptography library required for API key encryption")
-        
+
         self.master_key = master_key or self._generate_master_key()
         self.fernet = self._create_fernet()
         self.keys_file = Path("secure_keys.json")
@@ -80,7 +80,7 @@ class APIKeyManager:
         """Load encrypted keys from file."""
         if self.keys_file.exists():
             try:
-                with open(self.keys_file, 'r') as f:
+                with open(self.keys_file) as f:
                     self.encrypted_keys = json.load(f)
                 logger.info(f"Loaded {len(self.encrypted_keys)} encrypted API keys")
             except Exception as e:
@@ -111,7 +111,7 @@ class APIKeyManager:
         """Retrieve and decrypt an API key."""
         if provider not in self.encrypted_keys:
             return ""
-        
+
         try:
             encrypted_key = self.encrypted_keys[provider]
             decrypted_key = self.fernet.decrypt(encrypted_key.encode()).decode()
@@ -124,10 +124,10 @@ class APIKeyManager:
         """Rotate an API key."""
         old_key_exists = provider in self.encrypted_keys
         success = self.store_api_key(provider, new_key)
-        
+
         if success and old_key_exists:
             logger.info(f"Rotated API key for {provider}")
-        
+
         return success
 
     def delete_api_key(self, provider: str) -> bool:
@@ -210,22 +210,22 @@ class RateLimiter:
         try:
             pipe = self.redis_client.pipeline()
             key = f"rate_limit:{identifier}"
-            
+
             # Remove old entries
             pipe.zremrangebyscore(key, 0, current_time - window_seconds)
-            
+
             # Count current requests
             pipe.zcard(key)
-            
+
             # Add current request
             pipe.zadd(key, {str(current_time): current_time})
-            
+
             # Set expiration
             pipe.expire(key, window_seconds + 1)
-            
+
             results = pipe.execute()
             current_count = results[1]
-            
+
             # Check burst limit
             if burst_limit and current_count >= burst_limit:
                 return False, {
@@ -236,10 +236,10 @@ class RateLimiter:
                     'window_seconds': window_seconds,
                     'retry_after': window_seconds
                 }
-            
+
             # Check regular limit
             allowed = current_count < limit
-            
+
             return allowed, {
                 'allowed': allowed,
                 'current_count': current_count,
@@ -247,12 +247,12 @@ class RateLimiter:
                 'window_seconds': window_seconds,
                 'retry_after': window_seconds if not allowed else 0
             }
-            
+
         except Exception as e:
             logger.error(f"Redis rate limiting error: {e}")
             # Fallback to local cache
             return self._check_rate_limit_local(
-                identifier, limit, window_seconds, burst_limit, 
+                identifier, limit, window_seconds, burst_limit,
                 current_time, current_time - window_seconds
             )
 
@@ -267,18 +267,18 @@ class RateLimiter:
     ) -> tuple[bool, dict[str, Any]]:
         """Local cache-based rate limiting."""
         self._cleanup_local_cache()
-        
+
         if identifier not in self.local_cache:
             self.local_cache[identifier] = {
                 'requests': [],
                 'expires': current_time + window_seconds
             }
-        
+
         data = self.local_cache[identifier]
-        
+
         # Remove old requests
         data['requests'] = [req_time for req_time in data['requests'] if req_time > window_start]
-        
+
         # Check burst limit
         if burst_limit and len(data['requests']) >= burst_limit:
             return False, {
@@ -289,14 +289,14 @@ class RateLimiter:
                 'window_seconds': window_seconds,
                 'retry_after': window_seconds
             }
-        
+
         # Check regular limit
         allowed = len(data['requests']) < limit
-        
+
         if allowed:
             data['requests'].append(current_time)
             data['expires'] = current_time + window_seconds
-        
+
         return allowed, {
             'allowed': allowed,
             'current_count': len(data['requests']),
@@ -316,14 +316,14 @@ class InputValidator:
         self.email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
         self.filename_pattern = re.compile(r'^[a-zA-Z0-9._-]+$')
         self.safe_text_pattern = re.compile(r'^[a-zA-Z0-9\s.,!?;:()\'"@#$%&*+=\-_/\\]+$')
-        
+
         # SQL injection patterns
         self.sql_injection_patterns = [
             re.compile(r'(\bUNION\b|\bSELECT\b|\bINSERT\b|\bDELETE\b|\bUPDATE\b|\bDROP\b)', re.IGNORECASE),
             re.compile(r'(--|#|/\*|\*/)', re.IGNORECASE),
             re.compile(r'(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)', re.IGNORECASE),
         ]
-        
+
         # XSS patterns
         self.xss_patterns = [
             re.compile(r'<script[^>]*>.*?</script>', re.IGNORECASE | re.DOTALL),
@@ -342,28 +342,28 @@ class InputValidator:
         """Validate filename for security."""
         if not filename or len(filename) > 255:
             return False
-        
+
         # Check for path traversal
         if '..' in filename or '/' in filename or '\\' in filename:
             return False
-        
+
         return bool(self.filename_pattern.match(filename))
 
     def sanitize_text(self, text: str, max_length: int = 10000) -> str:
         """Sanitize text input."""
         if not isinstance(text, str):
             return ""
-        
+
         # Truncate if too long
         if len(text) > max_length:
             text = text[:max_length]
-        
+
         # Remove null bytes
         text = text.replace('\x00', '')
-        
+
         # Remove excessive whitespace
         text = re.sub(r'\s+', ' ', text).strip()
-        
+
         return text
 
     def check_sql_injection(self, text: str) -> bool:
@@ -383,11 +383,11 @@ class InputValidator:
     def validate_api_input(self, data: dict) -> tuple[bool, list[str]]:
         """Validate API input data."""
         errors = []
-        
+
         # Check for required fields
         if 'message' not in data:
             errors.append("Message is required")
-        
+
         # Validate message
         if 'message' in data:
             message = data['message']
@@ -401,19 +401,19 @@ class InputValidator:
                 errors.append("Message contains potentially malicious content")
             elif self.check_xss(message):
                 errors.append("Message contains potentially malicious content")
-        
+
         # Validate provider
         if 'provider' in data:
             provider = data['provider']
             if not isinstance(provider, str) or not provider.isalnum():
                 errors.append("Invalid provider")
-        
+
         # Validate model
         if 'model' in data:
             model = data['model']
             if not isinstance(model, str) or len(model) > 100:
                 errors.append("Invalid model")
-        
+
         return len(errors) == 0, errors
 
 
@@ -426,7 +426,7 @@ class SecurityAuditor:
         self.log_file = Path(log_file)
         self.events: list[SecurityEvent] = []
         self.max_events = 10000
-        
+
         # Setup audit logger
         self.audit_logger = logging.getLogger('security_audit')
         handler = logging.FileHandler(self.log_file)
@@ -454,12 +454,12 @@ class SecurityAuditor:
             details=details,
             severity=severity
         )
-        
+
         # Add to memory
         self.events.append(event)
         if len(self.events) > self.max_events:
             self.events = self.events[-self.max_events:]
-        
+
         # Log to file
         log_message = json.dumps({
             'timestamp': event.timestamp,
@@ -469,7 +469,7 @@ class SecurityAuditor:
             'details': event.details,
             'severity': event.severity
         })
-        
+
         if severity == "CRITICAL":
             self.audit_logger.critical(log_message)
         elif severity == "ERROR":
@@ -522,37 +522,37 @@ class SecurityAuditor:
     def get_recent_events(self, hours: int = 24, severity: str = None) -> list[SecurityEvent]:
         """Get recent security events."""
         cutoff_time = time.time() - (hours * 3600)
-        
+
         recent_events = [
             event for event in self.events
             if event.timestamp >= cutoff_time
         ]
-        
+
         if severity:
             recent_events = [
                 event for event in recent_events
                 if event.severity == severity
             ]
-        
+
         return recent_events
 
     def detect_anomalies(self) -> list[dict[str, Any]]:
         """Detect security anomalies."""
         anomalies = []
         recent_events = self.get_recent_events(hours=1)
-        
+
         # Count events by type
         event_counts = {}
         ip_counts = {}
         user_counts = {}
-        
+
         for event in recent_events:
             event_counts[event.event_type] = event_counts.get(event.event_type, 0) + 1
             ip_counts[event.ip_address] = ip_counts.get(event.ip_address, 0) + 1
             user_counts[event.user_id] = user_counts.get(event.user_id, 0) + 1
-        
+
         # Check for anomalies
-        
+
         # Too many failed logins
         if event_counts.get("FAILED_LOGIN", 0) > 10:
             anomalies.append({
@@ -560,7 +560,7 @@ class SecurityAuditor:
                 "count": event_counts["FAILED_LOGIN"],
                 "severity": "HIGH"
             })
-        
+
         # Too many requests from single IP
         for ip, count in ip_counts.items():
             if count > 100:  # More than 100 events per hour
@@ -570,7 +570,7 @@ class SecurityAuditor:
                     "count": count,
                     "severity": "MEDIUM"
                 })
-        
+
         # Too many rate limit violations
         if event_counts.get("RATE_LIMIT_EXCEEDED", 0) > 20:
             anomalies.append({
@@ -578,7 +578,7 @@ class SecurityAuditor:
                 "count": event_counts["RATE_LIMIT_EXCEEDED"],
                 "severity": "MEDIUM"
             })
-        
+
         return anomalies
 
 
@@ -592,7 +592,7 @@ class SecurityManager:
         self.rate_limiter = RateLimiter(redis_client)
         self.input_validator = InputValidator()
         self.auditor = SecurityAuditor()
-        
+
         if not CRYPTO_AVAILABLE:
             logger.warning("Cryptography not available - API key encryption disabled")
 
@@ -611,18 +611,18 @@ class SecurityManager:
         rate_limit: int = 60
     ) -> tuple[bool, str]:
         """Validate incoming request."""
-        
+
         # Rate limiting
         allowed, rate_info = self.rate_limiter.check_rate_limit(
             f"{user_id}:{ip_address}",
             rate_limit,
             60  # 1 minute window
         )
-        
+
         if not allowed:
             self.auditor.log_rate_limit_exceeded(user_id, ip_address, endpoint)
             return False, f"Rate limit exceeded. Try again in {rate_info['retry_after']} seconds."
-        
+
         # Input validation
         valid, errors = self.input_validator.validate_api_input(data)
         if not valid:
@@ -630,14 +630,14 @@ class SecurityManager:
                 user_id, ip_address, "API_INPUT", str(errors)
             )
             return False, f"Invalid input: {'; '.join(errors)}"
-        
+
         return True, "OK"
 
     def create_session_token(self, user_id: str) -> str:
         """Create secure session token."""
         timestamp = str(int(time.time()))
         data = f"{user_id}:{timestamp}"
-        
+
         # Create HMAC signature
         secret_key = secrets.token_urlsafe(32)
         signature = hmac.new(
@@ -645,7 +645,7 @@ class SecurityManager:
             data.encode(),
             hashlib.sha256
         ).hexdigest()
-        
+
         return f"{data}:{signature}:{secret_key}"
 
     def verify_session_token(self, token: str, max_age: int = 3600) -> tuple[bool, str]:
@@ -654,14 +654,14 @@ class SecurityManager:
             parts = token.split(':')
             if len(parts) != 4:
                 return False, ""
-            
+
             user_id, timestamp, signature, secret_key = parts
-            
+
             # Check age
             token_time = int(timestamp)
             if time.time() - token_time > max_age:
                 return False, ""
-            
+
             # Verify signature
             data = f"{user_id}:{timestamp}"
             expected_signature = hmac.new(
@@ -669,12 +669,12 @@ class SecurityManager:
                 data.encode(),
                 hashlib.sha256
             ).hexdigest()
-            
+
             if hmac.compare_digest(signature, expected_signature):
                 return True, user_id
-            
+
             return False, ""
-            
+
         except Exception:
             return False, ""
 

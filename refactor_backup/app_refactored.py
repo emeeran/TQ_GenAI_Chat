@@ -12,20 +12,19 @@ import time
 from pathlib import Path
 
 import speech_recognition as sr
-from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
-from flask_cors import CORS
-from pydub import AudioSegment
-from werkzeug.utils import secure_filename
-
-from config.settings import ALLOWED_EXTENSIONS, SAVE_DIR, EXPORT_DIR, UPLOAD_DIR
+from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
 from core.chat_handler import create_chat_handler
 from core.file_processor import FileProcessor, status_tracker
 from core.models import model_manager
 from core.providers import provider_manager
 from core.tts import tts_engine
+from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request
+from flask_cors import CORS
 from persona import PERSONAS
+from pydub import AudioSegment
 from services.file_manager import FileManager
+from werkzeug.utils import secure_filename
 
 # Load environment variables
 env_path = Path(__file__).parent / '.env'
@@ -87,7 +86,7 @@ def get_models(provider):
     try:
         if not provider_manager.is_provider_available(provider):
             return jsonify({'error': f'Provider {provider} not available'}), 404
-        
+
         models = model_manager.get_models(provider)
         return jsonify({'models': models})
     except Exception as e:
@@ -102,11 +101,11 @@ def update_models(provider):
         data = request.get_json()
         if not data or 'models' not in data:
             return jsonify({'error': 'Models data required'}), 400
-        
+
         models = data['models']
         if not isinstance(models, list):
             return jsonify({'error': 'Models must be a list'}), 400
-        
+
         model_manager.update_models(provider, models)
         return jsonify({'message': f'Models updated for {provider}', 'count': len(models)})
     except Exception as e:
@@ -132,7 +131,7 @@ def chat():
 
         response = chat_handler.process_chat_request(data)
         return jsonify(response)
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -186,13 +185,13 @@ def tts():
         text = data.get('text', '')
         voice_id = data.get('voice_id')
         lang = data.get('lang', 'en')
-        
+
         if not text:
             return jsonify({'error': 'No text provided'}), 400
-        
+
         audio_data, content_type = tts_engine.synthesize(text, voice_id, lang)
         return audio_data, 200, {'Content-Type': content_type}
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -220,12 +219,12 @@ def upload_files():
         for file in files:
             if file.filename == '':
                 continue
-                
+
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 file_path = Path(app.config['UPLOAD_FOLDER']) / filename
                 file.save(file_path)
-                
+
                 # Start async processing
                 asyncio.create_task(process_file_async(filename, str(file_path)))
                 results.append({'filename': filename, 'status': 'processing'})
@@ -352,7 +351,7 @@ def list_saved_chats():
 
         # Sort by modification time (newest first)
         chats.sort(key=lambda x: x['modified'], reverse=True)
-        
+
         return jsonify({'chats': chats})
 
     except Exception as e:
@@ -371,7 +370,7 @@ def load_chat(filename):
         if not file_path.exists():
             return jsonify({'error': 'Chat file not found'}), 404
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             chat_data = json.load(f)
 
         return jsonify(chat_data)
@@ -390,13 +389,13 @@ def set_default_model(provider):
             return jsonify({'error': 'Model name required'}), 400
 
         model = data['model']
-        
+
         if not provider_manager.is_provider_available(provider):
             return jsonify({'error': f'Provider {provider} not available'}), 404
 
         # Set default model in model manager
         model_manager.set_default_model(provider, model)
-        
+
         return jsonify({
             'success': True,
             'message': f'Default model set for {provider}',
@@ -466,17 +465,17 @@ async def process_file_async(filename, file_path):
     try:
         processor = FileProcessor()
         content = await processor.process_file(file_path, filename)
-        
+
         # Add to document store
         file_manager.add_document(filename, content)
-        
+
         # Update status
         PROCESSING_STATUS[filename] = {
             'status': 'completed',
             'timestamp': time.time(),
             'size': len(content)
         }
-        
+
     except Exception as e:
         app.logger.error(f"File processing error for {filename}: {str(e)}")
         PROCESSING_ERRORS[filename] = str(e)

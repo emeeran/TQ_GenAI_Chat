@@ -1,9 +1,10 @@
 """Chat API endpoints with modern architecture."""
 
 from flask import jsonify, request
+
 from app.api import api_bp
+from core.errors import ValidationError, handle_errors
 from core.services import get_service
-from core.errors import handle_errors, ValidationError
 
 
 @api_bp.route('/chat', methods=['POST'])
@@ -15,13 +16,13 @@ def chat():
         data = request.get_json()
         if not data:
             raise ValidationError("No JSON data provided")
-        
+
         # Get chat service from dependency injection container
         chat_service = get_service("chat_service")
-        
+
         # Process chat request
         result = chat_service.process_chat_request(data)
-        
+
         if result["success"]:
             return jsonify({
                 "success": True,
@@ -36,7 +37,7 @@ def chat():
                 "error": result["error"],
                 "provider": result.get("provider", "unknown")
             }), 400
-            
+
     except Exception as e:
         return jsonify({
             "success": False,
@@ -45,12 +46,12 @@ def chat():
 
 
 @api_bp.route('/providers', methods=['GET'])
-@handle_errors  
+@handle_errors
 def get_providers():
     """Get available AI providers."""
     chat_service = get_service("chat_service")
     providers = chat_service.get_available_providers()
-    
+
     return jsonify({
         "success": True,
         "providers": providers
@@ -63,7 +64,7 @@ def get_models(provider: str):
     """Get models for specific provider."""
     chat_service = get_service("chat_service")
     models = chat_service.get_models_for_provider(provider)
-    
+
     if models:
         return jsonify({
             "success": True,

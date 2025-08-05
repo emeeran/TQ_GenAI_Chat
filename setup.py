@@ -3,8 +3,9 @@
 TQ GenAI Chat - Setup script for Debian packaging
 """
 
-from setuptools import setup, find_packages
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 # Read the README file
 this_directory = Path(__file__).parent
@@ -40,7 +41,7 @@ setup(
         ('share/tq-genai-chat', ['README.md', 'requirements.txt']),
         ('share/tq-genai-chat/templates', ['templates/index.html']),
         ('share/tq-genai-chat/static', [
-            'static/script.js', 
+            'static/script.js',
             'static/styles.css',
             'static/favicon.ico',
             'static/portrait-sketch-simple.svg',

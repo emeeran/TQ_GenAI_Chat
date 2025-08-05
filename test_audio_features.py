@@ -3,17 +3,18 @@
 Test script for audio features in TQ GenAI Chat
 """
 
-import requests
 import time
-import json
+
+import requests
+
 
 def test_endpoints():
     """Test key endpoints for audio functionality"""
     base_url = "http://localhost:5000"
-    
+
     print("🎤 Testing Audio Features")
     print("=" * 50)
-    
+
     # Test personas endpoint
     try:
         response = requests.get(f"{base_url}/personas", timeout=5)
@@ -26,7 +27,7 @@ def test_endpoints():
             print(f"❌ Personas endpoint failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Personas endpoint error: {e}")
-    
+
     # Test TTS endpoint
     try:
         response = requests.post(
@@ -43,7 +44,7 @@ def test_endpoints():
             print(f"   Response: {response.text}")
     except Exception as e:
         print(f"❌ TTS endpoint error: {e}")
-    
+
     # Test transcription endpoint (without file - should return error)
     try:
         response = requests.post(f"{base_url}/transcribe", timeout=5)
@@ -57,7 +58,7 @@ def test_endpoints():
             print(f"❌ Transcription endpoint unexpected status: {response.status_code}")
     except Exception as e:
         print(f"❌ Transcription endpoint error: {e}")
-    
+
     # Test health endpoint
     try:
         response = requests.get(f"{base_url}/health", timeout=5)
@@ -72,34 +73,32 @@ def test_audio_dependencies():
     """Test if audio dependencies are working"""
     print("\n🔧 Testing Audio Dependencies")
     print("=" * 50)
-    
+
     try:
         import speech_recognition as sr
         recognizer = sr.Recognizer()
         print("✅ speech_recognition module working")
     except Exception as e:
         print(f"❌ speech_recognition error: {e}")
-    
+
     try:
-        from pydub import AudioSegment
         print("✅ pydub module working")
     except Exception as e:
         print(f"❌ pydub error: {e}")
-    
+
     try:
         import pyttsx3
         engine = pyttsx3.init()
         print("✅ pyttsx3 module working")
-        
+
         # Test voice listing
         voices = engine.getProperty('voices')
         print(f"   Available voices: {len(voices) if voices else 0}")
         engine.stop()
     except Exception as e:
         print(f"❌ pyttsx3 error: {e}")
-    
+
     try:
-        from gtts import gTTS
         print("✅ gTTS module working")
     except Exception as e:
         print(f"❌ gTTS error: {e}")
@@ -108,15 +107,15 @@ def main():
     """Main test function"""
     print("🧪 TQ GenAI Chat - Audio Features Test")
     print("=" * 50)
-    
+
     test_audio_dependencies()
-    
+
     print("\n⏳ Starting server test in 3 seconds...")
     print("   (Make sure the Flask app is running on localhost:5000)")
     time.sleep(3)
-    
+
     test_endpoints()
-    
+
     print("\n📋 Test Summary")
     print("=" * 50)
     print("1. ✅ If all tests pass, audio features should work correctly")

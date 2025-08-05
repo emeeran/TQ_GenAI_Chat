@@ -6,9 +6,10 @@ performance optimizations, and modern Python features.
 
 import asyncio
 import io
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import docx
 import pandas as pd
@@ -26,8 +27,8 @@ except ImportError:
 
 class ProcessingError(Exception):
     """Custom exception for file processing errors."""
-    
-    def __init__(self, message: str, file_type: Optional[str] = None, recoverable: bool = True):
+
+    def __init__(self, message: str, file_type: str | None = None, recoverable: bool = True):
         super().__init__(message)
         self.file_type = file_type
         self.recoverable = recoverable
@@ -35,12 +36,12 @@ class ProcessingError(Exception):
 
 class ProcessingStatus:
     """Thread-safe status tracker for file processing operations."""
-    
+
     def __init__(self):
         self._statuses: dict[str, dict[str, Any]] = {}
         self._errors: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
-    
+
     async def start_processing(self, filename: str) -> None:
         """Initialize processing status for a file."""
         async with self._lock:
@@ -50,7 +51,7 @@ class ProcessingStatus:
                 'timestamp': datetime.now().isoformat(),
                 'recoverable': True
             }
-    
+
     async def update_progress(self, filename: str, progress: int) -> None:
         """Update processing progress."""
         async with self._lock:
@@ -60,7 +61,7 @@ class ProcessingStatus:
                     'status': 'complete' if progress >= 100 else 'processing',
                     'timestamp': datetime.now().isoformat()
                 })
-    
+
     async def set_error(self, filename: str, error: Exception) -> None:
         """Record processing error."""
         async with self._lock:
@@ -75,14 +76,14 @@ class ProcessingStatus:
                     'status': 'error',
                     'error': str(error)
                 })
-    
+
     def get_status(self, filename: str) -> dict[str, Any]:
         """Get current status for a file."""
         if filename not in self._statuses:
             raise FileNotFoundError(f'No status found for: {filename}')
         return self._statuses[filename].copy()
-    
-    def get_error(self, filename: str) -> Optional[dict[str, Any]]:
+
+    def get_error(self, filename: str) -> dict[str, Any] | None:
         """Get error information for a file."""
         return self._errors.get(filename)
 
@@ -90,10 +91,10 @@ class ProcessingStatus:
 class FileProcessor:
     """
     Optimized file processor with async support and enhanced error handling.
-    
+
     Supports: PDF, DOCX, TXT, CSV, XLSX, images (PNG, JPG, JPEG)
     """
-    
+
     # Class-level processor mapping for better performance
     _PROCESSORS = {
         'pdf': '_process_pdf',
@@ -107,54 +108,54 @@ class FileProcessor:
         'jpg': '_process_image',
         'jpeg': '_process_image'
     }
-    
+
     def __init__(self):
         self.status_tracker = ProcessingStatus()
-    
+
     @classmethod
     async def process_file(
-        cls, 
-        content: bytes, 
+        cls,
+        content: bytes,
         filename: str,
-        progress_callback: Optional[Callable[[int], None]] = None
+        progress_callback: Callable[[int], None] | None = None
     ) -> str:
         """
         Process file content and return extracted text.
-        
+
         Args:
             content: File content as bytes
             filename: Original filename with extension
             progress_callback: Optional callback for progress updates
-            
+
         Returns:
             Extracted text content
-            
+
         Raises:
             ProcessingError: If file processing fails
         """
         processor = cls()
         return await processor._process_file_internal(content, filename, progress_callback)
-    
+
     async def _process_file_internal(
-        self, 
-        content: bytes, 
+        self,
+        content: bytes,
         filename: str,
-        progress_callback: Optional[Callable[[int], None]] = None
+        progress_callback: Callable[[int], None] | None = None
     ) -> str:
         """Internal file processing implementation."""
-        
+
         await self.status_tracker.start_processing(filename)
-        
+
         try:
             # Validate input
             if not content:
                 raise ProcessingError("Empty file content", recoverable=False)
-            
+
             # Extract file extension
             ext = Path(filename).suffix.lstrip('.').lower()
             if not ext:
                 raise ProcessingError("File has no extension", recoverable=False)
-            
+
             # Get processor method
             processor_method = self._PROCESSORS.get(ext)
             if not processor_method:
@@ -163,31 +164,31 @@ class FileProcessor:
                     file_type=ext,
                     recoverable=False
                 )
-            
+
             # Update progress
             if progress_callback:
                 progress_callback(25)
             await self.status_tracker.update_progress(filename, 25)
-            
+
             # Process file
             method = getattr(self, processor_method)
             result = await asyncio.get_event_loop().run_in_executor(
                 None, method, content, filename
             )
-            
+
             # Update progress
             if progress_callback:
                 progress_callback(100)
             await self.status_tracker.update_progress(filename, 100)
-            
+
             return result
-            
+
         except Exception as e:
             await self.status_tracker.set_error(filename, e)
             if isinstance(e, ProcessingError):
                 raise
             raise ProcessingError(f"Processing failed: {str(e)}", ext) from e
-    
+
     def _process_pdf(self, content: bytes, filename: str) -> str:
         """Extract text from PDF files. Uses OCR fallback if no text is found."""
         try:
@@ -216,36 +217,36 @@ class FileProcessor:
             return ocr_result
         except Exception as e:
             raise ProcessingError(f"PDF processing error: {str(e)}") from e
-    
+
     def _process_docx(self, content: bytes, filename: str) -> str:
         """Extract text from DOCX files."""
         try:
             docx_file = io.BytesIO(content)
             doc = docx.Document(docx_file)
-            
+
             paragraphs = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
             result = '\n\n'.join(paragraphs)
-            
+
             if not result.strip():
                 raise ProcessingError("DOCX contains no extractable text")
-            
+
             return result
-            
+
         except Exception as e:
             raise ProcessingError(f"DOCX processing error: {str(e)}") from e
-    
+
     def _process_text(self, content: bytes, filename: str) -> str:
         """Process plain text files with encoding detection."""
         encodings = ['utf-8', 'utf-16', 'iso-8859-1', 'cp1252']
-        
+
         for encoding in encodings:
             try:
                 return content.decode(encoding)
             except UnicodeDecodeError:
                 continue
-        
+
         raise ProcessingError("Unable to decode text file with supported encodings")
-    
+
     def _process_csv(self, content: bytes, filename: str) -> str:
         """Process CSV files."""
         try:
@@ -254,7 +255,7 @@ class FileProcessor:
             return df.to_string(index=False)
         except Exception as e:
             raise ProcessingError(f"CSV processing error: {str(e)}") from e
-    
+
     def _process_excel(self, content: bytes, filename: str) -> str:
         """Process Excel files."""
         try:
@@ -263,7 +264,7 @@ class FileProcessor:
             return df.to_string(index=False)
         except Exception as e:
             raise ProcessingError(f"Excel processing error: {str(e)}") from e
-    
+
     def _process_image(self, content: bytes, filename: str) -> str:
         """Process image files (basic metadata extraction)."""
         try:

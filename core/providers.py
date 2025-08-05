@@ -5,22 +5,18 @@ Handles all AI provider integrations with standardized interfaces.
 Eliminates code duplication and provides consistent error handling.
 """
 
-import json
 import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
 from enum import Enum
-import aiohttp
-import asyncio
+from typing import Any, Protocol, runtime_checkable
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config.settings import (
-    CONNECT_TIMEOUT, READ_TIMEOUT, MAX_RETRIES
-)
+from config.settings import CONNECT_TIMEOUT, READ_TIMEOUT
 
 # Modern type aliases (Python 3.10+ compatible)
 ProviderMap = dict[str, 'BaseProvider']
@@ -67,12 +63,12 @@ class ProviderConfig:
     provider_type: ProviderType = ProviderType.OPENAI_COMPATIBLE
     timeout: int = READ_TIMEOUT
     max_retries: int = 3
-    
+
     @property
     def is_configured(self) -> bool:
         """Check if provider is properly configured"""
         return bool(self.key.strip() and self.endpoint.strip())
-    
+
     def validate(self) -> bool:
         """Validate configuration parameters"""
         if not self.is_configured:
@@ -90,12 +86,12 @@ class APIResponse:
     success: bool = True
     error: str | None = None
     usage: dict[str, Any] | None = None
-    
+
     @property
     def is_successful(self) -> bool:
         """Check if response was successful"""
         return self.success and not self.error
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert response to dictionary"""
         return {
@@ -109,16 +105,16 @@ class APIResponse:
 
 class BaseProvider(ABC):
     """Enhanced base class for all AI providers with modern patterns"""
-    
+
     def __init__(self, config: ProviderConfig):
         if not config.validate():
             raise ValueError(f"Invalid configuration for {self.provider_name}")
-        
+
         self.config = config
         self.session = self._create_session()
         self._request_count = 0
         self._error_count = 0
-    
+
     def _create_session(self) -> requests.Session:
         """Create HTTP session with enhanced retry strategy"""
         session = requests.Session()
@@ -132,7 +128,7 @@ class BaseProvider(ABC):
         session.mount("https://", adapter)
         session.mount("http://", adapter)
         return session
-    
+
     def _create_metadata(self, model: str, response_time: float,
                         fallback_used: bool = False) -> dict[str, Any]:
         """Create standardized metadata with additional metrics"""
@@ -145,11 +141,11 @@ class BaseProvider(ABC):
             'error_count': self._error_count,
             'success_rate': (self._request_count - self._error_count) / max(self._request_count, 1)
         }
-    
+
     def _handle_http_error(self, error: requests.HTTPError) -> str:
         """Enhanced HTTP error handling with specific status codes"""
         status_code = error.response.status_code
-        
+
         match status_code:
             case 401:
                 return "Authentication failed - check API key"
@@ -161,42 +157,42 @@ class BaseProvider(ABC):
                 return f"Server error ({status_code}) - provider temporarily unavailable"
             case _:
                 return f"HTTP {status_code}: {str(error)}"
-    
+
     @property
     @abstractmethod
     def provider_name(self) -> str:
         """Provider identifier"""
         pass
-    
+
     @abstractmethod
     def _prepare_request(self, model: str, message: str, persona: str,
                         temperature: float, max_tokens: int) -> tuple[str, RequestHeaders, RequestPayload]:
         """Prepare request parameters with type hints"""
         pass
-    
+
     @abstractmethod
     def _extract_response(self, result: dict, model: str,
                          response_time: float, fallback_used: bool) -> APIResponse:
         """Extract text from provider-specific response format"""
         pass
-    
+
     def generate_response(self, model: str, message: str, persona: str = '',
                          temperature: float = 0.7, max_tokens: int = 4000) -> APIResponse:
         """Generate response with enhanced fallback strategy and error handling"""
         models_to_try = [model]
         if self.config.fallback_model and self.config.fallback_model != model:
             models_to_try.append(self.config.fallback_model)
-        
+
         last_error = None
-        
+
         for i, model_to_use in enumerate(models_to_try):
             self._request_count += 1
-            
+
             try:
                 endpoint, headers, payload = self._prepare_request(
                     model_to_use, message, persona, temperature, max_tokens
                 )
-                
+
                 start_time = time.time()
                 response = self.session.post(
                     endpoint,
@@ -205,38 +201,38 @@ class BaseProvider(ABC):
                     timeout=(CONNECT_TIMEOUT, self.config.timeout)
                 )
                 response_time = time.time() - start_time
-                
+
                 response.raise_for_status()
                 result = response.json()
-                
+
                 return self._extract_response(
                     result, model_to_use, response_time, i > 0
                 )
-                
+
             except requests.HTTPError as e:
                 self._error_count += 1
                 last_error = self._handle_http_error(e)
-                
+
                 # Don't retry on authentication errors
                 if e.response.status_code == 401:
                     break
-                    
+
             except requests.Timeout:
                 self._error_count += 1
                 last_error = f"Request timed out after {self.config.timeout}s"
-                
+
             except requests.RequestException as e:
                 self._error_count += 1
                 last_error = f"Request failed: {str(e)}"
-                
+
             except (KeyError, ValueError, TypeError) as e:
                 self._error_count += 1
                 last_error = f"Response parsing error: {str(e)}"
-                
+
             except Exception as e:
                 self._error_count += 1
                 last_error = f"Unexpected error: {str(e)}"
-        
+
         return APIResponse(
             text="",
             metadata=self._create_metadata(model, 0.0, len(models_to_try) > 1),
@@ -247,15 +243,15 @@ class BaseProvider(ABC):
 
 class OpenAICompatibleProvider(BaseProvider):
     """Enhanced provider for OpenAI-compatible APIs with better error handling"""
-    
+
     def __init__(self, config: ProviderConfig, provider_name: str):
         super().__init__(config)
         self._provider_name = provider_name
-    
+
     @property
     def provider_name(self) -> str:
         return self._provider_name
-    
+
     def _prepare_request(self, model: str, message: str, persona: str,
                         temperature: float, max_tokens: int) -> tuple[str, RequestHeaders, RequestPayload]:
         """Prepare OpenAI-compatible request with validation"""
@@ -263,22 +259,22 @@ class OpenAICompatibleProvider(BaseProvider):
             'Authorization': f'Bearer {self.config.key}',
             'Content-Type': 'application/json'
         }
-        
+
         # Build messages with persona if provided
         messages = []
         if persona.strip():
             messages.append({'role': 'system', 'content': persona.strip()})
         messages.append({'role': 'user', 'content': message})
-        
+
         payload: RequestPayload = {
             'model': model,
             'messages': messages,
             'temperature': max(0.0, min(2.0, temperature)),  # Clamp temperature
             'max_tokens': max(1, min(8192, max_tokens))  # Clamp max_tokens
         }
-        
+
         return self.config.endpoint, headers, payload
-    
+
     def _extract_response(self, result: dict, model: str,
                          response_time: float, fallback_used: bool) -> APIResponse:
         """Extract response with enhanced error checking"""
@@ -286,27 +282,27 @@ class OpenAICompatibleProvider(BaseProvider):
             # Validate response structure
             if not isinstance(result, dict):
                 raise TypeError("Response is not a dictionary")
-            
+
             if 'choices' not in result or not result['choices']:
                 raise KeyError("No choices in response")
-            
+
             choice = result['choices'][0]
             if 'message' not in choice or 'content' not in choice['message']:
                 raise KeyError("Invalid message structure")
-            
+
             text = choice['message']['content']
             if not isinstance(text, str):
                 raise TypeError("Response text is not a string")
-            
+
             # Extract usage information if available
             usage = result.get('usage', {})
-            
+
             return APIResponse(
                 text=text,
                 metadata=self._create_metadata(model, response_time, fallback_used),
                 usage=usage
             )
-            
+
         except (KeyError, IndexError, TypeError) as e:
             return APIResponse(
                 text="",
@@ -318,11 +314,11 @@ class OpenAICompatibleProvider(BaseProvider):
 
 class AnthropicProvider(BaseProvider):
     """Anthropic Claude provider"""
-    
+
     @property
     def provider_name(self) -> str:
         return 'anthropic'
-    
+
     def _prepare_request(self, model: str, message: str, persona: str,
                         temperature: float, max_tokens: int) -> tuple[str, dict, dict]:
         headers = {
@@ -330,17 +326,17 @@ class AnthropicProvider(BaseProvider):
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01'
         }
-        
+
         payload = {
             'model': model,
             'system': persona,
             'messages': [{'role': 'user', 'content': message}],
             'max_tokens': max_tokens
         }
-        
+
         return self.config.endpoint, headers, payload
-    
-    def _extract_response(self, result: dict, model: str, 
+
+    def _extract_response(self, result: dict, model: str,
                          response_time: float, fallback_used: bool) -> APIResponse:
         try:
             if 'content' in result and result['content']:
@@ -351,37 +347,37 @@ class AnthropicProvider(BaseProvider):
                 )
         except (KeyError, IndexError, TypeError):
             pass
-        
+
         return APIResponse(
-            text="", 
-            metadata={}, 
-            success=False, 
+            text="",
+            metadata={},
+            success=False,
             error="Invalid Anthropic response structure"
         )
 
 
 class GeminiProvider(BaseProvider):
     """Google Gemini provider"""
-    
+
     @property
     def provider_name(self) -> str:
         return 'gemini'
-    
+
     def _prepare_request(self, model: str, message: str, persona: str,
                         temperature: float, max_tokens: int) -> tuple[str, dict, dict]:
         endpoint = f"{self.config.endpoint}{model}:generateContent?key={self.config.key}"
         headers = {'Content-Type': 'application/json'}
-        
+
         payload = {
             "contents": [{
                 "role": "user",
                 "parts": [{"text": f"{persona}\n{message}"}]
             }]
         }
-        
+
         return endpoint, headers, payload
-    
-    def _extract_response(self, result: dict, model: str, 
+
+    def _extract_response(self, result: dict, model: str,
                          response_time: float, fallback_used: bool) -> APIResponse:
         try:
             candidates = result.get('candidates', [])
@@ -395,39 +391,39 @@ class GeminiProvider(BaseProvider):
                     )
         except (KeyError, IndexError, TypeError):
             pass
-        
+
         return APIResponse(
-            text="", 
-            metadata={}, 
-            success=False, 
+            text="",
+            metadata={},
+            success=False,
             error="Invalid Gemini response structure"
         )
 
 
 class CohereProvider(BaseProvider):
     """Cohere provider"""
-    
+
     @property
     def provider_name(self) -> str:
         return 'cohere'
-    
+
     def _prepare_request(self, model: str, message: str, persona: str,
                         temperature: float, max_tokens: int) -> tuple[str, dict, dict]:
         headers = {
             'Authorization': f'Bearer {self.config.key}',
             'Content-Type': 'application/json'
         }
-        
+
         payload = {
             'model': model,
             'messages': [{'role': 'user', 'content': message}],
             'temperature': temperature,
             'max_tokens': max_tokens
         }
-        
+
         return self.config.endpoint, headers, payload
-    
-    def _extract_response(self, result: dict, model: str, 
+
+    def _extract_response(self, result: dict, model: str,
                          response_time: float, fallback_used: bool) -> APIResponse:
         try:
             text = result["message"]["content"][0]["text"]
@@ -437,20 +433,20 @@ class CohereProvider(BaseProvider):
             )
         except (KeyError, IndexError, TypeError):
             return APIResponse(
-                text="", 
-                metadata={}, 
-                success=False, 
+                text="",
+                metadata={},
+                success=False,
                 error="Invalid Cohere response structure"
             )
 
 
 class HuggingFaceProvider(BaseProvider):
     """Hugging Face Inference API provider"""
-    
+
     @property
     def provider_name(self) -> str:
         return 'huggingface'
-    
+
     def _prepare_request(self, model: str, message: str, persona: str,
                         temperature: float, max_tokens: int) -> tuple[str, dict, dict]:
         # Hugging Face uses model-specific endpoints
@@ -459,10 +455,10 @@ class HuggingFaceProvider(BaseProvider):
             'Authorization': f'Bearer {self.config.key}',
             'Content-Type': 'application/json'
         }
-        
+
         # Build the prompt with persona if provided
         prompt = f"{persona}\n{message}" if persona.strip() else message
-        
+
         payload = {
             'inputs': prompt,
             'parameters': {
@@ -471,10 +467,10 @@ class HuggingFaceProvider(BaseProvider):
                 'return_full_text': False
             }
         }
-        
+
         return endpoint, headers, payload
-    
-    def _extract_response(self, result: dict, model: str, 
+
+    def _extract_response(self, result: dict, model: str,
                          response_time: float, fallback_used: bool) -> APIResponse:
         try:
             # Hugging Face returns different formats depending on the model
@@ -494,28 +490,28 @@ class HuggingFaceProvider(BaseProvider):
                     text = str(result)
             else:
                 text = str(result)
-            
+
             return APIResponse(
                 text=text,
                 metadata=self._create_metadata(model, response_time, fallback_used)
             )
         except (KeyError, IndexError, TypeError) as e:
             return APIResponse(
-                text="", 
-                metadata={}, 
-                success=False, 
+                text="",
+                metadata={},
+                success=False,
                 error=f"Invalid Hugging Face response structure: {str(e)}"
             )
 
 
 class ProviderManager:
     """Enhanced centralized provider management with factory pattern"""
-    
+
     def __init__(self, custom_configs: dict[str, ProviderConfig] | None = None):
         self.providers: ProviderMap = {}
         self._provider_configs = custom_configs or self._get_default_configs()
         self._initialize_providers()
-    
+
     def _get_default_configs(self) -> dict[str, ProviderConfig]:
         """Get default provider configurations from environment"""
         return {
@@ -611,7 +607,7 @@ class ProviderManager:
                 provider_type=ProviderType.OPENAI_COMPATIBLE
             )
         }
-    
+
     def _create_provider(self, name: str, config: ProviderConfig) -> BaseProvider:
         """Factory method to create providers based on type"""
         match config.provider_type:
@@ -627,7 +623,7 @@ class ProviderManager:
                 return OpenAICompatibleProvider(config, name)
             case _:  # Default fallback
                 return OpenAICompatibleProvider(config, name)
-    
+
     def _initialize_providers(self):
         """Initialize all configured providers with error handling"""
         for name, config in self._provider_configs.items():
@@ -635,24 +631,23 @@ class ProviderManager:
                 if config.is_configured and config.validate():
                     provider = self._create_provider(name, config)
                     self.providers[name] = provider
-                    print(f"✓ Initialized {name} provider")
                 else:
-                    print(f"⚠ Skipped {name} provider (not configured or invalid)")
-            except Exception as e:
-                print(f"✗ Failed to initialize {name} provider: {e}")
-    
+                    pass
+            except Exception:
+                pass
+
     def get_provider(self, name: str) -> BaseProvider | None:
         """Get provider by name with None safety"""
         return self.providers.get(name)
-    
+
     def list_providers(self) -> ModelList:
         """List available provider names"""
         return list(self.providers.keys())
-    
+
     def is_provider_available(self, name: str) -> bool:
         """Check if provider is available and configured"""
         return name in self.providers
-    
+
     def get_provider_stats(self) -> dict[str, dict[str, Any]]:
         """Get statistics for all providers"""
         return {
@@ -664,7 +659,7 @@ class ProviderManager:
             }
             for name, provider in self.providers.items()
         }
-    
+
     def add_provider(self, name: str, config: ProviderConfig) -> bool:
         """Dynamically add a new provider"""
         try:
@@ -672,10 +667,10 @@ class ProviderManager:
                 provider = self._create_provider(name, config)
                 self.providers[name] = provider
                 return True
-        except Exception as e:
-            print(f"Failed to add provider {name}: {e}")
+        except Exception:
+            pass
         return False
-    
+
     def remove_provider(self, name: str) -> bool:
         """Remove a provider"""
         return self.providers.pop(name, None) is not None

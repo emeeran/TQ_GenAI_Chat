@@ -2,10 +2,9 @@
 Service for interacting with XAI (Grok) API.
 """
 import os
-import json
-import requests
-from typing import Dict, List, Optional, Union, Any
+from typing import Any
 
+import requests
 from flask import current_app
 
 
@@ -24,24 +23,24 @@ class XAIService:
 
         # Use the correct base URL for XAI/Grok API
         self.base_url = "https://api.x.ai/v1"
-        
+
         # Configure timeout and retry settings
         self.timeout = (10, 60)  # (connect_timeout, read_timeout)
-        
-    def _create_headers(self) -> Dict[str, str]:
+
+    def _create_headers(self) -> dict[str, str]:
         """Create request headers with API key"""
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
 
-    def generate_response(self, 
-                          prompt: str, 
-                          model: str = "grok-2-latest", 
+    def generate_response(self,
+                          prompt: str,
+                          model: str = "grok-2-latest",
                           system_prompt: str = "You are a helpful AI assistant.",
                           max_tokens: int = 4000,
                           temperature: float = 0.7,
-                          **kwargs) -> Dict[str, Any]:
+                          **kwargs) -> dict[str, Any]:
         """
         Generate a response using XAI
 
@@ -78,10 +77,10 @@ class XAIService:
                 json=data,
                 timeout=self.timeout
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             # Extract and return the response content
             if "choices" in result and result["choices"]:
                 return {
@@ -92,38 +91,38 @@ class XAIService:
                 }
             else:
                 raise ValueError("Unexpected response format from XAI API")
-                
+
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"XAI API request failed: {str(e)}")
             if hasattr(e, 'response') and e.response:
                 current_app.logger.error(f"Status code: {e.response.status_code}")
                 current_app.logger.error(f"Response: {e.response.text}")
             raise ValueError(f"XAI API request failed: {str(e)}")
-    
-    def list_models(self) -> List[Dict[str, Any]]:
+
+    def list_models(self) -> list[dict[str, Any]]:
         """
         Get list of available models from XAI API
-        
+
         Returns:
             List[Dict[str, Any]]: List of model information
         """
         headers = self._create_headers()
-        
+
         try:
             response = requests.get(
                 f"{self.base_url}/models",
                 headers=headers,
                 timeout=self.timeout
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             if "data" in result:
                 return result["data"]
             else:
                 return []
-                
+
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"Failed to get XAI models: {str(e)}")
             return []

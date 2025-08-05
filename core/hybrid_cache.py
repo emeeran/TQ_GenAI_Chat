@@ -290,7 +290,7 @@ class HybridCache:
 
     async def get(self, key: str) -> Any:
         """Get item from cache with L1 -> L2 -> L3 fallback."""
-        
+
         # L1: Memory cache (fastest)
         if await key in self.memory_cache:
             value = await self.memory_cache.get(key)
@@ -321,7 +321,7 @@ class HybridCache:
     async def set(self, key: str, value: Any) -> None:
         """Set item in all cache layers."""
         self.stats['sets'] += 1
-        
+
         # Set in all layers
         await asyncio.gather(
             self.memory_cache.set(key, value),
@@ -351,7 +351,7 @@ class HybridCache:
     async def get_stats(self) -> dict:
         """Get comprehensive cache statistics."""
         memory_stats = await self.memory_cache.stats()
-        
+
         total_hits = sum(self.stats['hits'].values())
         total_requests = total_hits + self.stats['misses']
         hit_ratio = total_hits / total_requests if total_requests > 0 else 0

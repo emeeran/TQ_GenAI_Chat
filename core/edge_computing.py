@@ -4,7 +4,6 @@ Provides edge deployment strategies, distributed processing, and edge-specific o
 """
 
 import asyncio
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -74,7 +73,7 @@ class EdgeNode:
     last_heartbeat: datetime | None = None
     services: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -108,7 +107,7 @@ class EdgeService:
     volumes: list[dict[str, Any]] = field(default_factory=list)
     health_check: dict[str, Any] = field(default_factory=dict)
     auto_scaling: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -134,7 +133,7 @@ class WorkloadDistribution:
     rules: list[dict[str, Any]]
     fallback_location: EdgeLocation
     created_at: datetime = field(default_factory=datetime.utcnow)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -149,12 +148,12 @@ class WorkloadDistribution:
 
 class EdgeNodeManager:
     """Manages edge nodes and their status."""
-    
+
     def __init__(self):
         self.nodes: dict[str, EdgeNode] = {}
         self.node_health_check_interval = 60  # seconds
         self.health_check_task = None
-    
+
     def register_node(self, node: EdgeNode) -> bool:
         """Register a new edge node."""
         try:
@@ -165,7 +164,7 @@ class EdgeNodeManager:
         except Exception as e:
             logger.error(f"Failed to register edge node {node.id}: {e}")
             return False
-    
+
     def deregister_node(self, node_id: str) -> bool:
         """Deregister an edge node."""
         try:
@@ -178,59 +177,59 @@ class EdgeNodeManager:
         except Exception as e:
             logger.error(f"Failed to deregister edge node {node_id}: {e}")
             return False
-    
+
     def get_nodes_by_location(self, location: EdgeLocation) -> list[EdgeNode]:
         """Get all nodes in a specific location."""
         return [node for node in self.nodes.values() if node.location == location]
-    
+
     def get_nodes_by_type(self, node_type: EdgeNodeType) -> list[EdgeNode]:
         """Get all nodes of a specific type."""
         return [node for node in self.nodes.values() if node.node_type == node_type]
-    
+
     def get_healthy_nodes(self) -> list[EdgeNode]:
         """Get all healthy nodes."""
         return [node for node in self.nodes.values() if node.status == "healthy"]
-    
+
     def find_optimal_node(self, requirements: dict[str, Any],
                          preferred_location: EdgeLocation = None) -> EdgeNode | None:
         """Find optimal node for deployment based on requirements."""
         candidate_nodes = self.get_healthy_nodes()
-        
+
         # Filter by location preference
         if preferred_location:
             location_nodes = [n for n in candidate_nodes if n.location == preferred_location]
             if location_nodes:
                 candidate_nodes = location_nodes
-        
+
         # Filter by resource requirements
         cpu_req = requirements.get('cpu_cores', 1)
         memory_req = requirements.get('memory_mb', 512)
         storage_req = requirements.get('storage_gb', 1)
-        
+
         suitable_nodes = []
         for node in candidate_nodes:
-            if (node.cpu_cores >= cpu_req and 
-                node.memory_mb >= memory_req and 
+            if (node.cpu_cores >= cpu_req and
+                node.memory_mb >= memory_req and
                 node.storage_gb >= storage_req):
                 suitable_nodes.append(node)
-        
+
         if not suitable_nodes:
             return None
-        
+
         # Score nodes based on available resources
         def score_node(node: EdgeNode) -> float:
             cpu_score = (node.cpu_cores - cpu_req) / node.cpu_cores
             memory_score = (node.memory_mb - memory_req) / node.memory_mb
             storage_score = (node.storage_gb - storage_req) / node.storage_gb
             return (cpu_score + memory_score + storage_score) / 3
-        
+
         return max(suitable_nodes, key=score_node)
-    
+
     async def start_health_monitoring(self):
         """Start continuous health monitoring of nodes."""
         if self.health_check_task is None:
             self.health_check_task = asyncio.create_task(self._health_check_loop())
-    
+
     async def stop_health_monitoring(self):
         """Stop health monitoring."""
         if self.health_check_task:
@@ -240,7 +239,7 @@ class EdgeNodeManager:
             except asyncio.CancelledError:
                 pass
             self.health_check_task = None
-    
+
     async def _health_check_loop(self):
         """Continuous health check loop."""
         while True:
@@ -252,28 +251,28 @@ class EdgeNodeManager:
             except Exception as e:
                 logger.error(f"Health check error: {e}")
                 await asyncio.sleep(10)
-    
+
     async def _check_all_nodes_health(self):
         """Check health of all registered nodes."""
         health_check_tasks = []
         for node in self.nodes.values():
             task = asyncio.create_task(self._check_node_health(node))
             health_check_tasks.append(task)
-        
+
         if health_check_tasks:
             await asyncio.gather(*health_check_tasks, return_exceptions=True)
-    
+
     async def _check_node_health(self, node: EdgeNode):
         """Check health of a specific node."""
         try:
             if not node.public_ip:
                 node.status = "unknown"
                 return
-            
+
             # Simple HTTP health check
             import aiohttp
             health_url = f"http://{node.public_ip}:8080/health"
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     health_url,
@@ -284,41 +283,41 @@ class EdgeNodeManager:
                         node.last_heartbeat = datetime.utcnow()
                     else:
                         node.status = "unhealthy"
-                        
+
         except Exception as e:
             logger.debug(f"Health check failed for node {node.id}: {e}")
             node.status = "unhealthy"
-            
+
             # Mark as offline if no heartbeat for 5 minutes
-            if (node.last_heartbeat and 
+            if (node.last_heartbeat and
                 datetime.utcnow() - node.last_heartbeat > timedelta(minutes=5)):
                 node.status = "offline"
 
 
 class EdgeOrchestrator:
     """Orchestrates edge computing deployments and workload distribution."""
-    
+
     def __init__(self, config: dict[str, Any]):
         self.config = config
         self.node_manager = EdgeNodeManager()
         self.services: dict[str, EdgeService] = {}
         self.workload_distributions: dict[str, WorkloadDistribution] = {}
-        
+
         # Initialize based on configuration
         self.strategy = DeploymentStrategy(config.get('deployment_strategy', 'regional_clusters'))
         self.auto_scaling_enabled = config.get('auto_scaling_enabled', True)
         self.load_balancing_strategy = config.get('load_balancing_strategy', 'round_robin')
-    
+
     async def start(self):
         """Start the edge orchestrator."""
         await self.node_manager.start_health_monitoring()
         logger.info("Edge orchestrator started")
-    
+
     async def stop(self):
         """Stop the edge orchestrator."""
         await self.node_manager.stop_health_monitoring()
         logger.info("Edge orchestrator stopped")
-    
+
     def register_service(self, service: EdgeService) -> bool:
         """Register a new edge service."""
         try:
@@ -328,21 +327,21 @@ class EdgeOrchestrator:
         except Exception as e:
             logger.error(f"Failed to register service {service.name}: {e}")
             return False
-    
-    async def deploy_service(self, service_name: str, 
+
+    async def deploy_service(self, service_name: str,
                            target_locations: list[EdgeLocation] = None) -> bool:
         """Deploy a service to edge locations."""
         if service_name not in self.services:
             logger.error(f"Service {service_name} not found")
             return False
-        
+
         service = self.services[service_name]
         deployment_success = True
-        
+
         # Determine target locations
         if not target_locations:
             target_locations = list(EdgeLocation)
-        
+
         # Deploy to each location
         for location in target_locations:
             success = await self._deploy_service_to_location(service, location)
@@ -351,21 +350,21 @@ class EdgeOrchestrator:
                 logger.error(f"Failed to deploy {service_name} to {location.value}")
             else:
                 logger.info(f"Successfully deployed {service_name} to {location.value}")
-        
+
         return deployment_success
-    
-    async def _deploy_service_to_location(self, service: EdgeService, 
+
+    async def _deploy_service_to_location(self, service: EdgeService,
                                         location: EdgeLocation) -> bool:
         """Deploy a service to a specific edge location."""
         try:
             # Find suitable node
             requirements = service.resource_requirements
             node = self.node_manager.find_optimal_node(requirements, location)
-            
+
             if not node:
                 logger.warning(f"No suitable node found for {service.name} in {location.value}")
                 return False
-            
+
             # Deploy based on node type and deployment strategy
             if self.strategy == DeploymentStrategy.REGIONAL_CLUSTERS:
                 return await self._deploy_to_kubernetes_cluster(service, node)
@@ -375,52 +374,52 @@ class EdgeOrchestrator:
                 return await self._deploy_to_iot_gateway(service, node)
             else:
                 return await self._deploy_to_container(service, node)
-                
+
         except Exception as e:
             logger.error(f"Deployment failed for {service.name} to {location.value}: {e}")
             return False
-    
+
     async def _deploy_to_kubernetes_cluster(self, service: EdgeService, node: EdgeNode) -> bool:
         """Deploy service to Kubernetes cluster."""
         if not KUBERNETES_AVAILABLE:
             logger.error("Kubernetes client not available")
             return False
-        
+
         try:
             # Generate Kubernetes manifest
             manifest = self._generate_k8s_manifest(service, node)
-            
+
             # Apply manifest
             config.load_incluster_config()  # or load_kube_config() for local
             v1 = client.AppsV1Api()
-            
+
             # Create deployment
             v1.create_namespaced_deployment(
                 body=manifest,
                 namespace="edge-services"
             )
-            
+
             # Add service to node's service list
             node.services.append(service.name)
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Kubernetes deployment failed: {e}")
             return False
-    
+
     async def _deploy_to_container(self, service: EdgeService, node: EdgeNode) -> bool:
         """Deploy service as Docker container."""
         if not DOCKER_AVAILABLE:
             logger.error("Docker client not available")
             return False
-        
+
         try:
             client = docker.from_env()
-            
+
             # Pull image
             client.images.pull(f"{service.image}:{service.version}")
-            
+
             # Create container
             container = client.containers.run(
                 image=f"{service.image}:{service.version}",
@@ -430,17 +429,17 @@ class EdgeOrchestrator:
                 detach=True,
                 restart_policy={"Name": "always"}
             )
-            
+
             # Add service to node's service list
             node.services.append(service.name)
-            
+
             logger.info(f"Container {container.id} started for service {service.name}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Container deployment failed: {e}")
             return False
-    
+
     async def _deploy_to_cdn_worker(self, service: EdgeService, node: EdgeNode) -> bool:
         """Deploy service as CDN edge worker."""
         # This would integrate with CDN providers like Cloudflare Workers, AWS Lambda@Edge
@@ -461,7 +460,7 @@ class EdgeOrchestrator:
         except Exception as e:
             logger.error(f"CDN worker deployment failed: {e}")
             return False
-    
+
     async def _deploy_to_iot_gateway(self, service: EdgeService, node: EdgeNode) -> bool:
         """Deploy service to IoT gateway."""
         logger.info(f"Deploying {service.name} to IoT gateway {node.name}")
@@ -488,7 +487,7 @@ class EdgeOrchestrator:
         except Exception as e:
             logger.error(f"IoT gateway deployment failed: {e}")
             return False
-    
+
     def _generate_k8s_manifest(self, service: EdgeService, node: EdgeNode) -> dict[str, Any]:
         """Generate Kubernetes deployment manifest."""
         return {
@@ -526,7 +525,7 @@ class EdgeOrchestrator:
                                 'containerPort': service.port
                             }],
                             'env': [
-                                {'name': k, 'value': v} 
+                                {'name': k, 'value': v}
                                 for k, v in service.environment.items()
                             ],
                             'resources': service.resource_requirements
@@ -535,7 +534,7 @@ class EdgeOrchestrator:
                 }
             }
         }
-    
+
     def _generate_cdn_worker_script(self, service: EdgeService) -> str:
         """Generate CDN worker script."""
         return f"""
@@ -546,14 +545,14 @@ addEventListener('fetch', event => {{
 
 async function handleRequest(request) {{
     const url = new URL(request.url)
-    
+
     // Route to appropriate handler
     if (url.pathname.startsWith('/api/chat')) {{
         return await handleChatRequest(request)
     }} else if (url.pathname.startsWith('/api/files')) {{
         return await handleFileRequest(request)
     }}
-    
+
     return new Response('Not Found', {{ status: 404 }})
 }}
 
@@ -564,7 +563,7 @@ async function handleChatRequest(request) {{
         headers: request.headers,
         body: request.body
     }})
-    
+
     return response
 }}
 
@@ -578,13 +577,13 @@ async function handleFileRequest(request) {{
     }})
 }}
 """
-    
-    async def scale_service(self, service_name: str, location: EdgeLocation, 
+
+    async def scale_service(self, service_name: str, location: EdgeLocation,
                           new_replicas: int) -> bool:
         """Scale a service at specific location."""
         try:
             nodes = self.node_manager.get_nodes_by_location(location)
-            
+
             for node in nodes:
                 if service_name in node.services:
                     # Scale based on deployment type
@@ -596,27 +595,27 @@ async function handleFileRequest(request) {{
                         success = await self._scale_container_deployment(
                             service_name, node, new_replicas
                         )
-                    
+
                     if success:
                         logger.info(f"Scaled {service_name} to {new_replicas} replicas in {location.value}")
                         return True
-            
+
             return False
-            
+
         except Exception as e:
             logger.error(f"Failed to scale service {service_name}: {e}")
             return False
-    
-    async def _scale_k8s_deployment(self, service_name: str, location: EdgeLocation, 
+
+    async def _scale_k8s_deployment(self, service_name: str, location: EdgeLocation,
                                   replicas: int) -> bool:
         """Scale Kubernetes deployment."""
         try:
             if not KUBERNETES_AVAILABLE:
                 return False
-            
+
             config.load_incluster_config()
             v1 = client.AppsV1Api()
-            
+
             # Patch deployment
             body = {'spec': {'replicas': replicas}}
             v1.patch_namespaced_deployment_scale(
@@ -624,29 +623,29 @@ async function handleFileRequest(request) {{
                 namespace="edge-services",
                 body=body
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Kubernetes scaling failed: {e}")
             return False
-    
-    async def _scale_container_deployment(self, service_name: str, node: EdgeNode, 
+
+    async def _scale_container_deployment(self, service_name: str, node: EdgeNode,
                                         replicas: int) -> bool:
         """Scale container deployment."""
         try:
             if not DOCKER_AVAILABLE:
                 return False
-            
+
             docker_client = docker.from_env()
-            
+
             # Get existing containers
             containers = docker_client.containers.list(
                 filters={'name': f"{service_name}-{node.id}"}
             )
-            
+
             current_replicas = len(containers)
-            
+
             if replicas > current_replicas:
                 # Scale up
                 service = self.services[service_name]
@@ -664,13 +663,13 @@ async function handleFileRequest(request) {{
                 for container in containers_to_remove:
                     container.stop()
                     container.remove()
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Container scaling failed: {e}")
             return False
-    
+
     def create_workload_distribution(self, distribution: WorkloadDistribution) -> bool:
         """Create a workload distribution rule."""
         try:
@@ -680,13 +679,13 @@ async function handleFileRequest(request) {{
         except Exception as e:
             logger.error(f"Failed to create workload distribution: {e}")
             return False
-    
+
     def get_optimal_location_for_request(self, request_metadata: dict[str, Any]) -> EdgeLocation:
         """Determine optimal edge location for a request."""
         # client_ip = request_metadata.get('client_ip', '')  # pylint: disable=unused-variable
         user_location = request_metadata.get('user_location', '')
         # service_type = request_metadata.get('service_type', '')  # pylint: disable=unused-variable
-        
+
         # Simple geolocation-based routing (in production, use GeoIP services)
         if 'US' in user_location or 'CA' in user_location:
             if 'west' in user_location.lower():
@@ -707,21 +706,21 @@ async function handleFileRequest(request) {{
             return EdgeLocation.AFRICA
         elif 'AU' in user_location or 'NZ' in user_location:
             return EdgeLocation.AUSTRALIA
-        
+
         # Default fallback
         return EdgeLocation.NORTH_AMERICA_EAST
-    
+
     async def get_edge_metrics(self) -> dict[str, Any]:
         """Get comprehensive edge computing metrics."""
         total_nodes = len(self.node_manager.nodes)
         healthy_nodes = len(self.node_manager.get_healthy_nodes())
-        
+
         # Node distribution by location
         location_distribution = {}
         for location in EdgeLocation:
             nodes = self.node_manager.get_nodes_by_location(location)
             location_distribution[location.value] = len(nodes)
-        
+
         # Service distribution
         service_distribution = {}
         for service_name in self.services.keys():
@@ -729,12 +728,12 @@ async function handleFileRequest(request) {{
                 1 for node in self.node_manager.nodes.values()
                 if service_name in node.services
             )
-        
+
         # Resource utilization (placeholder - would come from monitoring)
         total_cpu = sum(node.cpu_cores for node in self.node_manager.nodes.values())
         total_memory = sum(node.memory_mb for node in self.node_manager.nodes.values())
         total_storage = sum(node.storage_gb for node in self.node_manager.nodes.values())
-        
+
         return {
             'total_nodes': total_nodes,
             'healthy_nodes': healthy_nodes,
@@ -753,19 +752,19 @@ async function handleFileRequest(request) {{
 
 class EdgeOptimizedCache:
     """Edge-optimized caching system."""
-    
+
     def __init__(self, max_size_mb: int = 100):
         self.max_size_mb = max_size_mb
         self.cache: dict[str, dict[str, Any]] = {}
         self.access_times: dict[str, datetime] = {}
         self.current_size_mb = 0
-    
+
     def put(self, key: str, value: Any, size_mb: float = 0.1, ttl_seconds: int = 3600):
         """Store item in edge cache."""
         # Evict if necessary
         while self.current_size_mb + size_mb > self.max_size_mb and self.cache:
             self._evict_lru()
-        
+
         # Store item
         expire_time = datetime.utcnow() + timedelta(seconds=ttl_seconds)
         self.cache[key] = {
@@ -775,43 +774,43 @@ class EdgeOptimizedCache:
         }
         self.access_times[key] = datetime.utcnow()
         self.current_size_mb += size_mb
-    
+
     def get(self, key: str) -> Any:
         """Retrieve item from edge cache."""
         if key not in self.cache:
             return None
-        
+
         item = self.cache[key]
-        
+
         # Check expiration
         if datetime.utcnow() > item['expire_time']:
             self._remove_item(key)
             return None
-        
+
         # Update access time
         self.access_times[key] = datetime.utcnow()
         return item['value']
-    
+
     def invalidate(self, key: str):
         """Invalidate cache item."""
         if key in self.cache:
             self._remove_item(key)
-    
+
     def _evict_lru(self):
         """Evict least recently used item."""
         if not self.access_times:
             return
-        
+
         lru_key = min(self.access_times.keys(), key=lambda k: self.access_times[k])
         self._remove_item(lru_key)
-    
+
     def _remove_item(self, key: str):
         """Remove item from cache."""
         if key in self.cache:
             self.current_size_mb -= self.cache[key]['size_mb']
             del self.cache[key]
             del self.access_times[key]
-    
+
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return {
@@ -824,17 +823,17 @@ class EdgeOptimizedCache:
 
 class TQGenAIEdgeManager:
     """Complete edge computing management for TQ GenAI Chat."""
-    
+
     def __init__(self, config: dict[str, Any]):
         self.config = config
         self.orchestrator = EdgeOrchestrator(config)
         self.edge_cache = EdgeOptimizedCache(
             max_size_mb=config.get('cache_size_mb', 100)
         )
-        
+
         # Initialize edge services
         self._setup_edge_services()
-    
+
     def _setup_edge_services(self):
         """Setup TQ GenAI Chat edge services."""
         # Chat service - lightweight version for edge
@@ -870,7 +869,7 @@ class TQGenAIEdgeManager:
                 'target_cpu_utilization': 70
             }
         )
-        
+
         # File processing service
         file_service = EdgeService(
             name="tq-file-edge",
@@ -893,7 +892,7 @@ class TQGenAIEdgeManager:
                 'MAX_FILE_SIZE': '10MB'
             }
         )
-        
+
         # API Gateway - edge routing
         gateway_service = EdgeService(
             name="tq-gateway-edge",
@@ -916,12 +915,12 @@ class TQGenAIEdgeManager:
                 'UPSTREAM_FILE_SERVICE': 'tq-file-edge:8081'
             }
         )
-        
+
         # Register services
         self.orchestrator.register_service(chat_service)
         self.orchestrator.register_service(file_service)
         self.orchestrator.register_service(gateway_service)
-    
+
     async def deploy_to_all_edges(self) -> bool:
         """Deploy TQ GenAI Chat to all edge locations."""
         try:
@@ -932,7 +931,7 @@ class TQGenAIEdgeManager:
                 EdgeLocation.EUROPE_WEST,
                 EdgeLocation.ASIA_PACIFIC
             ]
-            
+
             success = True
             for service_name in ['tq-chat-edge', 'tq-file-edge', 'tq-gateway-edge']:
                 deployment_success = await self.orchestrator.deploy_service(
@@ -940,28 +939,28 @@ class TQGenAIEdgeManager:
                 )
                 if not deployment_success:
                     success = False
-            
+
             return success
-            
+
         except Exception as e:
             logger.error(f"Edge deployment failed: {e}")
             return False
-    
+
     async def route_request(self, request_metadata: dict[str, Any]) -> dict[str, Any]:
         """Route request to optimal edge location."""
         # Determine optimal location
         optimal_location = self.orchestrator.get_optimal_location_for_request(request_metadata)
-        
+
         # Find healthy nodes at that location
         nodes = self.orchestrator.node_manager.get_nodes_by_location(optimal_location)
         healthy_nodes = [n for n in nodes if n.status == "healthy"]
-        
+
         if not healthy_nodes:
             # Fallback to any healthy node
             healthy_nodes = self.orchestrator.node_manager.get_healthy_nodes()
             if healthy_nodes:
                 optimal_location = healthy_nodes[0].location
-        
+
         # Generate routing information
         return {
             'target_location': optimal_location.value,
@@ -972,36 +971,36 @@ class TQGenAIEdgeManager:
                 'edge_node_count': len(healthy_nodes)
             }
         }
-    
-    async def cache_response(self, key: str, response: Any, 
+
+    async def cache_response(self, key: str, response: Any,
                            cache_duration: int = 300) -> bool:
         """Cache response at edge."""
         try:
             # Estimate response size (simplified)
             response_size = len(str(response)) / (1024 * 1024)  # MB
-            
+
             self.edge_cache.put(
                 key=key,
                 value=response,
                 size_mb=response_size,
                 ttl_seconds=cache_duration
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Edge caching failed: {e}")
             return False
-    
+
     async def get_cached_response(self, key: str) -> Any:
         """Get cached response from edge."""
         return self.edge_cache.get(key)
-    
+
     async def get_edge_status(self) -> dict[str, Any]:
         """Get comprehensive edge status."""
         orchestrator_metrics = await self.orchestrator.get_edge_metrics()
         cache_stats = self.edge_cache.get_stats()
-        
+
         return {
             'orchestrator': orchestrator_metrics,
             'cache': cache_stats,
@@ -1023,7 +1022,7 @@ class TQGenAIEdgeManager:
 # Example usage and testing
 if __name__ == "__main__":
     import asyncio
-    
+
     async def main():
         # Configuration
         config = {
@@ -1032,10 +1031,10 @@ if __name__ == "__main__":
             'load_balancing_strategy': 'latency_based',
             'cache_size_mb': 500
         }
-        
+
         # Initialize edge manager
         edge_manager = TQGenAIEdgeManager(config)
-        
+
         # Register some sample edge nodes
         nodes = [
             EdgeNode(
@@ -1061,36 +1060,33 @@ if __name__ == "__main__":
                 public_ip="203.0.113.20"
             )
         ]
-        
+
         for node in nodes:
             edge_manager.orchestrator.node_manager.register_node(node)
-        
+
         # Start orchestrator
         await edge_manager.orchestrator.start()
-        
+
         # Test request routing
         request_metadata = {
             'client_ip': '203.0.113.100',
             'user_location': 'US-NY',
             'service_type': 'chat'
         }
-        
-        routing_info = await edge_manager.route_request(request_metadata)
-        print("Routing info:", json.dumps(routing_info, indent=2))
-        
+
+        await edge_manager.route_request(request_metadata)
+
         # Test edge caching
         cache_key = "chat_response_12345"
         test_response = {"message": "Hello from edge!", "provider": "openai"}
-        
+
         await edge_manager.cache_response(cache_key, test_response)
-        cached_response = await edge_manager.get_cached_response(cache_key)
-        print("Cached response:", cached_response)
-        
+        await edge_manager.get_cached_response(cache_key)
+
         # Get edge status
-        status = await edge_manager.get_edge_status()
-        print("Edge status:", json.dumps(status, indent=2, default=str))
-        
+        await edge_manager.get_edge_status()
+
         # Stop orchestrator
         await edge_manager.orchestrator.stop()
-    
+
     asyncio.run(main())

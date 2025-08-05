@@ -4,9 +4,10 @@ TQ GenAI Chat Application Factory
 Modern Flask application with dependency injection and modular architecture.
 """
 
+from pathlib import Path
+
 from flask import Flask
 from flask_cors import CORS
-from pathlib import Path
 
 # Import when we create proper config
 # from config.settings import config

@@ -1,10 +1,10 @@
 """Async base provider interface for high-performance operations"""
-import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from typing import Any
+
 import aiohttp
-import time
 
 
 @dataclass
@@ -12,24 +12,24 @@ class ChatMessage:
     """Standardized chat message format"""
     role: str
     content: str
-    
 
-@dataclass 
+
+@dataclass
 class ChatRequest:
     """Standardized chat request format"""
-    messages: List[ChatMessage]
+    messages: list[ChatMessage]
     model: str
     temperature: float = 0.7
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     stream: bool = False
-    
+
 
 @dataclass
 class ChatResponse:
     """Standardized chat response format"""
     content: str
     model: str
-    usage: Dict[str, Any]
+    usage: dict[str, Any]
     provider: str
     response_time: float = 0.0
     cached: bool = False
@@ -37,12 +37,12 @@ class ChatResponse:
 
 class AsyncAIProviderInterface(ABC):
     """Async base class for AI providers with performance optimizations"""
-    
+
     def __init__(self):
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
         self._request_count = 0
         self._total_response_time = 0.0
-    
+
     async def __aenter__(self):
         """Async context manager entry"""
         if not self.session:
@@ -53,45 +53,45 @@ class AsyncAIProviderInterface(ABC):
                 connector=connector
             )
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
         if self.session:
             await self.session.close()
-    
+
     @abstractmethod
-    async def get_models(self) -> List[str]:
+    async def get_models(self) -> list[str]:
         """Get available models for this provider"""
         pass
-    
+
     @abstractmethod
     async def chat_completion(self, request: ChatRequest) -> ChatResponse:
         """Process chat completion request asynchronously"""
         pass
-    
+
     @abstractmethod
     async def chat_completion_stream(self, request: ChatRequest) -> AsyncGenerator[str, None]:
         """Stream chat completion response"""
         pass
-    
+
     @abstractmethod
     def is_available(self) -> bool:
         """Check if provider is available"""
         pass
-    
+
     @property
     @abstractmethod
     def name(self) -> str:
         """Provider name"""
         pass
-    
-    @property 
+
+    @property
     def average_response_time(self) -> float:
         """Get average response time for this provider"""
         if self._request_count == 0:
             return 0.0
         return self._total_response_time / self._request_count
-    
+
     def _record_response_time(self, response_time: float):
         """Record response time for performance monitoring"""
         self._request_count += 1

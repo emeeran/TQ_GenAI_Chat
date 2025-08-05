@@ -1,19 +1,19 @@
 """Chat history repository implementation"""
 import json
 import sqlite3
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any
+
 from .base import BaseRepository
 
 
 class ChatHistoryRepository(BaseRepository):
     """Repository for chat history management"""
-    
+
     def __init__(self, db_path: str = "chat_history.db"):
         self.db_path = db_path
         self._init_db()
-    
+
     def _init_db(self):
         """Initialize database tables"""
         with sqlite3.connect(self.db_path) as conn:
@@ -26,7 +26,7 @@ class ChatHistoryRepository(BaseRepository):
                     metadata TEXT
                 )
             """)
-            
+
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS chat_messages (
                     id TEXT PRIMARY KEY,
@@ -39,14 +39,14 @@ class ChatHistoryRepository(BaseRepository):
                     FOREIGN KEY (session_id) REFERENCES chat_sessions (id)
                 )
             """)
-    
-    def save(self, data: Dict[str, Any]) -> str:
+
+    def save(self, data: dict[str, Any]) -> str:
         """Save chat session"""
         session_id = data.get("id", self._generate_id())
-        
+
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
-                INSERT OR REPLACE INTO chat_sessions 
+                INSERT OR REPLACE INTO chat_sessions
                 (id, title, metadata, updated_at)
                 VALUES (?, ?, ?, ?)
             """, (
@@ -55,13 +55,13 @@ class ChatHistoryRepository(BaseRepository):
                 json.dumps(data.get("metadata", {})),
                 datetime.now()
             ))
-        
+
         return session_id
-    
-    def save_message(self, session_id: str, message: Dict[str, Any]) -> str:
+
+    def save_message(self, session_id: str, message: dict[str, Any]) -> str:
         """Save individual message"""
         message_id = self._generate_id()
-        
+
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 INSERT INTO chat_messages
@@ -75,31 +75,31 @@ class ChatHistoryRepository(BaseRepository):
                 message.get("model", ""),
                 message.get("provider", "")
             ))
-        
+
         return message_id
-    
-    def find_by_id(self, session_id: str) -> Optional[Dict[str, Any]]:
+
+    def find_by_id(self, session_id: str) -> dict[str, Any] | None:
         """Find chat session by ID"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            
+
             # Get session
             session = conn.execute(
-                "SELECT * FROM chat_sessions WHERE id = ?", 
+                "SELECT * FROM chat_sessions WHERE id = ?",
                 (session_id,)
             ).fetchone()
-            
+
             if not session:
                 return None
-            
+
             # Get messages
             messages = conn.execute("""
                 SELECT role, content, model, provider, created_at
-                FROM chat_messages 
-                WHERE session_id = ? 
+                FROM chat_messages
+                WHERE session_id = ?
                 ORDER BY created_at
             """, (session_id,)).fetchall()
-            
+
             return {
                 "id": session["id"],
                 "title": session["title"],
@@ -108,19 +108,19 @@ class ChatHistoryRepository(BaseRepository):
                 "metadata": json.loads(session["metadata"]),
                 "messages": [dict(msg) for msg in messages]
             }
-    
-    def find_all(self) -> List[Dict[str, Any]]:
+
+    def find_all(self) -> list[dict[str, Any]]:
         """Find all chat sessions"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             sessions = conn.execute("""
                 SELECT id, title, created_at, updated_at
-                FROM chat_sessions 
+                FROM chat_sessions
                 ORDER BY updated_at DESC
             """).fetchall()
-            
+
             return [dict(session) for session in sessions]
-    
+
     def delete(self, session_id: str) -> bool:
         """Delete chat session and its messages"""
         with sqlite3.connect(self.db_path) as conn:
@@ -129,7 +129,7 @@ class ChatHistoryRepository(BaseRepository):
             # Delete session
             result = conn.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
             return result.rowcount > 0
-    
+
     def _generate_id(self) -> str:
         """Generate unique ID"""
         import uuid

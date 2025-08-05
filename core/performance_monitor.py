@@ -5,7 +5,6 @@ Tracks metrics, provides real-time monitoring, and generates performance reports
 
 import json
 import logging
-import psutil
 import threading
 import time
 from collections import defaultdict, deque
@@ -13,6 +12,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import psutil
 
 try:
     import redis
@@ -91,7 +92,7 @@ class MetricsCollector:
                 p50 = sorted_values[int(count * 0.5)]
                 p95 = sorted_values[int(count * 0.95)]
                 p99 = sorted_values[int(count * 0.99)]
-                
+
                 self.record_metric(f"{name}_p50", p50, unit="seconds")
                 self.record_metric(f"{name}_p95", p95, unit="seconds")
                 self.record_metric(f"{name}_p99", p99, unit="seconds")
@@ -173,10 +174,10 @@ class SystemMonitor:
         if disk_io and self._last_disk_io:
             read_mb_delta = (disk_io.read_bytes - self._last_disk_io.read_bytes) / 1024 / 1024
             write_mb_delta = (disk_io.write_bytes - self._last_disk_io.write_bytes) / 1024 / 1024
-            
+
             self.metrics_collector.record_metric("system_disk_read_mb_per_sec", read_mb_delta / self.interval, unit="MB/s")
             self.metrics_collector.record_metric("system_disk_write_mb_per_sec", write_mb_delta / self.interval, unit="MB/s")
-        
+
         self._last_disk_io = disk_io
 
         # Network I/O
@@ -184,19 +185,19 @@ class SystemMonitor:
         if network_io and self._last_network_io:
             sent_mb_delta = (network_io.bytes_sent - self._last_network_io.bytes_sent) / 1024 / 1024
             recv_mb_delta = (network_io.bytes_recv - self._last_network_io.bytes_recv) / 1024 / 1024
-            
+
             self.metrics_collector.record_metric("system_network_sent_mb_per_sec", sent_mb_delta / self.interval, unit="MB/s")
             self.metrics_collector.record_metric("system_network_recv_mb_per_sec", recv_mb_delta / self.interval, unit="MB/s")
-        
+
         self._last_network_io = network_io
 
         # Process-specific metrics
         process = psutil.Process()
         self.metrics_collector.record_metric("process_cpu_percent", process.cpu_percent(), unit="percent")
-        
+
         memory_info = process.memory_info()
         self.metrics_collector.record_metric("process_memory_mb", memory_info.rss / 1024 / 1024, unit="MB")
-        
+
         # File descriptors (Unix-like systems)
         try:
             num_fds = process.num_fds()
@@ -226,7 +227,7 @@ class RequestTracker:
                 'endpoint': endpoint,
                 'method': method
             }
-        
+
         self.metrics_collector.increment_counter(f"http_requests_{method.lower()}")
         self.metrics_collector.increment_counter("http_requests_total")
 
@@ -246,7 +247,7 @@ class RequestTracker:
 
             # Record status codes
             self.metrics_collector.increment_counter(f"http_status_{status_code}")
-            
+
             if status_code >= 400:
                 self.metrics_collector.increment_counter("http_errors_total")
                 self.metrics_collector.increment_counter(f"http_errors_{endpoint}")
@@ -281,7 +282,7 @@ class AIProviderMonitor:
     ):
         """Record an AI provider request."""
         labels = {"provider": provider, "model": model}
-        
+
         # Response time
         self.metrics_collector.record_histogram("ai_request_duration", response_time)
         self.metrics_collector.record_metric(
@@ -290,39 +291,39 @@ class AIProviderMonitor:
             labels=labels,
             unit="seconds"
         )
-        
+
         # Request count
         self.metrics_collector.increment_counter(f"ai_requests_{provider}")
         self.metrics_collector.increment_counter("ai_requests_total")
-        
+
         # Token usage
         if token_count:
             self.metrics_collector.record_metric(
-                "ai_tokens_used", 
-                token_count, 
-                labels=labels, 
+                "ai_tokens_used",
+                token_count,
+                labels=labels,
                 unit="tokens"
             )
             self.metrics_collector.increment_counter("ai_tokens_total", token_count)
-        
+
         # Cost tracking
         if cost:
             self.metrics_collector.record_metric(
-                "ai_request_cost", 
-                cost, 
-                labels=labels, 
+                "ai_request_cost",
+                cost,
+                labels=labels,
                 unit="USD"
             )
             self.metrics_collector.increment_counter("ai_cost_total", cost)
-        
+
         # Error tracking
         if error:
             self.metrics_collector.increment_counter(f"ai_errors_{provider}")
             self.metrics_collector.increment_counter("ai_errors_total")
             self.metrics_collector.record_metric(
-                "ai_error_rate", 
-                1.0, 
-                labels=labels, 
+                "ai_error_rate",
+                1.0,
+                labels=labels,
                 unit="rate"
             )
 
@@ -337,7 +338,7 @@ class PerformanceMonitor:
         self.system_monitor = SystemMonitor(self.metrics_collector)
         self.request_tracker = RequestTracker(self.metrics_collector)
         self.ai_monitor = AIProviderMonitor(self.metrics_collector)
-        
+
         # Redis for distributed metrics (optional)
         self.redis_client = None
         if REDIS_AVAILABLE and redis_url:
@@ -355,7 +356,7 @@ class PerformanceMonitor:
             'response_time_p95': 5.0,  # 5 seconds
             'error_rate': 0.1  # 10%
         }
-        
+
         self.alert_callbacks: list[Callable] = []
 
     def start(self):
@@ -375,7 +376,7 @@ class PerformanceMonitor:
     def check_alerts(self):
         """Check for performance alert conditions."""
         latest_metrics = self.metrics_collector.get_latest_metrics()
-        
+
         for metric_name, threshold in self.alert_thresholds.items():
             if metric_name in latest_metrics:
                 value = latest_metrics[metric_name].value
@@ -386,7 +387,7 @@ class PerformanceMonitor:
         """Trigger performance alert."""
         message = f"Performance alert: {metric_name} = {value:.2f} exceeds threshold {threshold:.2f}"
         logger.warning(message)
-        
+
         for callback in self.alert_callbacks:
             try:
                 callback(metric_name, value, threshold)
@@ -396,7 +397,7 @@ class PerformanceMonitor:
     def get_performance_snapshot(self) -> PerformanceSnapshot:
         """Get current performance snapshot."""
         latest_metrics = self.metrics_collector.get_latest_metrics()
-        
+
         def get_metric_value(name: str, default: float = 0.0) -> float:
             return latest_metrics.get(name, MetricData(name, default, time.time())).value
 
@@ -430,7 +431,7 @@ class PerformanceMonitor:
         """Calculate error rate for a metric prefix."""
         total_requests = self.metrics_collector.get_counter_value(f'{prefix}_requests_total')
         total_errors = self.metrics_collector.get_counter_value(f'{prefix}_errors_total')
-        
+
         if total_requests > 0:
             return total_errors / total_requests
         return 0.0
@@ -439,26 +440,26 @@ class PerformanceMonitor:
         """Export metrics in Prometheus format."""
         lines = []
         latest_metrics = self.metrics_collector.get_latest_metrics()
-        
+
         for name, metric in latest_metrics.items():
             # Convert to Prometheus format
             prometheus_name = name.replace('-', '_').replace('.', '_')
-            
+
             if metric.labels:
                 labels_str = ','.join([f'{k}="{v}"' for k, v in metric.labels.items()])
                 line = f'{prometheus_name}{{{labels_str}}} {metric.value} {int(metric.timestamp * 1000)}'
             else:
                 line = f'{prometheus_name} {metric.value} {int(metric.timestamp * 1000)}'
-            
+
             lines.append(line)
-        
+
         return '\n'.join(lines)
 
     def generate_performance_report(self, hours: int = 24) -> dict[str, Any]:
         """Generate comprehensive performance report."""
         current_time = time.time()
         start_time = current_time - (hours * 3600)
-        
+
         # Get recent metrics
         all_metrics = {}
         for name in self.metrics_collector.metrics.keys():
@@ -498,7 +499,7 @@ class PerformanceMonitor:
         # AI usage summary
         ai_requests = self.metrics_collector.get_counter_value('ai_requests_total')
         ai_cost = self.metrics_collector.get_counter_value('ai_cost_total')
-        
+
         report['ai_usage'] = {
             'total_requests': ai_requests,
             'total_cost_usd': ai_cost,
@@ -509,7 +510,7 @@ class PerformanceMonitor:
         # Error analysis
         http_errors = self.metrics_collector.get_counter_value('http_errors_total')
         ai_errors = self.metrics_collector.get_counter_value('ai_errors_total')
-        
+
         report['errors_and_alerts'] = {
             'http_errors': http_errors,
             'ai_errors': ai_errors,
@@ -520,10 +521,10 @@ class PerformanceMonitor:
         snapshot = self.get_performance_snapshot()
         if snapshot.cpu_percent > 70:
             report['recommendations'].append("High CPU usage detected. Consider scaling or optimizing CPU-intensive operations.")
-        
+
         if snapshot.memory_percent > 80:
             report['recommendations'].append("High memory usage detected. Consider optimizing memory usage or adding more RAM.")
-        
+
         if snapshot.response_times.get('p95', 0) > 3.0:
             report['recommendations'].append("Slow response times detected. Consider optimizing database queries or API calls.")
 
@@ -534,13 +535,13 @@ class PerformanceMonitor:
         if not filename:
             timestamp = int(time.time())
             filename = f"performance_report_{timestamp}.json"
-        
+
         report_path = Path("reports") / filename
         report_path.parent.mkdir(exist_ok=True)
-        
+
         with open(report_path, 'w') as f:
             json.dump(report, f, indent=2, default=str)
-        
+
         logger.info(f"Performance report saved to {report_path}")
         return str(report_path)
 
@@ -559,17 +560,17 @@ def get_performance_monitor(redis_url: str = None) -> PerformanceMonitor:
 # Context managers for easy request tracking
 class request_timer:
     """Context manager for timing requests."""
-    
+
     def __init__(self, endpoint: str, method: str = "GET", monitor: PerformanceMonitor = None):
         self.endpoint = endpoint
         self.method = method
         self.monitor = monitor or get_performance_monitor()
         self.request_id = f"{endpoint}_{time.time()}_{threading.get_ident()}"
-        
+
     def __enter__(self):
         self.monitor.request_tracker.start_request(self.request_id, self.endpoint, self.method)
         return self
-        
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         status_code = 500 if exc_type else 200
         error = str(exc_val) if exc_val else None
@@ -578,24 +579,24 @@ class request_timer:
 
 class ai_request_timer:
     """Context manager for timing AI requests."""
-    
+
     def __init__(self, provider: str, model: str, monitor: PerformanceMonitor = None):
         self.provider = provider
         self.model = model
         self.monitor = monitor or get_performance_monitor()
         self.start_time = None
-        
+
     def __enter__(self):
         self.start_time = time.time()
         return self
-        
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.start_time:
             duration = time.time() - self.start_time
             error = str(exc_val) if exc_val else None
             self.monitor.ai_monitor.record_ai_request(
-                self.provider, 
-                self.model, 
-                duration, 
+                self.provider,
+                self.model,
+                duration,
                 error=error
             )

@@ -60,7 +60,7 @@ class ChatWebSocketHandler:
             return
 
         logger.info(f"User {user_id} connected to room {chat_room}")
-        
+
         # Store connection
         self.active_connections[user_id] = websocket
         self.chat_rooms[chat_room].add(user_id)
@@ -132,7 +132,7 @@ class ChatWebSocketHandler:
         Handle typing start indicator.
         """
         self.typing_status[chat_room][user_id] = time.time()
-        
+
         await self.broadcast_message(chat_room, {
             'type': 'typing_start',
             'user_id': user_id,
@@ -144,7 +144,7 @@ class ChatWebSocketHandler:
         Handle typing stop indicator.
         """
         self.typing_status[chat_room].pop(user_id, None)
-        
+
         await self.broadcast_message(chat_room, {
             'type': 'typing_stop',
             'user_id': user_id,
@@ -159,11 +159,11 @@ class ChatWebSocketHandler:
             return
 
         disconnected_users = []
-        
+
         for user_id in self.chat_rooms[chat_room]:
             if exclude_user and user_id == exclude_user:
                 continue
-                
+
             if user_id in self.active_connections:
                 try:
                     await self.send_to_user(user_id, message)
@@ -202,11 +202,11 @@ class ChatWebSocketHandler:
         """
         # Remove from connections
         self.active_connections.pop(user_id, None)
-        
+
         # Remove from chat room
         if chat_room in self.chat_rooms:
             self.chat_rooms[chat_room].discard(user_id)
-            
+
             # Remove empty rooms
             if not self.chat_rooms[chat_room]:
                 del self.chat_rooms[chat_room]
@@ -238,7 +238,7 @@ class ChatWebSocketHandler:
 
         if progress is not None:
             message['progress'] = progress
-        
+
         if error:
             message['error'] = error
 
@@ -271,10 +271,10 @@ class ChatWebSocketHandler:
                 'connected': user_id in self.active_connections,
                 'typing': user_id in self.typing_status.get(chat_room, {}),
             }
-            
+
             if user_id in self.user_status:
                 user_info.update(self.user_status[user_id])
-            
+
             users.append(user_info)
 
         return users

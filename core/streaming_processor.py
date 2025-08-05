@@ -123,7 +123,7 @@ class StreamingFileProcessor:
         """
         try:
             file_stream.seek(0)
-            
+
             # Use pandas with chunking for large CSVs
             chunk_iter = pd.read_csv(
                 file_stream,
@@ -139,7 +139,7 @@ class StreamingFileProcessor:
                 # Convert chunk to string representation
                 chunk_text = chunk.to_string(index=False)
                 processed_chunks.append(f"Chunk {i + 1}:\n{chunk_text}\n")
-                
+
                 total_rows += len(chunk)
 
                 # Update progress (estimate)
@@ -173,7 +173,7 @@ class StreamingFileProcessor:
         """
         try:
             file_stream.seek(0)
-            
+
             # Read Excel file
             excel_file = pd.ExcelFile(file_stream)
             sheet_names = excel_file.sheet_names
@@ -183,20 +183,20 @@ class StreamingFileProcessor:
                 try:
                     # Read sheet in chunks if it's large
                     df = pd.read_excel(excel_file, sheet_name=sheet_name)
-                    
+
                     if len(df) > 10000:  # Large sheet, process in chunks
                         chunks = [df[i:i+1000] for i in range(0, len(df), 1000)]
                         sheet_parts = []
-                        
+
                         for chunk in chunks:
                             chunk_text = chunk.to_string(index=False)
                             sheet_parts.append(chunk_text)
                             await asyncio.sleep(0)  # Yield control
-                        
+
                         sheet_content = '\n'.join(sheet_parts)
                     else:
                         sheet_content = df.to_string(index=False)
-                    
+
                     processed_sheets.append(f"Sheet: {sheet_name}\n{sheet_content}\n")
 
                     # Update progress
@@ -229,7 +229,7 @@ class StreamingFileProcessor:
 
         try:
             file_stream.seek(0)
-            
+
             # Convert PDF to images
             images = convert_from_bytes(file_stream.read())
             text_parts = []
@@ -294,7 +294,7 @@ class StreamingFileProcessor:
         try:
             doc_file = io.BytesIO(content)
             doc = docx.Document(doc_file)
-            
+
             text_parts = []
             for paragraph in doc.paragraphs:
                 if paragraph.text.strip():
@@ -311,14 +311,14 @@ class StreamingFileProcessor:
         try:
             image_file = io.BytesIO(content)
             image = Image.open(image_file)
-            
+
             # Extract basic metadata
             metadata = {
                 'format': image.format,
                 'size': image.size,
                 'mode': image.mode
             }
-            
+
             result = f"Image metadata: {metadata}"
 
             # Attempt OCR if available
@@ -342,7 +342,7 @@ class StreamingFileProcessor:
         """
         file_path = Path(filename)
         file_size = len(content)
-        
+
         info = {
             'filename': filename,
             'size': file_size,
@@ -353,7 +353,7 @@ class StreamingFileProcessor:
         # Determine processing method based on size and type
         if file_size > 10 * 1024 * 1024:  # 10MB
             info['processing_method'] = 'streaming'
-        
+
         # Additional file-specific info
         if file_path.suffix.lower() == '.pdf':
             try:
@@ -362,7 +362,7 @@ class StreamingFileProcessor:
                 info['pages'] = len(pdf_reader.pages)
             except Exception:
                 pass
-        
+
         elif file_path.suffix.lower() in ['.png', '.jpg', '.jpeg']:
             try:
                 image_file = io.BytesIO(content)

@@ -42,13 +42,13 @@ def create_app(config_name: str = 'development') -> Flask:
 
     # Configure CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})
-    
+
     # Setup logging
     setup_logging(app)
-    
+
     # Start performance monitoring
     perf_monitor.start_monitoring()
-    
+
     # Start background services in a separate thread
     def start_background_services():
         """Start background services in a separate thread"""
@@ -60,11 +60,11 @@ def create_app(config_name: str = 'development') -> Flask:
             app.logger.error(f"Error starting background services: {e}")
         finally:
             pass  # Keep loop for background tasks
-    
+
     import threading
     bg_thread = threading.Thread(target=start_background_services, daemon=True)
     bg_thread.start()
-    
+
     # Initialize services (dependency injection)
     with app.app_context():
         # Pre-initialize core services

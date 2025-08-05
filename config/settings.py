@@ -5,11 +5,11 @@ This module consolidates all configuration from app.py, config/models.py, and ai
 into a single, well-organized configuration management system.
 """
 
+import logging
 import os
-from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 from pathlib import Path
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class ProviderConfig:
     fallback_model: str
     timeout: int = 30
     max_retries: int = 3
-    rate_limit: Optional[int] = None
-    custom_headers: Dict[str, str] = field(default_factory=dict)
+    rate_limit: int | None = None
+    custom_headers: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -45,10 +45,10 @@ class ModelConfig:
     display_name: str
     provider: str
     capabilities: ModelCapabilities
-    cost_per_token: Optional[float] = None
+    cost_per_token: float | None = None
     deprecated: bool = False
-    description: Optional[str] = None
-    specialization: Optional[str] = None
+    description: str | None = None
+    specialization: str | None = None
 
 
 @dataclass
@@ -60,7 +60,7 @@ class AppConfig:
     upload_folder: str = "uploads"
     max_files: int = 10
     json_sort_keys: bool = False
-    cors_origins: List[str] = field(default_factory=lambda: ["*"])
+    cors_origins: list[str] = field(default_factory=lambda: ["*"])
 
 
 @dataclass
@@ -69,7 +69,7 @@ class CacheConfig:
     enabled: bool = True
     default_ttl: int = 300  # 5 minutes
     max_size: int = 1000
-    redis_url: Optional[str] = None
+    redis_url: str | None = None
     file_cache_dir: str = "cache"
 
 
@@ -78,7 +78,7 @@ class LoggingConfig:
     """Logging configuration."""
     level: str = "INFO"
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    file_path: Optional[str] = None
+    file_path: str | None = None
     max_bytes: int = 10 * 1024 * 1024  # 10MB
     backup_count: int = 5
 
@@ -86,30 +86,30 @@ class LoggingConfig:
 class ConfigManager:
     """
     Centralized configuration manager.
-    
+
     This class consolidates all configuration from various sources and provides
     a single interface for accessing application settings.
     """
-    
-    def __init__(self, env_file: Optional[str] = None):
+
+    def __init__(self, env_file: str | None = None):
         """
         Initialize configuration manager.
-        
+
         Args:
             env_file: Optional path to environment file
         """
         if env_file:
             from dotenv import load_dotenv
             load_dotenv(env_file)
-        
-        self._providers: Dict[str, ProviderConfig] = {}
-        self._models: Dict[str, ModelConfig] = {}
-        self._app_config: Optional[AppConfig] = None
-        self._cache_config: Optional[CacheConfig] = None
-        self._logging_config: Optional[LoggingConfig] = None
-        
+
+        self._providers: dict[str, ProviderConfig] = {}
+        self._models: dict[str, ModelConfig] = {}
+        self._app_config: AppConfig | None = None
+        self._cache_config: CacheConfig | None = None
+        self._logging_config: LoggingConfig | None = None
+
         self._load_configurations()
-    
+
     def _load_configurations(self) -> None:
         """Load all configurations from environment and defaults."""
         self._load_provider_configs()
@@ -117,7 +117,7 @@ class ConfigManager:
         self._load_app_config()
         self._load_cache_config()
         self._load_logging_config()
-    
+
     def _load_provider_configs(self) -> None:
         """Load provider configurations."""
         # OpenAI
@@ -128,7 +128,7 @@ class ConfigManager:
             fallback_model="gpt-3.5-turbo",
             rate_limit=60  # requests per minute
         )
-        
+
         # Anthropic
         self._providers["anthropic"] = ProviderConfig(
             endpoint="https://api.anthropic.com/v1/messages",
@@ -137,7 +137,7 @@ class ConfigManager:
             fallback_model="claude-3-sonnet-20240229",
             custom_headers={"anthropic-version": "2023-06-01"}
         )
-        
+
         # Groq
         self._providers["groq"] = ProviderConfig(
             endpoint="https://api.groq.com/openai/v1/chat/completions",
@@ -145,7 +145,7 @@ class ConfigManager:
             default_model="deepseek-r1-distill-llama-70b",
             fallback_model="mixtral-8x7b-32768"
         )
-        
+
         # Mistral
         self._providers["mistral"] = ProviderConfig(
             endpoint="https://api.mistral.ai/v1/chat/completions",
@@ -153,7 +153,7 @@ class ConfigManager:
             default_model="codestral-latest",
             fallback_model="mistral-small-latest"
         )
-        
+
         # XAI (Grok)
         self._providers["xai"] = ProviderConfig(
             endpoint="https://api.x.ai/v1/chat/completions",
@@ -161,7 +161,7 @@ class ConfigManager:
             default_model="grok-2-latest",
             fallback_model="grok-2"
         )
-        
+
         # DeepSeek
         self._providers["deepseek"] = ProviderConfig(
             endpoint="https://api.deepseek.com/v1/chat/completions",
@@ -169,7 +169,7 @@ class ConfigManager:
             default_model="deepseek-chat",
             fallback_model="deepseek-chat"
         )
-        
+
         # Gemini
         self._providers["gemini"] = ProviderConfig(
             endpoint="https://generativelanguage.googleapis.com/v1/models/",
@@ -177,7 +177,7 @@ class ConfigManager:
             default_model="gemini-1.5-flash",
             fallback_model="gemini-1.5-flash"
         )
-        
+
         # Cohere
         self._providers["cohere"] = ProviderConfig(
             endpoint="https://api.cohere.com/v2/chat",
@@ -185,7 +185,7 @@ class ConfigManager:
             default_model="command-r-plus-08-2024",
             fallback_model="command-r-08-2024"
         )
-        
+
         # Alibaba (Qwen)
         self._providers["alibaba"] = ProviderConfig(
             endpoint="https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
@@ -193,7 +193,7 @@ class ConfigManager:
             default_model="qwen-plus",
             fallback_model="qwen-turbo"
         )
-        
+
         # OpenRouter
         self._providers["openrouter"] = ProviderConfig(
             endpoint="https://openrouter.ai/api/v1/chat/completions",
@@ -201,7 +201,7 @@ class ConfigManager:
             default_model="moonshot/moonshot-v1-32k",
             fallback_model="moonshot/moonshot-v1-8k"
         )
-        
+
         # Hugging Face
         self._providers["huggingface"] = ProviderConfig(
             endpoint="https://api-inference.huggingface.co/models/",
@@ -209,7 +209,7 @@ class ConfigManager:
             default_model="meta-llama/Llama-2-70b-chat-hf",
             fallback_model="microsoft/DialoGPT-large"
         )
-        
+
         # Moonshot
         self._providers["moonshot"] = ProviderConfig(
             endpoint="https://api.moonshot.ai/v1/chat/completions",
@@ -217,7 +217,7 @@ class ConfigManager:
             default_model="moonshot-v1-32k",
             fallback_model="moonshot-v1-128k"
         )
-    
+
     def _load_model_configs(self) -> None:
         """Load model configurations."""
         # OpenAI Models
@@ -278,7 +278,7 @@ class ConfigManager:
                 )
             )
         }
-        
+
         # Anthropic Models
         anthropic_models = {
             "claude-3-opus": ModelConfig(
@@ -337,7 +337,7 @@ class ConfigManager:
                 )
             )
         }
-        
+
         # Groq Models
         groq_models = {
             "deepseek-r1-distill-llama-70b": ModelConfig(
@@ -368,7 +368,7 @@ class ConfigManager:
                 )
             )
         }
-        
+
         # Mistral Models
         mistral_models = {
             "codestral-latest": ModelConfig(
@@ -391,13 +391,13 @@ class ConfigManager:
                 )
             )
         }
-        
+
         # Combine all models
         self._models.update(openai_models)
         self._models.update(anthropic_models)
         self._models.update(groq_models)
         self._models.update(mistral_models)
-    
+
     def _load_app_config(self) -> None:
         """Load application configuration."""
         self._app_config = AppConfig(
@@ -409,7 +409,7 @@ class ConfigManager:
             json_sort_keys=os.getenv("JSON_SORT_KEYS", "False").lower() == "true",
             cors_origins=os.getenv("CORS_ORIGINS", "*").split(",")
         )
-    
+
     def _load_cache_config(self) -> None:
         """Load cache configuration."""
         self._cache_config = CacheConfig(
@@ -419,7 +419,7 @@ class ConfigManager:
             redis_url=os.getenv("REDIS_URL"),
             file_cache_dir=os.getenv("FILE_CACHE_DIR", "cache")
         )
-    
+
     def _load_logging_config(self) -> None:
         """Load logging configuration."""
         self._logging_config = LoggingConfig(
@@ -429,63 +429,63 @@ class ConfigManager:
             max_bytes=int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024))),
             backup_count=int(os.getenv("LOG_BACKUP_COUNT", "5"))
         )
-    
+
     # Provider methods
-    def get_provider_config(self, provider: str) -> Optional[ProviderConfig]:
+    def get_provider_config(self, provider: str) -> ProviderConfig | None:
         """Get configuration for a specific provider."""
         return self._providers.get(provider)
-    
-    def get_all_providers(self) -> Dict[str, ProviderConfig]:
+
+    def get_all_providers(self) -> dict[str, ProviderConfig]:
         """Get all provider configurations."""
         return self._providers.copy()
-    
-    def get_available_providers(self) -> List[str]:
+
+    def get_available_providers(self) -> list[str]:
         """Get list of providers with valid API keys."""
         return [name for name, config in self._providers.items() if config.api_key]
-    
+
     # Model methods
-    def get_model_config(self, model: str) -> Optional[ModelConfig]:
+    def get_model_config(self, model: str) -> ModelConfig | None:
         """Get configuration for a specific model."""
         return self._models.get(model)
-    
-    def get_models_by_provider(self, provider: str) -> List[ModelConfig]:
+
+    def get_models_by_provider(self, provider: str) -> list[ModelConfig]:
         """Get all models for a specific provider."""
         return [model for model in self._models.values() if model.provider == provider]
-    
-    def get_all_models(self) -> Dict[str, ModelConfig]:
+
+    def get_all_models(self) -> dict[str, ModelConfig]:
         """Get all model configurations."""
         return self._models.copy()
-    
-    def get_available_models(self) -> List[ModelConfig]:
+
+    def get_available_models(self) -> list[ModelConfig]:
         """Get models for providers with valid API keys."""
         available_providers = self.get_available_providers()
         return [model for model in self._models.values() if model.provider in available_providers]
-    
+
     # Configuration properties
     @property
     def app(self) -> AppConfig:
         """Get application configuration."""
         return self._app_config
-    
+
     @property
     def cache(self) -> CacheConfig:
         """Get cache configuration."""
         return self._cache_config
-    
+
     @property
     def logging(self) -> LoggingConfig:
         """Get logging configuration."""
         return self._logging_config
-    
-    def validate_configuration(self) -> List[str]:
+
+    def validate_configuration(self) -> list[str]:
         """
         Validate all configurations and return list of errors.
-        
+
         Returns:
             List of validation error messages
         """
         errors = []
-        
+
         # Validate providers
         for name, config in self._providers.items():
             if not config.api_key:
@@ -494,7 +494,7 @@ class ConfigManager:
                 errors.append(f"Missing endpoint for provider: {name}")
             if not config.default_model:
                 errors.append(f"Missing default model for provider: {name}")
-        
+
         # Validate models
         for name, config in self._models.items():
             if config.provider not in self._providers:
@@ -503,16 +503,16 @@ class ConfigManager:
                 errors.append(f"Invalid context window for model: {name}")
             if config.capabilities.max_output_tokens <= 0:
                 errors.append(f"Invalid max output tokens for model: {name}")
-        
+
         # Validate app config
         if self._app_config.max_content_length <= 0:
             errors.append("Invalid max content length")
         if self._app_config.max_files <= 0:
             errors.append("Invalid max files")
-        
+
         return errors
-    
-    def get_environment_info(self) -> Dict[str, Any]:
+
+    def get_environment_info(self) -> dict[str, Any]:
         """Get environment information for debugging."""
         return {
             "available_providers": self.get_available_providers(),
@@ -544,18 +544,18 @@ class BaseConfig:
     MAX_CONTENT_LENGTH = 64 * 1024 * 1024  # 64MB
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
     MAX_FILES = int(os.getenv('MAX_FILES', '10'))
-    
+
     # Database configuration
     DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///documents.db')
-    
+
     # Logging configuration
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    
+
     # Cache configuration
     CACHE_TYPE = os.getenv('CACHE_TYPE', 'simple')
     CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', '300'))
-    
+
     # CORS configuration
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',')
 
@@ -565,7 +565,7 @@ class DevelopmentConfig(BaseConfig):
     DEBUG = True
     TESTING = False
     LOG_LEVEL = 'DEBUG'
-    
+
     # Development-specific settings
     TEMPLATES_AUTO_RELOAD = True
     EXPLAIN_TEMPLATE_LOADING = False
@@ -575,15 +575,15 @@ class ProductionConfig(BaseConfig):
     """Production configuration."""
     DEBUG = False
     TESTING = False
-    
+
     # Production-specific settings
     SECRET_KEY = os.getenv('SECRET_KEY')  # Must be set in production
-    
+
     # Enhanced security headers
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
-    
+
     # Logging to file in production
     LOG_FILE = os.getenv('LOG_FILE', 'app.log')
     LOG_MAX_BYTES = int(os.getenv('LOG_MAX_BYTES', str(10 * 1024 * 1024)))
@@ -594,12 +594,12 @@ class TestingConfig(BaseConfig):
     """Testing configuration."""
     DEBUG = True
     TESTING = True
-    
+
     # Testing-specific settings
     WTF_CSRF_ENABLED = False
     UPLOAD_FOLDER = '/tmp/test_uploads'
     DATABASE_URL = 'sqlite:///:memory:'
-    
+
     # Disable caching in tests
     CACHE_TYPE = 'null'
 
@@ -613,19 +613,19 @@ config_map = {
 }
 
 
-def get_config(config_name: Optional[str] = None) -> Union[BaseConfig, DevelopmentConfig, ProductionConfig, TestingConfig]:
+def get_config(config_name: str | None = None) -> BaseConfig | DevelopmentConfig | ProductionConfig | TestingConfig:
     """
     Get configuration class based on environment.
-    
+
     Args:
         config_name: Configuration name (development, production, testing)
-        
+
     Returns:
         Configuration class instance
     """
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'development')
-    
+
     return config_map.get(config_name, config_map['default'])
 
 

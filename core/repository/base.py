@@ -1,26 +1,26 @@
 """Base repository interface"""
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 
 class BaseRepository(ABC):
     """Abstract base repository"""
-    
+
     @abstractmethod
-    def save(self, data: Dict[str, Any]) -> str:
+    def save(self, data: dict[str, Any]) -> str:
         """Save data and return ID"""
         pass
-    
+
     @abstractmethod
-    def find_by_id(self, id: str) -> Optional[Dict[str, Any]]:
+    def find_by_id(self, id: str) -> dict[str, Any] | None:
         """Find by ID"""
         pass
-    
+
     @abstractmethod
-    def find_all(self) -> List[Dict[str, Any]]:
+    def find_all(self) -> list[dict[str, Any]]:
         """Find all records"""
         pass
-    
+
     @abstractmethod
     def delete(self, id: str) -> bool:
         """Delete by ID"""
