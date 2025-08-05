@@ -65,6 +65,6 @@ class AsyncProviderFactory:
         for name, provider in self._providers.items():
             stats[name] = {
                 "average_response_time": provider.average_response_time,
-                "request_count": provider._request_count
+                "request_count": provider._request_count,
             }
         return stats

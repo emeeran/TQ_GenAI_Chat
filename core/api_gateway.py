@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RateLimitRule:
     """Rate limiting rule configuration."""
+
     requests: int
     window_seconds: int
     burst_limit: int = None
@@ -35,6 +36,7 @@ class RateLimitRule:
 @dataclass
 class Route:
     """API route configuration."""
+
     path: str
     methods: list[str]
     target: str
@@ -49,6 +51,7 @@ class Route:
 @dataclass
 class ApiKey:
     """API key configuration."""
+
     key: str
     name: str
     permissions: set[str]
@@ -138,7 +141,9 @@ class RateLimiter:
         else:
             return self._check_memory_rate_limit(key, rule, now)
 
-    async def _check_redis_rate_limit(self, key: str, rule: RateLimitRule, now: float) -> tuple[bool, dict]:
+    async def _check_redis_rate_limit(
+        self, key: str, rule: RateLimitRule, now: float
+    ) -> tuple[bool, dict]:
         """Redis-based sliding window rate limiting."""
         window_key = f"rate_limit:{key}:{rule.window_seconds}"
 
@@ -163,7 +168,7 @@ class RateLimiter:
         headers = {
             "X-RateLimit-Limit": str(rule.requests),
             "X-RateLimit-Remaining": str(max(0, rule.requests - current_requests)),
-            "X-RateLimit-Reset": str(int(now + rule.window_seconds))
+            "X-RateLimit-Reset": str(int(now + rule.window_seconds)),
         }
 
         if current_requests <= rule.requests:
@@ -172,7 +177,9 @@ class RateLimiter:
             headers["Retry-After"] = str(rule.window_seconds)
             return False, headers
 
-    def _check_memory_rate_limit(self, key: str, rule: RateLimitRule, now: float) -> tuple[bool, dict]:
+    def _check_memory_rate_limit(
+        self, key: str, rule: RateLimitRule, now: float
+    ) -> tuple[bool, dict]:
         """Memory-based token bucket rate limiting."""
         bucket_key = f"{key}:{rule.window_seconds}"
 
@@ -187,7 +194,7 @@ class RateLimiter:
         headers = {
             "X-RateLimit-Limit": str(rule.requests),
             "X-RateLimit-Remaining": str(int(bucket.tokens)),
-            "X-RateLimit-Reset": str(int(now + rule.window_seconds))
+            "X-RateLimit-Reset": str(int(now + rule.window_seconds)),
         }
 
         if not can_proceed:
@@ -230,11 +237,7 @@ class AuthManager:
     def generate_api_key(self, name: str, permissions: set[str]) -> ApiKey:
         """Generate new API key."""
         key = secrets.token_urlsafe(32)
-        api_key = ApiKey(
-            key=key,
-            name=name,
-            permissions=permissions
-        )
+        api_key = ApiKey(key=key, name=name, permissions=permissions)
         self.add_api_key(api_key)
         return api_key
 
@@ -313,7 +316,7 @@ class RequestRouter:
                     raise e
 
                 # Exponential backoff
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
         raise Exception("Max retries exceeded")
 
@@ -327,7 +330,7 @@ class RequestRouter:
     def _generate_cache_key(self, route: Route, request_data: dict) -> str:
         """Generate cache key for request."""
         key_data = f"{route.path}:{json.dumps(request_data, sort_keys=True)}"
-        return hashlib.md5(key_data.encode()).hexdigest()
+        return hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()  # nosec B324
 
     def _get_cached_response(self, cache_key: str, ttl: int) -> dict | None:
         """Get cached response if still valid."""
@@ -381,7 +384,7 @@ class MetricsCollector:
         metrics = {
             "total_requests": sum(self.request_counts.values()),
             "total_errors": sum(self.error_counts.values()),
-            "routes": {}
+            "routes": {},
         }
 
         for route in self.request_counts:
@@ -398,7 +401,7 @@ class MetricsCollector:
                     "avg": sum(times) / len(times),
                     "min": min(times),
                     "max": max(times),
-                    "p95": sorted(times)[int(len(times) * 0.95)] if len(times) > 20 else max(times)
+                    "p95": sorted(times)[int(len(times) * 0.95)] if len(times) > 20 else max(times),
                 }
 
             metrics["routes"][route] = route_metrics
@@ -422,13 +425,13 @@ class ApiGateway:
         # Default configuration
         self.default_rate_limits = [
             RateLimitRule(requests=100, window_seconds=60, scope="ip"),
-            RateLimitRule(requests=1000, window_seconds=3600, scope="api_key")
+            RateLimitRule(requests=1000, window_seconds=3600, scope="api_key"),
         ]
 
     async def start(self):
         """Initialize API Gateway."""
         # Initialize Redis if configured
-        redis_url = self.config.get('redis_url')
+        redis_url = self.config.get("redis_url")
         if redis_url:
             self.redis_client = redis.from_url(redis_url)
             self.rate_limiter.redis_client = self.redis_client
@@ -448,24 +451,27 @@ class ApiGateway:
     async def _load_configuration(self):
         """Load gateway configuration."""
         # Add default routes
-        self.router.add_route(Route(
-            path="/api/chat",
-            methods=["POST"],
-            target="http://localhost:5000/chat",
-            rate_limits=[RateLimitRule(requests=60, window_seconds=60)]
-        ))
+        self.router.add_route(
+            Route(
+                path="/api/chat",
+                methods=["POST"],
+                target="http://localhost:5000/chat",
+                rate_limits=[RateLimitRule(requests=60, window_seconds=60)],
+            )
+        )
 
-        self.router.add_route(Route(
-            path="/api/upload",
-            methods=["POST"],
-            target="http://localhost:5000/upload",
-            rate_limits=[RateLimitRule(requests=10, window_seconds=60)]
-        ))
+        self.router.add_route(
+            Route(
+                path="/api/upload",
+                methods=["POST"],
+                target="http://localhost:5000/upload",
+                rate_limits=[RateLimitRule(requests=10, window_seconds=60)],
+            )
+        )
 
         # Add admin API key
         admin_key = self.auth_manager.generate_api_key(
-            name="admin",
-            permissions={"admin", "read", "write"}
+            name="admin", permissions={"admin", "read", "write"}
         )
         logger.info(f"Generated admin API key: {admin_key.key}")
 
@@ -493,11 +499,13 @@ class ApiGateway:
                 # Check rate limits
                 rate_limit_key = self._get_rate_limit_key(route)
                 for rule in route.rate_limits + self.default_rate_limits:
-                    allowed, headers = await self.rate_limiter.check_rate_limit(rate_limit_key, rule)
+                    allowed, headers = await self.rate_limiter.check_rate_limit(
+                        rate_limit_key, rule
+                    )
 
                     # Add rate limit headers to response
                     for key, value in headers.items():
-                        g.setdefault('response_headers', {})[key] = value
+                        g.setdefault("response_headers", {})[key] = value
 
                     if not allowed:
                         return jsonify({"error": "Rate limit exceeded"}), 429, headers
@@ -513,49 +521,47 @@ class ApiGateway:
         @app.after_request
         def after_request(response):
             """Record metrics after request."""
-            if hasattr(g, 'route') and hasattr(g, 'start_time'):
+            if hasattr(g, "route") and hasattr(g, "start_time"):
                 response_time = time.time() - g.start_time
-                self.metrics.record_request(
-                    g.route.path,
-                    response_time,
-                    response.status_code
-                )
+                self.metrics.record_request(g.route.path, response_time, response.status_code)
 
             # Add response headers
-            if hasattr(g, 'response_headers'):
+            if hasattr(g, "response_headers"):
                 for key, value in g.response_headers.items():
                     response.headers[key] = value
 
             return response
 
         # Add gateway endpoints
-        @app.route('/gateway/metrics')
+        @app.route("/gateway/metrics")
         async def get_metrics():
             """Get gateway metrics."""
-            api_key = g.get('api_key')
+            api_key = g.get("api_key")
             if not api_key or not self.auth_manager.check_permission(api_key, "read"):
                 return jsonify({"error": "Insufficient permissions"}), 403
 
             return jsonify(self.metrics.get_metrics())
 
-        @app.route('/gateway/health')
+        @app.route("/gateway/health")
         async def health_check():
             """Gateway health check."""
-            return jsonify({
-                "status": "healthy",
-                "timestamp": datetime.utcnow().isoformat(),
-                "routes": len(self.router.routes)
-            })
+            return jsonify(
+                {
+                    "status": "healthy",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "routes": len(self.router.routes),
+                }
+            )
 
     async def _authenticate_request(self) -> ApiKey | None:
         """Authenticate API request."""
         # Check API key in header
-        api_key = request.headers.get('X-API-Key')
+        api_key = request.headers.get("X-API-Key")
         if api_key:
             return self.auth_manager.validate_api_key(api_key)
 
         # Check API key in query parameter
-        api_key = request.args.get('api_key')
+        api_key = request.args.get("api_key")
         if api_key:
             return self.auth_manager.validate_api_key(api_key)
 
@@ -563,7 +569,7 @@ class ApiGateway:
 
     def _get_rate_limit_key(self, route: Route) -> str:
         """Generate rate limit key based on scope."""
-        api_key = g.get('api_key')
+        api_key = g.get("api_key")
 
         if api_key:
             return f"api_key:{api_key.key}"
@@ -573,6 +579,7 @@ class ApiGateway:
 
 # Global gateway instance
 _gateway = None
+
 
 def get_gateway(config: dict = None) -> ApiGateway:
     """Get or create the global gateway instance."""
@@ -590,9 +597,7 @@ if __name__ == "__main__":
 
     async def main():
         # Create gateway
-        config = {
-            'redis_url': 'redis://localhost:6379/0'
-        }
+        config = {"redis_url": "redis://localhost:6379/0"}
 
         gateway = get_gateway(config)
         await gateway.start()
@@ -602,10 +607,9 @@ if __name__ == "__main__":
         gateway.create_flask_middleware(app)
 
         # Add sample route
-        @app.route('/api/test')
+        @app.route("/api/test")
         def test():
             return jsonify({"message": "Hello from API Gateway!"})
-
 
         # In production, you would run:
         # app.run(host='0.0.0.0', port=8080)

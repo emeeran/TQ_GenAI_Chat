@@ -15,7 +15,7 @@ def test_get_models_endpoint():
     print("=" * 50)
 
     # Test valid providers
-    valid_providers = ['openai', 'anthropic', 'groq', 'xai']
+    valid_providers = ["openai", "anthropic", "groq", "xai"]
 
     for provider in valid_providers:
         try:
@@ -52,7 +52,7 @@ def test_get_models_endpoint():
         print(f"Status Code: {response.status_code}")
         print(f"Content-Type: {response.headers.get('content-type', 'Not set')}")
 
-        if response.headers.get('content-type', '').startswith('application/json'):
+        if response.headers.get("content-type", "").startswith("application/json"):
             data = response.json()
             print(f"Error message: {data.get('error', 'No error message')}")
             print("✅ SUCCESS: Returns JSON even for invalid provider")
@@ -64,6 +64,7 @@ def test_get_models_endpoint():
 
     print(f"\n{'='*50}")
     print("Test completed!")
+
 
 if __name__ == "__main__":
     test_get_models_endpoint()

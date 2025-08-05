@@ -15,6 +15,7 @@ This is a **multi-provider GenAI chat application** built with Flask, supporting
 ### Critical Architecture Patterns
 
 **Multi-Provider API Abstraction**: Each provider uses `API_CONFIGS` dict pattern:
+
 ```python
 "openai": {
     "endpoint": "https://api.openai.com/v1/chat/completions",
@@ -31,17 +32,20 @@ This is a **multi-provider GenAI chat application** built with Flask, supporting
 ## Development Workflows
 
 ### Testing Strategy
+
 - Run: `python deploy_enhanced.py --test` (creates basic test suite if missing)
 - Tests use pytest with async support (`@pytest.mark.asyncio`)
 - Redis test database: `redis://localhost:6379/1`
 
 ### Enhanced Deployment
+
 - Use `deploy_enhanced.py` for full setup automation
 - Creates `.env` template, virtual environment, installs dependencies
 - Generates Docker configuration with Redis and Nginx
 - Health checks via `/health` endpoint
 
 ### Key Commands
+
 ```bash
 # Setup everything
 python deploy_enhanced.py --setup
@@ -56,12 +60,14 @@ python deploy_enhanced.py --docker && docker-compose up --build
 ## Provider Integration Patterns
 
 ### Adding New AI Providers
-1. Add to `API_CONFIGS` in `app.py` 
+
+1. Add to `API_CONFIGS` in `app.py`
 2. Add models to `MODEL_CONFIGS`
 3. Handle special cases in `process_chat_request()` (see Anthropic/XAI examples)
 4. Update frontend model selection in `static/script.js`
 
 ### Request Flow Pattern
+
 ```python
 @cache_response  # 5-minute TTL caching
 @async_response  # ThreadPoolExecutor wrapper
@@ -69,6 +75,7 @@ def process_chat_request(data: dict) -> dict:
 ```
 
 ### Rate Limiting
+
 - Global: 60 requests/minute per provider
 - Uses `rate_limit_check()` with sliding window
 - Exponential backoff on 429 responses
@@ -76,11 +83,13 @@ def process_chat_request(data: dict) -> dict:
 ## File Processing System
 
 ### Supported Types
+
 - Documents: PDF, DOCX, CSV, XLSX, Markdown
 - Images: PNG, JPG, JPEG (metadata extraction only)
 - Max size: 16MB per file, 10 files per upload
 
 ### Processing Pipeline
+
 ```python
 # Async processing with status tracking
 content = await FileProcessor.process_file(file, filename)
@@ -88,6 +97,7 @@ file_manager.add_document(filename, content)  # Vector indexing
 ```
 
 ### Document Search
+
 - TF-IDF vector similarity search in `FileManager`
 - Context injection: Search results auto-added to chat prompts
 - Relevance scoring with configurable threshold
@@ -95,6 +105,7 @@ file_manager.add_document(filename, content)  # Vector indexing
 ## Critical Configurations
 
 ### Environment Variables (Required)
+
 ```bash
 OPENAI_API_KEY=...      # Primary provider
 GROQ_API_KEY=...        # Fast inference
@@ -103,12 +114,14 @@ XAI_API_KEY=...         # Grok models
 ```
 
 ### Performance Tuning
+
 - `REQUEST_TIMEOUT=60s` (increased for large responses)
 - `CACHE_TTL=300s` (5-minute response caching)
 - `MAX_RETRIES=3` with exponential backoff
 - Connection pooling via `requests.Session`
 
 ### Redis Integration
+
 - Optional but recommended for production
 - Used for caching and session management
 - Fallback to memory if unavailable
@@ -116,12 +129,14 @@ XAI_API_KEY=...         # Grok models
 ## Frontend Architecture
 
 ### Key JavaScript Patterns
+
 - **Debounced messaging**: `sendMessage = debounce(async (message = null, isRetry = false) => {...})`
 - **Provider switching**: Dynamic model loading via `/get_models/<provider>`
 - **File upload progress**: Real-time status via `/upload/status/<filename>`
 - **Retry mechanism**: Modal-based provider/model selection
 
 ### State Management
+
 - Chat history in local arrays
 - File processing status tracking
 - Provider/model selection persistence

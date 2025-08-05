@@ -48,7 +48,7 @@ class RefactorPhase1:
             "app_integration.py",
             "ai_models.py",
             "requirements.txt",
-            "pyproject.toml"
+            "pyproject.toml",
         ]
 
         for file in backup_files:
@@ -65,18 +65,18 @@ class RefactorPhase1:
             "app_refactored.py": {
                 "lines": 445,
                 "duplicates": ["chat routes", "file upload", "model management"],
-                "unique": ["enhanced error handling", "better validation"]
+                "unique": ["enhanced error handling", "better validation"],
             },
             "app_integration.py": {
                 "lines": 500,
                 "duplicates": ["optimization routes", "background tasks"],
-                "unique": ["async optimizations", "performance monitoring"]
+                "unique": ["async optimizations", "performance monitoring"],
             },
             "ai_models.py": {
                 "lines": 439,
                 "duplicates": ["model configurations", "API endpoints"],
-                "unique": ["centralized model config"]
-            }
+                "unique": ["centralized model config"],
+            },
         }
 
         for file, info in duplicate_files.items():
@@ -88,7 +88,7 @@ class RefactorPhase1:
         """Create modern pyproject.toml configuration."""
         print("📦 Creating modern pyproject.toml...")
 
-        modern_pyproject = '''[build-system]
+        modern_pyproject = """[build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
@@ -241,7 +241,7 @@ exclude_lines = [
 ]
 fail_under = 80
 show_missing = true
-'''
+"""
 
         with open(self.project_root / "pyproject.toml", "w") as f:
             f.write(modern_pyproject)
@@ -451,7 +451,8 @@ def main():
     refactor.execute()
     refactor.create_main_module()
 
-    print("""
+    print(
+        """
 🎉 Phase 1 Complete!
 
 Next steps:
@@ -474,7 +475,8 @@ The new structure provides:
 - Modern Python packaging
 - Extensible blueprint architecture
 - Type checking and linting setup
-""")
+"""
+    )
 
 
 if __name__ == "__main__":

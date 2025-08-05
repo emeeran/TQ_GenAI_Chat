@@ -1,19 +1,24 @@
 # TQ GenAI Chat - Dependency Check Report
+
 Generated on: 2025-08-01 21:49:24
 
 ## Summary
+
 - ✅ Successes: 30
 - ⚠️  Warnings: 6  
 - ❌ Errors: 2
 
 ## Status
+
 🔴 Issues detected - see errors below
 
 ## Errors (2)
+
 - ❌ Required package 'python-docx' not found: No module named 'python_docx'
 - ❌ Required package 'Pillow' not found: No module named 'Pillow'
 
 ## Warnings (6)
+
 - ⚠️  Optional package 'flake8' not found
 - ⚠️  Environment variable 'OPENAI_API_KEY' not set - Optional - enables OpenAI models
 - ⚠️  Environment variable 'ANTHROPIC_API_KEY' not set - Optional - enables Anthropic models
@@ -22,6 +27,7 @@ Generated on: 2025-08-01 21:49:24
 - ⚠️  Flask server not running - skipping endpoint tests
 
 ## Successes (30)
+
 - ✅ Python 3.12.3 is compatible
 - ✅ Package 'flask' imported successfully
 - ✅ Package 'requests' imported successfully
@@ -55,20 +61,23 @@ Generated on: 2025-08-01 21:49:24
 
 ## Recommendations
 
-### If you have errors:
+### If you have errors
+
 1. Install missing packages: `pip install -r requirements.txt`
 2. Check Python version compatibility (3.8+ required)
 3. Verify project file structure
 4. Set up required configuration files
 
-### For better development experience:
+### For better development experience
+
 1. Set API keys as environment variables
 2. Install optional development packages
 3. Run the Flask app to test endpoints
 4. Consider setting up Redis for caching
 
-### Next Steps:
+### Next Steps
+
 1. Fix any critical errors listed above
 2. Run the application: `python app.py`
-3. Open http://localhost:5000 in your browser
+3. Open <http://localhost:5000> in your browser
 4. Test core functionality (chat, file upload, model switching)

@@ -22,6 +22,7 @@ class PerformanceMonitor:
 
     def __init__(self, retention_hours: int = 24):
         import logging
+
         self.logger = logging.getLogger(__name__)
         self.retention_hours = retention_hours
         self.metrics: dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
@@ -50,6 +51,7 @@ class PerformanceMonitor:
                 loop.close()
 
         import threading
+
         self.monitor_thread = threading.Thread(target=_start_background_monitoring, daemon=True)
         self.monitor_thread.start()
 
@@ -78,7 +80,7 @@ class PerformanceMonitor:
             del self.timers[timer_key]
 
             # Extract metric name from timer key
-            metric_name = timer_key.rsplit('_', 1)[0]
+            metric_name = timer_key.rsplit("_", 1)[0]
             self.record_metric(f"{metric_name}_duration", duration)
             return duration
         return 0.0
@@ -86,10 +88,7 @@ class PerformanceMonitor:
     def record_metric(self, name: str, value: float, metadata: dict[str, Any] = None):
         """Record a performance metric"""
         metric = PerformanceMetric(
-            name=name,
-            value=value,
-            timestamp=datetime.now(),
-            metadata=metadata or {}
+            name=name, value=value, timestamp=datetime.now(), metadata=metadata or {}
         )
 
         self.metrics[name].append(metric)
@@ -114,7 +113,7 @@ class PerformanceMonitor:
             "min": min(values),
             "max": max(values),
             "avg": sum(values) / len(values),
-            "latest": values[-1]
+            "latest": values[-1],
         }
 
     def get_all_metrics(self) -> dict[str, dict[str, float]]:
@@ -126,10 +125,10 @@ class PerformanceMonitor:
         return {
             "cpu_percent": psutil.cpu_percent(),
             "memory_percent": psutil.virtual_memory().percent,
-            "disk_percent": psutil.disk_usage('/').percent,
+            "disk_percent": psutil.disk_usage("/").percent,
             "active_connections": len(psutil.net_connections()),
             "process_count": len(psutil.pids()),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     async def _collect_system_stats(self):
@@ -146,7 +145,7 @@ class PerformanceMonitor:
                 self.record_metric("system_memory_used_gb", memory.used / (1024**3))
 
                 # Disk metrics
-                disk = psutil.disk_usage('/')
+                disk = psutil.disk_usage("/")
                 self.record_metric("system_disk_percent", disk.percent)
 
                 # Network metrics
@@ -174,7 +173,7 @@ class PerformanceMonitor:
             "metrics": self.get_all_metrics(),
             "counters": dict(self.counters),
             "system_health": self.get_system_health(),
-            "export_timestamp": datetime.now().isoformat()
+            "export_timestamp": datetime.now().isoformat(),
         }
 
 
@@ -184,6 +183,7 @@ perf_monitor = PerformanceMonitor()
 
 def monitor_performance(func_name: str = None):
     """Decorator for monitoring function performance"""
+
     def decorator(func):
         import functools
 

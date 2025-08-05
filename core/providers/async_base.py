@@ -10,6 +10,7 @@ import aiohttp
 @dataclass
 class ChatMessage:
     """Standardized chat message format"""
+
     role: str
     content: str
 
@@ -17,6 +18,7 @@ class ChatMessage:
 @dataclass
 class ChatRequest:
     """Standardized chat request format"""
+
     messages: list[ChatMessage]
     model: str
     temperature: float = 0.7
@@ -27,6 +29,7 @@ class ChatRequest:
 @dataclass
 class ChatResponse:
     """Standardized chat response format"""
+
     content: str
     model: str
     usage: dict[str, Any]
@@ -48,10 +51,7 @@ class AsyncAIProviderInterface(ABC):
         if not self.session:
             timeout = aiohttp.ClientTimeout(total=60)
             connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
-            self.session = aiohttp.ClientSession(
-                timeout=timeout,
-                connector=connector
-            )
+            self.session = aiohttp.ClientSession(timeout=timeout, connector=connector)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

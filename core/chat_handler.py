@@ -27,10 +27,10 @@ class ChatHandler:
 
     def _validate_parameters(self, data: dict) -> dict:
         """Validate and normalize chat parameters"""
-        provider = data.get('provider')
-        model = data.get('model')
-        message = data.get('message')
-        persona = data.get('persona', '')
+        provider = data.get("provider")
+        model = data.get("model")
+        message = data.get("message")
+        persona = data.get("persona", "")
 
         if not provider:
             raise ValueError("Provider is required")
@@ -41,8 +41,8 @@ class ChatHandler:
 
         # Convert and validate numeric parameters
         try:
-            temperature = float(data.get('temperature', 0.7))
-            max_tokens = int(data.get('max_tokens', 4000))
+            temperature = float(data.get("temperature", 0.7))
+            max_tokens = int(data.get("max_tokens", 4000))
         except (ValueError, TypeError):
             temperature = 0.7
             max_tokens = 4000
@@ -52,12 +52,12 @@ class ChatHandler:
         max_tokens = max(100, min(12000, max_tokens))
 
         return {
-            'provider': provider,
-            'model': model,
-            'message': message,
-            'persona': persona,
-            'temperature': temperature,
-            'max_tokens': max_tokens
+            "provider": provider,
+            "model": model,
+            "message": message,
+            "persona": persona,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
         }
 
     def _inject_context(self, message: str) -> str:
@@ -69,11 +69,17 @@ class ChatHandler:
 
             context_texts = []
             for result in context_results:
-                excerpt = result['content'][:800] + '...' if len(result['content']) > 800 else result['content']
-                context_texts.append(f"""### From {result['filename']} (Relevance: {result['similarity']:.2%})
+                excerpt = (
+                    result["content"][:800] + "..."
+                    if len(result["content"]) > 800
+                    else result["content"]
+                )
+                context_texts.append(
+                    f"""### From {result['filename']} (Relevance: {result['similarity']:.2%})
 ```
 {excerpt}
-```""")
+```"""
+                )
 
             enhanced_message = f"""I have access to {self.file_manager.total_documents} documents. Here's relevant information I found:
 
@@ -91,53 +97,50 @@ Please synthesize a clear, well-organized answer using this context where releva
 
     def _prepare_persona(self, persona_key: str) -> str:
         """Prepare persona content with markdown instructions"""
-        persona_content = PERSONAS.get(persona_key, '')
+        persona_content = PERSONAS.get(persona_key, "")
         return f"{persona_content}\n{self.markdown_instruction}"
 
     def _generate_initial_response(self, params: dict) -> dict:
         """Generate the initial AI response"""
-        provider = provider_manager.get_provider(params['provider'])
+        provider = provider_manager.get_provider(params["provider"])
         if not provider:
             raise ValueError(f"Provider '{params['provider']}' not available or not configured")
 
-        persona = self._prepare_persona(params['persona'])
-        enhanced_message = self._inject_context(params['message'])
+        persona = self._prepare_persona(params["persona"])
+        enhanced_message = self._inject_context(params["message"])
 
         response = provider.generate_response(
-            model=params['model'],
+            model=params["model"],
             message=enhanced_message,
             persona=persona,
-            temperature=params['temperature'],
-            max_tokens=params['max_tokens']
+            temperature=params["temperature"],
+            max_tokens=params["max_tokens"],
         )
 
         if not response.success:
             raise ValueError(response.error or "Failed to generate response")
 
-        return {
-            'response': {
-                'text': response.text,
-                'metadata': response.metadata
-            }
-        }
+        return {"response": {"text": response.text, "metadata": response.metadata}}
 
     def _verify_response(self, response_text: str, original_params: dict) -> dict | None:
         """Verify response authenticity using a different model"""
-        if original_params['persona'] == 'authenticity_verifier':
+        if original_params["persona"] == "authenticity_verifier":
             return None  # Avoid infinite recursion
 
         # Preferred verification providers (prioritizing free/open-source)
         preferred_verifiers = [
-            ('groq', 'llama-3.3-70b-versatile'),
-            ('groq', 'deepseek-r1-distill-llama-70b'),
-            ('groq', 'mixtral-8x7b-32768'),
+            ("groq", "llama-3.3-70b-versatile"),
+            ("groq", "deepseek-r1-distill-llama-70b"),
+            ("groq", "mixtral-8x7b-32768"),
         ]
 
         # Find a different verifier than the original
         verifier_provider = None
         for provider_name, model_name in preferred_verifiers:
-            if (provider_name != original_params['provider'] or
-                model_name != original_params['model']):
+            if (
+                provider_name != original_params["provider"]
+                or model_name != original_params["model"]
+            ):
                 if provider_manager.is_provider_available(provider_name):
                     verifier_provider = provider_manager.get_provider(provider_name)
                     if verifier_provider:
@@ -156,16 +159,18 @@ Original Response:
 {response_text}"""
 
             verification_response = verifier_provider.generate_response(
-                model=model_name if 'model_name' in locals() else verifier_provider.config.default_model,
+                model=model_name
+                if "model_name" in locals()
+                else verifier_provider.config.default_model,
                 message=verification_prompt,
-                persona="You are a thorough fact-checker and response verifier."
+                persona="You are a thorough fact-checker and response verifier.",
             )
 
             if verification_response.success:
                 return {
-                    'response': {
-                        'text': verification_response.text,
-                        'metadata': verification_response.metadata
+                    "response": {
+                        "text": verification_response.text,
+                        "metadata": verification_response.metadata,
                     }
                 }
         except Exception as e:
@@ -173,33 +178,38 @@ Original Response:
 
         return None
 
-    def _integrate_verification(self, initial_response: dict, verification_response: dict | None) -> dict:
+    def _integrate_verification(
+        self, initial_response: dict, verification_response: dict | None
+    ) -> dict:
         """Integrate verification results with the initial response"""
         if not verification_response:
             return initial_response
 
-        verification_text = verification_response['response']['text']
+        verification_text = verification_response["response"]["text"]
 
         # Try to extract corrected response and notes
-        match = re.search(r"(?s)Corrected Response:?\s*(.+?)(?:\n+|$)Verification Notes:?\s*(.+)", verification_text)
+        match = re.search(
+            r"(?s)Corrected Response:?\s*(.+?)(?:\n+|$)Verification Notes:?\s*(.+)",
+            verification_text,
+        )
 
         if match:
             corrected_text = match.group(1).strip()
             verification_notes = match.group(2).strip()
 
             # Use corrected response if available
-            response_to_display = dict(initial_response['response'])
-            response_to_display['text'] = corrected_text
+            response_to_display = dict(initial_response["response"])
+            response_to_display["text"] = corrected_text
         else:
-            response_to_display = initial_response['response']
+            response_to_display = initial_response["response"]
             verification_notes = verification_text
 
         return {
-            'response': response_to_display,
-            'verification': {
-                'text': verification_notes,
-                'metadata': verification_response['response'].get('metadata', {})
-            }
+            "response": response_to_display,
+            "verification": {
+                "text": verification_notes,
+                "metadata": verification_response["response"].get("metadata", {}),
+            },
         }
 
     def process_chat_request(self, data: dict) -> dict:
@@ -213,8 +223,7 @@ Original Response:
 
             # Verify response (optional)
             verification_response = self._verify_response(
-                initial_response['response']['text'],
-                params
+                initial_response["response"]["text"], params
             )
 
             # Integrate verification results

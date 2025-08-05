@@ -14,6 +14,7 @@ from typing import Any
 
 try:
     import redis.asyncio as redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -90,10 +91,10 @@ class LRUCache:
         async with self._lock:
             expired_count = sum(1 for key in self.cache if self._is_expired(key))
             return {
-                'size': len(self.cache),
-                'max_size': self.maxsize,
-                'expired_items': expired_count,
-                'ttl': self.ttl
+                "size": len(self.cache),
+                "max_size": self.maxsize,
+                "expired_items": expired_count,
+                "ttl": self.ttl,
             }
 
 
@@ -142,11 +143,7 @@ class RedisCache:
 
         try:
             serialized_value = json.dumps(value, default=str)
-            await self.redis_client.setex(
-                f"cache:{key}",
-                self.ttl,
-                serialized_value
-            )
+            await self.redis_client.setex(f"cache:{key}", self.ttl, serialized_value)
         except Exception as e:
             logger.warning(f"Redis set error: {e}")
 
@@ -206,7 +203,7 @@ class DiskCache:
                     cache_path.unlink()
                     return None
 
-                with open(cache_path, 'rb') as f:
+                with open(cache_path, "rb") as f:
                     return pickle.load(f)
             except Exception as e:
                 logger.warning(f"Disk cache get error: {e}")
@@ -218,7 +215,7 @@ class DiskCache:
 
         async with self._lock:
             try:
-                with open(cache_path, 'wb') as f:
+                with open(cache_path, "wb") as f:
                     pickle.dump(value, f)
             except Exception as e:
                 logger.warning(f"Disk cache set error: {e}")
@@ -272,16 +269,12 @@ class HybridCache:
         redis_url: str = "redis://localhost:6379",
         redis_ttl: int = 3600,
         disk_cache_dir: str = "cache",
-        disk_ttl: int = 86400
+        disk_ttl: int = 86400,
     ):
         self.memory_cache = LRUCache(maxsize=memory_maxsize, ttl=memory_ttl)
         self.redis_cache = RedisCache(redis_url=redis_url, ttl=redis_ttl)
         self.disk_cache = DiskCache(cache_dir=disk_cache_dir, ttl=disk_ttl)
-        self.stats = {
-            'hits': {'memory': 0, 'redis': 0, 'disk': 0},
-            'misses': 0,
-            'sets': 0
-        }
+        self.stats = {"hits": {"memory": 0, "redis": 0, "disk": 0}, "misses": 0, "sets": 0}
 
     async def start(self):
         """Initialize cache layers."""
@@ -295,13 +288,13 @@ class HybridCache:
         if await key in self.memory_cache:
             value = await self.memory_cache.get(key)
             if value is not None:
-                self.stats['hits']['memory'] += 1
+                self.stats["hits"]["memory"] += 1
                 return value
 
         # L2: Redis cache (fast)
         value = await self.redis_cache.get(key)
         if value is not None:
-            self.stats['hits']['redis'] += 1
+            self.stats["hits"]["redis"] += 1
             # Populate L1 cache
             await self.memory_cache.set(key, value)
             return value
@@ -309,25 +302,25 @@ class HybridCache:
         # L3: Disk cache (fallback)
         value = await self.disk_cache.get(key)
         if value is not None:
-            self.stats['hits']['disk'] += 1
+            self.stats["hits"]["disk"] += 1
             # Populate L1 and L2 caches
             await self.memory_cache.set(key, value)
             await self.redis_cache.set(key, value)
             return value
 
-        self.stats['misses'] += 1
+        self.stats["misses"] += 1
         return None
 
     async def set(self, key: str, value: Any) -> None:
         """Set item in all cache layers."""
-        self.stats['sets'] += 1
+        self.stats["sets"] += 1
 
         # Set in all layers
         await asyncio.gather(
             self.memory_cache.set(key, value),
             self.redis_cache.set(key, value),
             self.disk_cache.set(key, value),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
     async def delete(self, key: str) -> None:
@@ -336,7 +329,7 @@ class HybridCache:
             self.memory_cache.clear(),  # Remove from memory
             self.redis_cache.delete(key),
             self.disk_cache.delete(key),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
     async def clear(self) -> None:
@@ -345,35 +338,33 @@ class HybridCache:
             self.memory_cache.clear(),
             self.redis_cache.clear(),
             self.disk_cache.clear(),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
     async def get_stats(self) -> dict:
         """Get comprehensive cache statistics."""
         memory_stats = await self.memory_cache.stats()
 
-        total_hits = sum(self.stats['hits'].values())
-        total_requests = total_hits + self.stats['misses']
+        total_hits = sum(self.stats["hits"].values())
+        total_requests = total_hits + self.stats["misses"]
         hit_ratio = total_hits / total_requests if total_requests > 0 else 0
 
         return {
-            'requests': {
-                'total': total_requests,
-                'hits': total_hits,
-                'misses': self.stats['misses'],
-                'hit_ratio': hit_ratio
+            "requests": {
+                "total": total_requests,
+                "hits": total_hits,
+                "misses": self.stats["misses"],
+                "hit_ratio": hit_ratio,
             },
-            'layer_hits': self.stats['hits'],
-            'memory_cache': memory_stats,
-            'sets': self.stats['sets']
+            "layer_hits": self.stats["hits"],
+            "memory_cache": memory_stats,
+            "sets": self.stats["sets"],
         }
 
     async def cleanup(self) -> dict:
         """Cleanup expired items and return statistics."""
         disk_removed = await self.disk_cache.cleanup_expired()
-        return {
-            'disk_items_removed': disk_removed
-        }
+        return {"disk_items_removed": disk_removed}
 
     async def close(self):
         """Close all cache connections."""
@@ -383,6 +374,7 @@ class HybridCache:
 # Global cache instance
 _hybrid_cache = None
 
+
 async def get_cache() -> HybridCache:
     """Get or create global cache instance."""
     global _hybrid_cache
@@ -390,6 +382,7 @@ async def get_cache() -> HybridCache:
         _hybrid_cache = HybridCache()
         await _hybrid_cache.start()
     return _hybrid_cache
+
 
 async def cleanup_cache():
     """Cleanup global cache instance."""

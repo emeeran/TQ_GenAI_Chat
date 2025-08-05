@@ -24,6 +24,7 @@ Currently, the API uses API keys configured server-side through environment vari
 ## Common Response Format
 
 ### Success Response
+
 ```json
 {
   "success": true,
@@ -33,6 +34,7 @@ Currently, the API uses API keys configured server-side through environment vari
 ```
 
 ### Error Response
+
 ```json
 {
   "success": false,
@@ -51,6 +53,7 @@ Send a message to an AI provider and receive a response.
 **Endpoint**: `POST /chat`
 
 **Request Body**:
+
 ```json
 {
   "message": "What is machine learning?",
@@ -65,6 +68,7 @@ Send a message to an AI provider and receive a response.
 ```
 
 **Parameters**:
+
 - `message` (string, required): The user's message
 - `provider` (string, optional): AI provider name (default: "groq")
 - `model` (string, optional): Model name (uses provider default if not specified)
@@ -75,6 +79,7 @@ Send a message to an AI provider and receive a response.
 - `include_context` (boolean, optional): Include document context (default: true)
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -103,6 +108,7 @@ Send a message to an AI provider and receive a response.
 ```
 
 **Error Codes**:
+
 - `INVALID_PROVIDER`: Unknown provider specified
 - `INVALID_MODEL`: Model not available for provider
 - `PROVIDER_ERROR`: API error from AI provider
@@ -116,20 +122,24 @@ Upload and process documents for context injection.
 **Endpoint**: `POST /upload`
 
 **Request**: `multipart/form-data`
+
 ```
 files: [file1.pdf, file2.docx, ...]
 ```
 
 **Supported File Types**:
+
 - **Documents**: PDF, DOCX, CSV, XLSX, TXT, MD
 - **Images**: PNG, JPG, JPEG (metadata extraction only)
 
 **File Limits**:
+
 - Maximum file size: 16MB
 - Maximum files per request: 10
 - Total request size: 160MB
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -160,6 +170,7 @@ Check the processing status of uploaded files.
 **Endpoint**: `GET /upload/status/<filename>`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -174,6 +185,7 @@ Check the processing status of uploaded files.
 ```
 
 **Status Values**:
+
 - `queued`: File is queued for processing
 - `processing`: Currently being processed
 - `completed`: Processing finished successfully
@@ -186,6 +198,7 @@ Convert text to speech audio.
 **Endpoint**: `POST /tts`
 
 **Request Body**:
+
 ```json
 {
   "text": "Hello, this is a test message",
@@ -197,6 +210,7 @@ Convert text to speech audio.
 ```
 
 **Parameters**:
+
 - `text` (string, required): Text to convert to speech
 - `engine` (string, optional): TTS engine ("pyttsx3" or "gtts", default: "pyttsx3")
 - `voice` (string, optional): Voice identifier (default: system default)
@@ -204,6 +218,7 @@ Convert text to speech audio.
 - `format` (string, optional): Audio format ("mp3", "wav", "ogg", default: "mp3")
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -224,6 +239,7 @@ Get list of available TTS voices.
 **Endpoint**: `GET /tts/voices`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -237,7 +253,7 @@ Get list of available TTS voices.
       },
       {
         "id": "en-us-female",
-        "name": "Microsoft Zira", 
+        "name": "Microsoft Zira",
         "language": "en-US",
         "gender": "female"
       }
@@ -263,6 +279,7 @@ Get all configured AI providers and their status.
 **Endpoint**: `GET /providers`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -278,7 +295,7 @@ Get all configured AI providers and their status.
       },
       {
         "name": "groq",
-        "status": "active", 
+        "status": "active",
         "models_available": 8,
         "default_model": "llama-3.3-70b-versatile",
         "rate_limit": "unlimited",
@@ -296,6 +313,7 @@ List available models for a specific provider.
 **Endpoint**: `GET /get_models/<provider>`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -336,6 +354,7 @@ Refresh the model list for a provider.
 **Endpoint**: `POST /update_models/<provider>`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -358,6 +377,7 @@ Search uploaded documents for relevant content.
 **Endpoint**: `POST /search`
 
 **Request Body**:
+
 ```json
 {
   "query": "machine learning algorithms",
@@ -367,6 +387,7 @@ Search uploaded documents for relevant content.
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -393,6 +414,7 @@ Get all uploaded documents.
 **Endpoint**: `GET /documents`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -420,6 +442,7 @@ Remove a document from the system.
 **Endpoint**: `DELETE /documents/<filename>`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -440,6 +463,7 @@ Save a chat conversation.
 **Endpoint**: `POST /save_chat`
 
 **Request Body**:
+
 ```json
 {
   "title": "ML Discussion",
@@ -450,7 +474,7 @@ Save a chat conversation.
       "timestamp": "2025-01-27T10:00:00Z"
     },
     {
-      "role": "assistant", 
+      "role": "assistant",
       "content": "Machine learning is...",
       "timestamp": "2025-01-27T10:00:05Z",
       "provider": "groq",
@@ -461,6 +485,7 @@ Save a chat conversation.
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -480,6 +505,7 @@ Load a saved chat conversation.
 **Endpoint**: `GET /load_chat/<chat_id>`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -500,6 +526,7 @@ Get all saved chat conversations.
 **Endpoint**: `GET /saved_chats`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -507,7 +534,7 @@ Get all saved chat conversations.
     "chats": [
       {
         "chat_id": "chat_20250127_100000",
-        "title": "ML Discussion", 
+        "title": "ML Discussion",
         "created_at": "2025-01-27T10:00:00Z",
         "message_count": 2,
         "last_message": "Machine learning is..."
@@ -527,6 +554,7 @@ Check system health and status.
 **Endpoint**: `GET /health`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -536,7 +564,7 @@ Check system health and status.
     "uptime": 3600,
     "providers": {
       "openai": "connected",
-      "groq": "connected", 
+      "groq": "connected",
       "anthropic": "api_key_missing",
       "gemini": "rate_limited"
     },
@@ -556,6 +584,7 @@ Get detailed system statistics.
 **Endpoint**: `GET /stats`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -636,6 +665,7 @@ Get detailed system statistics.
 ### Rate Limit Headers
 
 Response headers include rate limit information:
+
 ```
 X-RateLimit-Limit: 60
 X-RateLimit-Remaining: 45

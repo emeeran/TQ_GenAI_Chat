@@ -36,7 +36,8 @@ class AsyncDatabaseManager:
         """Create necessary database tables"""
         async with aiosqlite.connect(self.db_path) as conn:
             # Chat sessions table
-            await conn.execute("""
+            await conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS chat_sessions (
                     id TEXT PRIMARY KEY,
                     title TEXT,
@@ -44,10 +45,12 @@ class AsyncDatabaseManager:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     metadata TEXT
                 )
-            """)
+            """
+            )
 
             # Chat messages table
-            await conn.execute("""
+            await conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS chat_messages (
                     id TEXT PRIMARY KEY,
                     session_id TEXT,
@@ -59,10 +62,12 @@ class AsyncDatabaseManager:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (session_id) REFERENCES chat_sessions (id)
                 )
-            """)
+            """
+            )
 
             # Document store table
-            await conn.execute("""
+            await conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS documents (
                     id TEXT PRIMARY KEY,
                     filename TEXT,
@@ -72,10 +77,12 @@ class AsyncDatabaseManager:
                     metadata TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # Performance metrics table
-            await conn.execute("""
+            await conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS performance_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     provider TEXT,
@@ -84,7 +91,8 @@ class AsyncDatabaseManager:
                     token_count INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             await conn.commit()
 

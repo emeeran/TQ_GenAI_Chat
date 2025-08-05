@@ -12,12 +12,13 @@ class XAIService:
     @classmethod
     def is_configured(cls) -> bool:
         """Check if XAI API key is configured"""
-        return bool(os.environ.get('XAI_API_KEY', ''))
+        return bool(os.environ.get("XAI_API_KEY", ""))
+
     """Service for making requests to XAI API"""
 
     def __init__(self):
         """Initialize XAI service with API key validation"""
-        self.api_key = os.environ.get('XAI_API_KEY', '')
+        self.api_key = os.environ.get("XAI_API_KEY", "")
         if not self.api_key:
             raise ValueError("XAI API key not configured. Please set XAI_API_KEY in .env file.")
 
@@ -29,18 +30,17 @@ class XAIService:
 
     def _create_headers(self) -> dict[str, str]:
         """Create request headers with API key"""
-        return {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
-    def generate_response(self,
-                          prompt: str,
-                          model: str = "grok-2-latest",
-                          system_prompt: str = "You are a helpful AI assistant.",
-                          max_tokens: int = 4000,
-                          temperature: float = 0.7,
-                          **kwargs) -> dict[str, Any]:
+    def generate_response(
+        self,
+        prompt: str,
+        model: str = "grok-2-latest",
+        system_prompt: str = "You are a helpful AI assistant.",
+        max_tokens: int = 4000,
+        temperature: float = 0.7,
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         Generate a response using XAI
 
@@ -62,11 +62,11 @@ class XAIService:
             "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             "max_tokens": max_tokens,
             "temperature": temperature,
-            **kwargs
+            **kwargs,
         }
 
         try:
@@ -75,7 +75,7 @@ class XAIService:
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=data,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             response.raise_for_status()
@@ -87,14 +87,14 @@ class XAIService:
                     "content": result["choices"][0]["message"]["content"],
                     "model": model,
                     "provider": "xai",
-                    "raw_response": result
+                    "raw_response": result,
                 }
             else:
                 raise ValueError("Unexpected response format from XAI API")
 
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"XAI API request failed: {str(e)}")
-            if hasattr(e, 'response') and e.response:
+            if hasattr(e, "response") and e.response:
                 current_app.logger.error(f"Status code: {e.response.status_code}")
                 current_app.logger.error(f"Response: {e.response.text}")
             raise ValueError(f"XAI API request failed: {str(e)}")
@@ -110,9 +110,7 @@ class XAIService:
 
         try:
             response = requests.get(
-                f"{self.base_url}/models",
-                headers=headers,
-                timeout=self.timeout
+                f"{self.base_url}/models", headers=headers, timeout=self.timeout
             )
 
             response.raise_for_status()

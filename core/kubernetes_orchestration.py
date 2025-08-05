@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class DeploymentStrategy(Enum):
     """Kubernetes deployment strategies."""
+
     ROLLING_UPDATE = "RollingUpdate"
     RECREATE = "Recreate"
     BLUE_GREEN = "BlueGreen"
@@ -30,6 +31,7 @@ class DeploymentStrategy(Enum):
 
 class ServiceType(Enum):
     """Kubernetes service types."""
+
     CLUSTER_IP = "ClusterIP"
     NODE_PORT = "NodePort"
     LOAD_BALANCER = "LoadBalancer"
@@ -39,6 +41,7 @@ class ServiceType(Enum):
 @dataclass
 class ResourceRequirements:
     """Kubernetes resource requirements."""
+
     cpu_request: str = "100m"
     cpu_limit: str = "500m"
     memory_request: str = "128Mi"
@@ -50,6 +53,7 @@ class ResourceRequirements:
 @dataclass
 class AutoScalingConfig:
     """Horizontal Pod Autoscaler configuration."""
+
     min_replicas: int = 1
     max_replicas: int = 10
     target_cpu_utilization: int = 70
@@ -61,6 +65,7 @@ class AutoScalingConfig:
 @dataclass
 class HealthCheckConfig:
     """Health check configuration."""
+
     readiness_path: str = "/health/ready"
     liveness_path: str = "/health/live"
     startup_path: str = "/health/startup"
@@ -74,6 +79,7 @@ class HealthCheckConfig:
 @dataclass
 class ServiceConfig:
     """Service configuration."""
+
     name: str
     image: str
     tag: str = "latest"
@@ -115,9 +121,9 @@ class KubernetesManifestGenerator:
                 "name": self.namespace,
                 "labels": {
                     "app.kubernetes.io/name": "tq-genai-chat",
-                    "app.kubernetes.io/version": "1.0.0"
-                }
-            }
+                    "app.kubernetes.io/version": "1.0.0",
+                },
+            },
         }
 
     def generate_configmap(self, name: str, data: dict[str, str]) -> dict[str, Any]:
@@ -128,12 +134,9 @@ class KubernetesManifestGenerator:
             "metadata": {
                 "name": f"{name}-config",
                 "namespace": self.namespace,
-                "labels": {
-                    "app.kubernetes.io/name": name,
-                    "app.kubernetes.io/component": "config"
-                }
+                "labels": {"app.kubernetes.io/name": name, "app.kubernetes.io/component": "config"},
             },
-            "data": data
+            "data": data,
         }
 
     def generate_secret(self, name: str, data: dict[str, str]) -> dict[str, Any]:
@@ -151,102 +154,82 @@ class KubernetesManifestGenerator:
                 "namespace": self.namespace,
                 "labels": {
                     "app.kubernetes.io/name": name,
-                    "app.kubernetes.io/component": "secrets"
-                }
+                    "app.kubernetes.io/component": "secrets",
+                },
             },
             "type": "Opaque",
-            "data": encoded_data
+            "data": encoded_data,
         }
 
-    def generate_deployment(self, config: ServiceConfig,
-                           strategy: DeploymentStrategy = DeploymentStrategy.ROLLING_UPDATE) -> dict[str, Any]:
+    def generate_deployment(
+        self,
+        config: ServiceConfig,
+        strategy: DeploymentStrategy = DeploymentStrategy.ROLLING_UPDATE,
+    ) -> dict[str, Any]:
         """Generate Deployment manifest."""
 
         # Build container spec
         container_spec = {
             "name": config.name,
             "image": f"{self.registry}/{config.full_image}" if self.registry else config.full_image,
-            "ports": [
-                {
-                    "containerPort": config.target_port,
-                    "protocol": "TCP"
-                }
-            ],
+            "ports": [{"containerPort": config.target_port, "protocol": "TCP"}],
             "resources": {
                 "requests": {
                     "cpu": config.resources.cpu_request,
-                    "memory": config.resources.memory_request
+                    "memory": config.resources.memory_request,
                 },
                 "limits": {
                     "cpu": config.resources.cpu_limit,
                     "memory": config.resources.memory_limit,
-                    "ephemeral-storage": config.resources.ephemeral_storage_limit
-                }
+                    "ephemeral-storage": config.resources.ephemeral_storage_limit,
+                },
             },
             "readinessProbe": {
-                "httpGet": {
-                    "path": config.health_check.readiness_path,
-                    "port": config.target_port
-                },
+                "httpGet": {"path": config.health_check.readiness_path, "port": config.target_port},
                 "initialDelaySeconds": config.health_check.initial_delay,
                 "timeoutSeconds": config.health_check.timeout,
                 "periodSeconds": config.health_check.period,
                 "failureThreshold": config.health_check.failure_threshold,
-                "successThreshold": config.health_check.success_threshold
+                "successThreshold": config.health_check.success_threshold,
             },
             "livenessProbe": {
-                "httpGet": {
-                    "path": config.health_check.liveness_path,
-                    "port": config.target_port
-                },
+                "httpGet": {"path": config.health_check.liveness_path, "port": config.target_port},
                 "initialDelaySeconds": config.health_check.initial_delay * 2,
                 "timeoutSeconds": config.health_check.timeout,
                 "periodSeconds": config.health_check.period,
-                "failureThreshold": config.health_check.failure_threshold
+                "failureThreshold": config.health_check.failure_threshold,
             },
             "startupProbe": {
-                "httpGet": {
-                    "path": config.health_check.startup_path,
-                    "port": config.target_port
-                },
+                "httpGet": {"path": config.health_check.startup_path, "port": config.target_port},
                 "initialDelaySeconds": 10,
                 "timeoutSeconds": config.health_check.timeout,
                 "periodSeconds": 5,
-                "failureThreshold": 30
-            }
+                "failureThreshold": 30,
+            },
         }
 
         # Add environment variables
         env_vars = []
         for key, value in config.environment.items():
-            env_vars.append({
-                "name": key,
-                "value": value
-            })
+            env_vars.append({"name": key, "value": value})
 
         # Add secrets as environment variables
         for key in config.secrets.keys():
-            env_vars.append({
-                "name": key,
-                "valueFrom": {
-                    "secretKeyRef": {
-                        "name": f"{config.name}-secrets",
-                        "key": key
-                    }
+            env_vars.append(
+                {
+                    "name": key,
+                    "valueFrom": {"secretKeyRef": {"name": f"{config.name}-secrets", "key": key}},
                 }
-            })
+            )
 
         # Add config maps as environment variables
         for key in config.config_maps.keys():
-            env_vars.append({
-                "name": key,
-                "valueFrom": {
-                    "configMapKeyRef": {
-                        "name": f"{config.name}-config",
-                        "key": key
-                    }
+            env_vars.append(
+                {
+                    "name": key,
+                    "valueFrom": {"configMapKeyRef": {"name": f"{config.name}-config", "key": key}},
                 }
-            })
+            )
 
         if env_vars:
             container_spec["env"] = env_vars
@@ -255,79 +238,63 @@ class KubernetesManifestGenerator:
         if config.volumes:
             volume_mounts = []
             for volume in config.volumes:
-                volume_mounts.append({
-                    "name": volume["name"],
-                    "mountPath": volume["mountPath"]
-                })
+                volume_mounts.append({"name": volume["name"], "mountPath": volume["mountPath"]})
             container_spec["volumeMounts"] = volume_mounts
 
         # Build deployment spec
         deployment_spec = {
             "replicas": config.replicas,
-            "selector": {
-                "matchLabels": {
-                    "app": config.name,
-                    "version": "v1"
-                }
-            },
+            "selector": {"matchLabels": {"app": config.name, "version": "v1"}},
             "template": {
                 "metadata": {
                     "labels": {
                         "app": config.name,
                         "version": "v1",
                         "app.kubernetes.io/name": config.name,
-                        "app.kubernetes.io/version": config.tag
+                        "app.kubernetes.io/version": config.tag,
                     }
                 },
-                "spec": {
-                    "containers": [container_spec]
-                }
-            }
+                "spec": {"containers": [container_spec]},
+            },
         }
 
         # Add strategy
         if strategy == DeploymentStrategy.ROLLING_UPDATE:
             deployment_spec["strategy"] = {
                 "type": "RollingUpdate",
-                "rollingUpdate": {
-                    "maxSurge": 1,
-                    "maxUnavailable": 0
-                }
+                "rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0},
             }
         elif strategy == DeploymentStrategy.RECREATE:
-            deployment_spec["strategy"] = {
-                "type": "Recreate"
-            }
+            deployment_spec["strategy"] = {"type": "Recreate"}
 
         # Add volumes
         if config.volumes:
             volumes = []
             for volume in config.volumes:
                 if volume["type"] == "pvc":
-                    volumes.append({
-                        "name": volume["name"],
-                        "persistentVolumeClaim": {
-                            "claimName": volume["claimName"]
+                    volumes.append(
+                        {
+                            "name": volume["name"],
+                            "persistentVolumeClaim": {"claimName": volume["claimName"]},
                         }
-                    })
+                    )
                 elif volume["type"] == "configMap":
-                    volumes.append({
-                        "name": volume["name"],
-                        "configMap": {
-                            "name": volume["configMapName"]
-                        }
-                    })
+                    volumes.append(
+                        {"name": volume["name"], "configMap": {"name": volume["configMapName"]}}
+                    )
             deployment_spec["template"]["spec"]["volumes"] = volumes
 
         # Add service mesh annotations if enabled
         if config.service_mesh:
             annotations = deployment_spec["template"]["metadata"].setdefault("annotations", {})
-            annotations.update({
-                "sidecar.istio.io/inject": "true",
-                "prometheus.io/scrape": "true",
-                "prometheus.io/port": str(config.target_port),
-                "prometheus.io/path": "/metrics"
-            })
+            annotations.update(
+                {
+                    "sidecar.istio.io/inject": "true",
+                    "prometheus.io/scrape": "true",
+                    "prometheus.io/port": str(config.target_port),
+                    "prometheus.io/path": "/metrics",
+                }
+            )
 
         return {
             "apiVersion": "apps/v1",
@@ -338,10 +305,10 @@ class KubernetesManifestGenerator:
                 "labels": {
                     "app": config.name,
                     "app.kubernetes.io/name": config.name,
-                    "app.kubernetes.io/component": "backend"
-                }
+                    "app.kubernetes.io/component": "backend",
+                },
             },
-            "spec": deployment_spec
+            "spec": deployment_spec,
         }
 
     def generate_service(self, config: ServiceConfig) -> dict[str, Any]:
@@ -355,8 +322,8 @@ class KubernetesManifestGenerator:
                 "labels": {
                     "app": config.name,
                     "app.kubernetes.io/name": config.name,
-                    "app.kubernetes.io/component": "service"
-                }
+                    "app.kubernetes.io/component": "service",
+                },
             },
             "spec": {
                 "type": config.service_type.value,
@@ -365,13 +332,11 @@ class KubernetesManifestGenerator:
                         "port": config.port,
                         "targetPort": config.target_port,
                         "protocol": "TCP",
-                        "name": "http"
+                        "name": "http",
                     }
                 ],
-                "selector": {
-                    "app": config.name
-                }
-            }
+                "selector": {"app": config.name},
+            },
         }
 
     def generate_hpa(self, config: ServiceConfig) -> dict[str, Any]:
@@ -385,14 +350,14 @@ class KubernetesManifestGenerator:
                 "labels": {
                     "app": config.name,
                     "app.kubernetes.io/name": config.name,
-                    "app.kubernetes.io/component": "autoscaler"
-                }
+                    "app.kubernetes.io/component": "autoscaler",
+                },
             },
             "spec": {
                 "scaleTargetRef": {
                     "apiVersion": "apps/v1",
                     "kind": "Deployment",
-                    "name": config.name
+                    "name": config.name,
                 },
                 "minReplicas": config.autoscaling.min_replicas,
                 "maxReplicas": config.autoscaling.max_replicas,
@@ -403,9 +368,9 @@ class KubernetesManifestGenerator:
                             "name": "cpu",
                             "target": {
                                 "type": "Utilization",
-                                "averageUtilization": config.autoscaling.target_cpu_utilization
-                            }
-                        }
+                                "averageUtilization": config.autoscaling.target_cpu_utilization,
+                            },
+                        },
                     },
                     {
                         "type": "Resource",
@@ -413,10 +378,10 @@ class KubernetesManifestGenerator:
                             "name": "memory",
                             "target": {
                                 "type": "Utilization",
-                                "averageUtilization": config.autoscaling.target_memory_utilization
-                            }
-                        }
-                    }
+                                "averageUtilization": config.autoscaling.target_memory_utilization,
+                            },
+                        },
+                    },
                 ],
                 "behavior": {
                     "scaleUp": {
@@ -424,9 +389,9 @@ class KubernetesManifestGenerator:
                     },
                     "scaleDown": {
                         "stabilizationWindowSeconds": config.autoscaling.scale_down_stabilization
-                    }
-                }
-            }
+                    },
+                },
+            },
         }
 
     def generate_ingress(self, config: ServiceConfig, tls_enabled: bool = True) -> dict[str, Any]:
@@ -443,24 +408,19 @@ class KubernetesManifestGenerator:
                                 "backend": {
                                     "service": {
                                         "name": f"{config.name}-service",
-                                        "port": {
-                                            "number": config.port
-                                        }
+                                        "port": {"number": config.port},
                                     }
-                                }
+                                },
                             }
                         ]
-                    }
+                    },
                 }
             ]
         }
 
         if tls_enabled and config.ingress_host:
             ingress_spec["tls"] = [
-                {
-                    "hosts": [config.ingress_host],
-                    "secretName": f"{config.name}-tls"
-                }
+                {"hosts": [config.ingress_host], "secretName": f"{config.name}-tls"}
             ]
 
         return {
@@ -472,15 +432,15 @@ class KubernetesManifestGenerator:
                 "labels": {
                     "app": config.name,
                     "app.kubernetes.io/name": config.name,
-                    "app.kubernetes.io/component": "ingress"
+                    "app.kubernetes.io/component": "ingress",
                 },
                 "annotations": {
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "true",
-                    "cert-manager.io/cluster-issuer": "letsencrypt-prod"
-                }
+                    "cert-manager.io/cluster-issuer": "letsencrypt-prod",
+                },
             },
-            "spec": ingress_spec
+            "spec": ingress_spec,
         }
 
     def generate_pv(self, name: str, size: str, storage_class: str = "fast-ssd") -> dict[str, Any]:
@@ -492,19 +452,15 @@ class KubernetesManifestGenerator:
                 "name": f"{name}-pv",
                 "labels": {
                     "app.kubernetes.io/name": name,
-                    "app.kubernetes.io/component": "storage"
-                }
+                    "app.kubernetes.io/component": "storage",
+                },
             },
             "spec": {
-                "capacity": {
-                    "storage": size
-                },
+                "capacity": {"storage": size},
                 "accessModes": ["ReadWriteOnce"],
                 "storageClassName": storage_class,
-                "hostPath": {
-                    "path": f"/data/{name}"
-                }
-            }
+                "hostPath": {"path": f"/data/{name}"},
+            },
         }
 
     def generate_pvc(self, name: str, size: str, storage_class: str = "fast-ssd") -> dict[str, Any]:
@@ -517,18 +473,14 @@ class KubernetesManifestGenerator:
                 "namespace": self.namespace,
                 "labels": {
                     "app.kubernetes.io/name": name,
-                    "app.kubernetes.io/component": "storage"
-                }
+                    "app.kubernetes.io/component": "storage",
+                },
             },
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
                 "storageClassName": storage_class,
-                "resources": {
-                    "requests": {
-                        "storage": size
-                    }
-                }
-            }
+                "resources": {"requests": {"storage": size}},
+            },
         }
 
 
@@ -549,7 +501,7 @@ class KubernetesDeployer:
     def apply_manifest(self, manifest: dict[str, Any]) -> bool:
         """Apply a single manifest."""
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
                 yaml.dump(manifest, f, default_flow_style=False)
                 f.flush()
 
@@ -567,13 +519,13 @@ class KubernetesDeployer:
             logger.error(f"Error applying manifest: {e}")
             return False
         finally:
-            if 'f' in locals():
+            if "f" in locals():
                 os.unlink(f.name)
 
     def apply_manifests(self, manifests: list[dict[str, Any]]) -> bool:
         """Apply multiple manifests."""
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
                 for i, manifest in enumerate(manifests):
                     if i > 0:
                         f.write("---\n")
@@ -594,7 +546,7 @@ class KubernetesDeployer:
             logger.error(f"Error applying manifests: {e}")
             return False
         finally:
-            if 'f' in locals():
+            if "f" in locals():
                 os.unlink(f.name)
 
     def delete_resource(self, kind: str, name: str, namespace: str = None) -> bool:
@@ -700,24 +652,21 @@ class TQGenAIKubernetesOrchestrator:
                 service_type=ServiceType.CLUSTER_IP,
                 ingress=True,
                 ingress_host="chat.example.com",
-                environment={
-                    "FLASK_ENV": "production",
-                    "LOG_LEVEL": "INFO"
-                },
+                environment={"FLASK_ENV": "production", "LOG_LEVEL": "INFO"},
                 secrets={
                     "OPENAI_API_KEY": "",
                     "ANTHROPIC_API_KEY": "",
                     "GROQ_API_KEY": "",
-                    "SECRET_KEY": ""
+                    "SECRET_KEY": "",
                 },
                 volumes=[
                     {
                         "name": "uploads",
                         "type": "pvc",
                         "claimName": "uploads-pvc",
-                        "mountPath": "/app/uploads"
+                        "mountPath": "/app/uploads",
                     }
-                ]
+                ],
             ),
             "chat-service": ServiceConfig(
                 name="chat-service",
@@ -726,16 +675,14 @@ class TQGenAIKubernetesOrchestrator:
                 target_port=8001,
                 replicas=5,
                 autoscaling=AutoScalingConfig(
-                    min_replicas=3,
-                    max_replicas=20,
-                    target_cpu_utilization=60
+                    min_replicas=3, max_replicas=20, target_cpu_utilization=60
                 ),
                 resources=ResourceRequirements(
                     cpu_request="200m",
                     cpu_limit="1000m",
                     memory_request="256Mi",
-                    memory_limit="1Gi"
-                )
+                    memory_limit="1Gi",
+                ),
             ),
             "file-service": ServiceConfig(
                 name="file-service",
@@ -744,24 +691,22 @@ class TQGenAIKubernetesOrchestrator:
                 target_port=8002,
                 replicas=3,
                 autoscaling=AutoScalingConfig(
-                    min_replicas=2,
-                    max_replicas=10,
-                    target_cpu_utilization=70
+                    min_replicas=2, max_replicas=10, target_cpu_utilization=70
                 ),
                 resources=ResourceRequirements(
                     cpu_request="300m",
                     cpu_limit="1500m",
                     memory_request="512Mi",
-                    memory_limit="2Gi"
+                    memory_limit="2Gi",
                 ),
                 volumes=[
                     {
                         "name": "file-storage",
                         "type": "pvc",
                         "claimName": "file-storage-pvc",
-                        "mountPath": "/app/storage"
+                        "mountPath": "/app/storage",
                     }
-                ]
+                ],
             ),
             "redis": ServiceConfig(
                 name="redis",
@@ -774,17 +719,17 @@ class TQGenAIKubernetesOrchestrator:
                     cpu_request="100m",
                     cpu_limit="500m",
                     memory_request="256Mi",
-                    memory_limit="512Mi"
+                    memory_limit="512Mi",
                 ),
                 volumes=[
                     {
                         "name": "redis-data",
                         "type": "pvc",
                         "claimName": "redis-data-pvc",
-                        "mountPath": "/data"
+                        "mountPath": "/data",
                     }
-                ]
-            )
+                ],
+            ),
         }
 
     def generate_all_manifests(self) -> list[dict[str, Any]]:
@@ -795,11 +740,13 @@ class TQGenAIKubernetesOrchestrator:
         manifests.append(self.generator.generate_namespace())
 
         # Persistent Volumes and Claims
-        manifests.extend([
-            self.generator.generate_pvc("uploads", "10Gi"),
-            self.generator.generate_pvc("file-storage", "50Gi"),
-            self.generator.generate_pvc("redis-data", "5Gi")
-        ])
+        manifests.extend(
+            [
+                self.generator.generate_pvc("uploads", "10Gi"),
+                self.generator.generate_pvc("file-storage", "50Gi"),
+                self.generator.generate_pvc("redis-data", "5Gi"),
+            ]
+        )
 
         # Services
         for service_name, config in self.services.items():
@@ -809,7 +756,9 @@ class TQGenAIKubernetesOrchestrator:
 
             # ConfigMaps
             if config.config_maps:
-                manifests.append(self.generator.generate_configmap(service_name, config.config_maps))
+                manifests.append(
+                    self.generator.generate_configmap(service_name, config.config_maps)
+                )
 
             # Deployment
             manifests.append(self.generator.generate_deployment(config))
@@ -844,7 +793,7 @@ class TQGenAIKubernetesOrchestrator:
                     name = manifest["metadata"]["name"]
                     filename = f"{i:02d}-{kind}-{name}.yaml"
 
-                    with open(output_dir / filename, 'w') as f:
+                    with open(output_dir / filename, "w") as f:
                         yaml.dump(manifest, f, default_flow_style=False)
 
                 logger.info(f"Generated {len(manifests)} manifests in {output_dir}")
@@ -870,7 +819,7 @@ class TQGenAIKubernetesOrchestrator:
         # Generate and apply updated manifests
         manifests = [
             self.generator.generate_deployment(config),
-            self.generator.generate_service(config)
+            self.generator.generate_service(config),
         ]
 
         if config.replicas > 1:
@@ -891,7 +840,7 @@ class TQGenAIKubernetesOrchestrator:
         status = {
             "namespace": self.namespace,
             "services": {},
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
         for service_name in self.services.keys():

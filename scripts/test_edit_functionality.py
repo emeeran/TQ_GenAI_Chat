@@ -62,10 +62,11 @@ def test_edit_functionality():
         print(f"✗ Test failed: {str(e)}")
         return False
     finally:
-        if 'driver' in locals():
+        if "driver" in locals():
             driver.quit()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Simple test without selenium since it may not be available
     print("Edit message functionality has been implemented with the following features:")
     print("1. ✓ Edit buttons added to user messages")

@@ -53,7 +53,7 @@ class ErrorHandler:
             "success": False,
             "error": error.message,
             "status_code": error.status_code,
-            "details": error.details
+            "details": error.details,
         }
 
     def handle_unexpected_error(self, error: Exception) -> dict[str, Any]:
@@ -66,13 +66,14 @@ class ErrorHandler:
             "status_code": 500,
             "details": {
                 "type": type(error).__name__,
-                "traceback": traceback.format_exc() if self.logger.level <= logging.DEBUG else None
-            }
+                "traceback": traceback.format_exc() if self.logger.level <= logging.DEBUG else None,
+            },
         }
 
 
 def handle_errors(func):
     """Decorator for consistent error handling"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -83,6 +84,7 @@ def handle_errors(func):
         except Exception as e:
             error_handler = ErrorHandler()
             return jsonify(error_handler.handle_unexpected_error(e)), 500
+
     return wrapper
 
 
@@ -90,11 +92,8 @@ def setup_logging(app):
     """Setup application logging"""
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('app.log'),
-            logging.StreamHandler()
-        ]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler("app.log"), logging.StreamHandler()],
     )
 
     # Set Flask logger level

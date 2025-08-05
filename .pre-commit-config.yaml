@@ -1,0 +1,178 @@
+# Pre-commit configuration for TQ GenAI Chat
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  # Pre-commit hooks for general file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-toml
+      - id: check-json
+      - id: check-xml
+      - id: check-added-large-files
+        args: [--maxkb=10000]  # 10MB max
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: debug-statements
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # Python-specific hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-docstring-first
+      - id: name-tests-test
+        args: [--pytest-test-first]
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^(tests/|scripts/test_)
+
+  # Code formatting with Black
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: [--line-length=100]
+
+  # Import sorting with isort (compatible with Black)
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile, black, --line-length=100]
+
+  # Linting with Ruff (fast Python linter)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # Type checking with MyPy
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-redis
+          - types-Pillow
+          - pydantic
+        args: [--strict, --ignore-missing-imports]
+        exclude: ^(migrations/|scripts/|tests/)
+
+  # Documentation checks
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: [--convention=google]
+        exclude: ^(tests/|migrations/|scripts/)
+
+  # Environment file checks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        exclude: .*\.lock$|^\.venv/
+
+  # Dockerfile linting (if you have Docker files)
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3009]
+
+  # Shell script checking
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+
+  # Requirements.txt sorting and formatting
+  - repo: https://github.com/pre-commit/mirrors-autopep8
+    rev: v2.0.4
+    hooks:
+      - id: autopep8
+        files: requirements.*\.txt$
+
+  # Jupyter notebook cleaning (if you have notebooks)
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.7.1
+    hooks:
+      - id: nbqa-black
+        additional_dependencies: [black]
+      - id: nbqa-ruff
+        additional_dependencies: [ruff]
+
+  # Local hooks for project-specific checks
+  - repo: local
+    hooks:
+      # Check for Flask debug mode in production files
+      # Check Flask debug mode
+      - id: check-flask-debug
+        name: Check Flask debug mode
+        entry: bash -c 'if grep -r "debug=True" --include="*.py" --exclude-dir=tests --exclude-dir=trash2review --exclude-dir=.venv --exclude-dir=refactor_backup --exclude-dir=scripts --exclude="*test*.py" --exclude="app/__main__.py" --exclude="app.py" . | grep -v "app_refactored\|scripts"; then echo "Found debug=True in production code"; exit 1; fi'
+        language: system
+        pass_filenames: false      # Check for print statements in production code
+      - id: check-print-statements
+        name: Check for print statements
+        entry: bash -c 'if grep -r "print(" --include="*.py" --exclude-dir=tests --exclude-dir=scripts --exclude-dir=trash2review --exclude-dir=.venv --exclude="*test*.py" --exclude="*enterprise_security.py" . | grep -v "register_blueprint\|Blueprint"; then echo "Found print() statements in production code"; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+      # Check for hardcoded secrets/tokens
+      - id: check-hardcoded-secrets
+        name: Check for hardcoded secrets
+        entry: bash -c 'if grep -ri -E "(api_key|secret|token|password)\s*=\s*[\"'\''][^\"'\'']{10,}" --include="*.py" --exclude-dir=tests --exclude-dir=trash2review --exclude-dir=.venv --exclude="*test*.py" --exclude="*enterprise_security.py" .; then echo "Found potential hardcoded secrets"; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+      # Validate Python imports
+      - id: validate-imports
+        name: Validate Python imports
+        entry: python -c "import ast, sys; [ast.parse(open(f).read()) for f in sys.argv[1:]]"
+        language: system
+        files: \.py$
+
+# Configuration for individual tools
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [mypy, bandit]  # Skip slow hooks in CI
+  submodules: false

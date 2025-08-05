@@ -45,7 +45,7 @@ def initialize_optimizations(app: Flask):
     logger.info("Initializing optimization modules...")
 
     # Initialize Redis URL from environment
-    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
     try:
         # Initialize cache manager
@@ -53,7 +53,7 @@ def initialize_optimizations(app: Flask):
         logger.info("✓ Cache manager initialized")
 
         # Initialize document store
-        database_path = os.getenv('DATABASE_PATH', 'documents.db')
+        database_path = os.getenv("DATABASE_PATH", "documents.db")
         document_store = get_document_store(database_path, redis_url)
         logger.info("✓ Document store initialized")
 
@@ -63,7 +63,7 @@ def initialize_optimizations(app: Flask):
         logger.info("✓ Performance monitor initialized")
 
         # Initialize security manager
-        master_key = os.getenv('SECURITY_MASTER_KEY')
+        master_key = os.getenv("SECURITY_MASTER_KEY")
         security_manager = get_security_manager(master_key)
         logger.info("✓ Security manager initialized")
 
@@ -101,48 +101,48 @@ def create_optimized_routes(app: Flask):
     def before_request():
         """Security and monitoring setup for each request."""
         # Start performance monitoring
-        g.request_timer = request_timer(request.endpoint or 'unknown', request.method)
+        g.request_timer = request_timer(request.endpoint or "unknown", request.method)
         g.request_timer.__enter__()
 
         # Get user info
-        user_id = session.get('user_id', 'anonymous')
-        ip_address = request.remote_addr or 'unknown'
+        user_id = session.get("user_id", "anonymous")
+        ip_address = request.remote_addr or "unknown"
 
         # Security validation for API endpoints
-        if request.endpoint and request.endpoint.startswith('api_'):
+        if request.endpoint and request.endpoint.startswith("api_"):
             is_valid, error_message = security_manager.validate_request(
                 user_id=user_id,
                 ip_address=ip_address,
                 endpoint=request.endpoint,
                 data=request.get_json() or {},
-                rate_limit=60  # 60 requests per minute
+                rate_limit=60,  # 60 requests per minute
             )
 
             if not is_valid:
                 g.request_timer.__exit__(None, None, None)
-                return jsonify({'error': error_message}), 429
+                return jsonify({"error": error_message}), 429
 
     @app.after_request
     def after_request(response):
         """Cleanup after each request."""
-        if hasattr(g, 'request_timer'):
+        if hasattr(g, "request_timer"):
             g.request_timer.__exit__(None, None, None)
         return response
 
-    @app.route('/api/chat/optimized', methods=['POST'])
+    @app.route("/api/chat/optimized", methods=["POST"])
     async def optimized_chat():
         """Optimized chat endpoint using all performance improvements."""
         try:
             data = request.get_json()
-            user_id = session.get('user_id', 'anonymous')
+            user_id = session.get("user_id", "anonymous")
 
             # Input validation
-            message = data.get('message', '')
-            provider = data.get('provider', 'openai')
-            model = data.get('model', 'gpt-3.5-turbo')
+            message = data.get("message", "")
+            provider = data.get("provider", "openai")
+            model = data.get("model", "gpt-3.5-turbo")
 
             if not message:
-                return jsonify({'error': 'Message is required'}), 400
+                return jsonify({"error": "Message is required"}), 400
 
             # Check cache first
             cache_key = f"chat:{provider}:{model}:{hash(message)}"
@@ -150,12 +150,14 @@ def create_optimized_routes(app: Flask):
 
             if cached_response:
                 logger.info("Cache hit for chat request")
-                return jsonify({
-                    'response': cached_response,
-                    'cached': True,
-                    'provider': provider,
-                    'model': model
-                })
+                return jsonify(
+                    {
+                        "response": cached_response,
+                        "cached": True,
+                        "provider": provider,
+                        "model": model,
+                    }
+                )
 
             # Background processing for long requests
             if CELERY_AVAILABLE and len(message) > 5000:
@@ -165,94 +167,87 @@ def create_optimized_routes(app: Flask):
                     provider=provider,
                     model=model,
                     user_id=user_id,
-                    context={'api_key': security_manager.get_api_key(provider)}
+                    context={"api_key": security_manager.get_api_key(provider)},
                 )
 
-                return jsonify({
-                    'task_id': task_id,
-                    'status': 'processing',
-                    'message': 'Request submitted for background processing'
-                })
+                return jsonify(
+                    {
+                        "task_id": task_id,
+                        "status": "processing",
+                        "message": "Request submitted for background processing",
+                    }
+                )
 
             # Process request with monitoring
             with ai_request_timer(provider, model, performance_monitor):
                 # Get API key securely
                 api_key = security_manager.get_api_key(provider)
                 if not api_key:
-                    return jsonify({'error': f'API key not configured for {provider}'}), 400
+                    return jsonify({"error": f"API key not configured for {provider}"}), 400
 
                 # Make optimized API request
-                if provider == 'openai':
+                if provider == "openai":
                     endpoint = "https://api.openai.com/v1/chat/completions"
                     headers = {
                         "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
                     }
                     payload = {
                         "model": model,
                         "messages": [{"role": "user", "content": message}],
-                        "stream": False
+                        "stream": False,
                     }
                 else:
-                    return jsonify({'error': f'Provider {provider} not supported'}), 400
+                    return jsonify({"error": f"Provider {provider} not supported"}), 400
 
                 # Use optimized API client
                 response = await api_client.make_request(
-                    method='POST',
-                    url=endpoint,
-                    headers=headers,
-                    json_data=payload
+                    method="POST", url=endpoint, headers=headers, json_data=payload
                 )
 
                 # Extract response
-                ai_response = response['choices'][0]['message']['content']
+                ai_response = response["choices"][0]["message"]["content"]
 
                 # Cache the response
                 await cache_manager.set(cache_key, ai_response, ttl=3600)  # 1 hour
 
                 # Store in database
                 document_store.add_chat_history(
-                    session_id=session.get('session_id', user_id),
+                    session_id=session.get("session_id", user_id),
                     user_message=message,
                     ai_response=ai_response,
                     provider=provider,
                     model=model,
                     response_time_ms=int(time.time() * 1000),
-                    metadata={'user_id': user_id}
+                    metadata={"user_id": user_id},
                 )
 
-                return jsonify({
-                    'response': ai_response,
-                    'cached': False,
-                    'provider': provider,
-                    'model': model
-                })
+                return jsonify(
+                    {"response": ai_response, "cached": False, "provider": provider, "model": model}
+                )
 
         except Exception as e:
             logger.error(f"Optimized chat error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
-    @app.route('/api/upload/optimized', methods=['POST'])
+    @app.route("/api/upload/optimized", methods=["POST"])
     async def optimized_file_upload():
         """Optimized file upload with streaming processing."""
         try:
-            if 'files' not in request.files:
-                return jsonify({'error': 'No files uploaded'}), 400
+            if "files" not in request.files:
+                return jsonify({"error": "No files uploaded"}), 400
 
-            files = request.files.getlist('files')
-            user_id = session.get('user_id', 'anonymous')
+            files = request.files.getlist("files")
+            user_id = session.get("user_id", "anonymous")
             results = []
 
             for file in files:
-                if file.filename == '':
+                if file.filename == "":
                     continue
 
                 # Validate filename
                 if not security_manager.input_validator.validate_filename(file.filename):
-                    results.append({
-                        'filename': file.filename,
-                        'error': 'Invalid filename'
-                    })
+                    results.append({"filename": file.filename, "error": "Invalid filename"})
                     continue
 
                 # Read file data
@@ -261,25 +256,20 @@ def create_optimized_routes(app: Flask):
 
                 # Check file size
                 if len(file_data) > 16 * 1024 * 1024:  # 16MB limit
-                    results.append({
-                        'filename': file.filename,
-                        'error': 'File too large (max 16MB)'
-                    })
+                    results.append(
+                        {"filename": file.filename, "error": "File too large (max 16MB)"}
+                    )
                     continue
 
                 # Background processing for large files
                 if CELERY_AVAILABLE and len(file_data) > 5 * 1024 * 1024:  # 5MB
                     task_id = await task_manager.submit_file_processing_task(
-                        file_data=file_data,
-                        filename=file.filename,
-                        user_id=user_id
+                        file_data=file_data, filename=file.filename, user_id=user_id
                     )
 
-                    results.append({
-                        'filename': file.filename,
-                        'task_id': task_id,
-                        'status': 'processing'
-                    })
+                    results.append(
+                        {"filename": file.filename, "task_id": task_id, "status": "processing"}
+                    )
                 else:
                     # Process immediately with streaming
                     try:
@@ -291,48 +281,44 @@ def create_optimized_routes(app: Flask):
                         doc_id = document_store.add_document(
                             filename=file.filename,
                             content=content,
-                            metadata={'user_id': user_id, 'file_size': len(file_data)}
+                            metadata={"user_id": user_id, "file_size": len(file_data)},
                         )
 
-                        results.append({
-                            'filename': file.filename,
-                            'document_id': doc_id,
-                            'content_length': len(content),
-                            'status': 'completed'
-                        })
+                        results.append(
+                            {
+                                "filename": file.filename,
+                                "document_id": doc_id,
+                                "content_length": len(content),
+                                "status": "completed",
+                            }
+                        )
 
                     except Exception as e:
                         logger.error(f"File processing error for {file.filename}: {e}")
-                        results.append({
-                            'filename': file.filename,
-                            'error': str(e)
-                        })
+                        results.append({"filename": file.filename, "error": str(e)})
 
-            return jsonify({'results': results})
+            return jsonify({"results": results})
 
         except Exception as e:
             logger.error(f"Optimized upload error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
-    @app.route('/api/search/optimized', methods=['GET'])
+    @app.route("/api/search/optimized", methods=["GET"])
     async def optimized_search():
         """Optimized document search with caching."""
         try:
-            query = request.args.get('q', '')
-            limit = min(int(request.args.get('limit', 10)), 50)
+            query = request.args.get("q", "")
+            limit = min(int(request.args.get("limit", 10)), 50)
 
             if not query:
-                return jsonify({'error': 'Query parameter required'}), 400
+                return jsonify({"error": "Query parameter required"}), 400
 
             # Check cache first
             cache_key = f"search:{hash(query)}:{limit}"
             cached_results = await cache_manager.get(cache_key)
 
             if cached_results:
-                return jsonify({
-                    'results': cached_results,
-                    'cached': True
-                })
+                return jsonify({"results": cached_results, "cached": True})
 
             # Search documents
             results = document_store.search_documents(query, limit)
@@ -340,45 +326,44 @@ def create_optimized_routes(app: Flask):
             # Cache results
             await cache_manager.set(cache_key, results, ttl=300)  # 5 minutes
 
-            return jsonify({
-                'results': results,
-                'cached': False
-            })
+            return jsonify({"results": results, "cached": False})
 
         except Exception as e:
             logger.error(f"Optimized search error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
-    @app.route('/api/performance/stats', methods=['GET'])
+    @app.route("/api/performance/stats", methods=["GET"])
     def performance_stats():
         """Get performance statistics."""
         try:
             snapshot = performance_monitor.get_performance_snapshot()
 
-            return jsonify({
-                'timestamp': snapshot.timestamp,
-                'system': {
-                    'cpu_percent': snapshot.cpu_percent,
-                    'memory_percent': snapshot.memory_percent,
-                    'memory_mb': snapshot.memory_mb,
-                },
-                'network': {
-                    'sent_mb_per_sec': snapshot.network_sent_mb,
-                    'recv_mb_per_sec': snapshot.network_recv_mb,
-                },
-                'application': {
-                    'active_connections': snapshot.active_connections,
-                    'response_times': snapshot.response_times,
-                    'error_rates': snapshot.error_rates,
-                    'custom_metrics': snapshot.custom_metrics
+            return jsonify(
+                {
+                    "timestamp": snapshot.timestamp,
+                    "system": {
+                        "cpu_percent": snapshot.cpu_percent,
+                        "memory_percent": snapshot.memory_percent,
+                        "memory_mb": snapshot.memory_mb,
+                    },
+                    "network": {
+                        "sent_mb_per_sec": snapshot.network_sent_mb,
+                        "recv_mb_per_sec": snapshot.network_recv_mb,
+                    },
+                    "application": {
+                        "active_connections": snapshot.active_connections,
+                        "response_times": snapshot.response_times,
+                        "error_rates": snapshot.error_rates,
+                        "custom_metrics": snapshot.custom_metrics,
+                    },
                 }
-            })
+            )
 
         except Exception as e:
             logger.error(f"Performance stats error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
-    @app.route('/api/task/status/<task_id>', methods=['GET'])
+    @app.route("/api/task/status/<task_id>", methods=["GET"])
     def task_status(task_id):
         """Get background task status."""
         try:
@@ -386,14 +371,14 @@ def create_optimized_routes(app: Flask):
             return jsonify(status)
         except Exception as e:
             logger.error(f"Task status error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
-    @app.route('/api/security/audit', methods=['GET'])
+    @app.route("/api/security/audit", methods=["GET"])
     def security_audit():
         """Get security audit information."""
         try:
-            hours = int(request.args.get('hours', 24))
-            severity = request.args.get('severity')
+            hours = int(request.args.get("hours", 24))
+            severity = request.args.get("severity")
 
             # Get recent events
             events = security_manager.auditor.get_recent_events(hours, severity)
@@ -401,74 +386,69 @@ def create_optimized_routes(app: Flask):
             # Get anomalies
             anomalies = security_manager.auditor.detect_anomalies()
 
-            return jsonify({
-                'events': [
-                    {
-                        'timestamp': event.timestamp,
-                        'event_type': event.event_type,
-                        'user_id': event.user_id,
-                        'ip_address': event.ip_address,
-                        'severity': event.severity,
-                        'details': event.details
-                    }
-                    for event in events
-                ],
-                'anomalies': anomalies,
-                'total_events': len(events)
-            })
+            return jsonify(
+                {
+                    "events": [
+                        {
+                            "timestamp": event.timestamp,
+                            "event_type": event.event_type,
+                            "user_id": event.user_id,
+                            "ip_address": event.ip_address,
+                            "severity": event.severity,
+                            "details": event.details,
+                        }
+                        for event in events
+                    ],
+                    "anomalies": anomalies,
+                    "total_events": len(events),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Security audit error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
-    @app.route('/health/detailed', methods=['GET'])
+    @app.route("/health/detailed", methods=["GET"])
     def detailed_health_check():
         """Detailed health check with all systems."""
         try:
-            health_status = {
-                'status': 'healthy',
-                'timestamp': time.time(),
-                'services': {}
-            }
+            health_status = {"status": "healthy", "timestamp": time.time(), "services": {}}
 
             # Check cache manager
             try:
-                await cache_manager.get('health_check')
-                health_status['services']['cache'] = 'healthy'
+                await cache_manager.get("health_check")
+                health_status["services"]["cache"] = "healthy"
             except Exception as e:
-                health_status['services']['cache'] = f'unhealthy: {e}'
-                health_status['status'] = 'degraded'
+                health_status["services"]["cache"] = f"unhealthy: {e}"
+                health_status["status"] = "degraded"
 
             # Check document store
             try:
                 document_store.get_statistics()
-                health_status['services']['database'] = 'healthy'
+                health_status["services"]["database"] = "healthy"
             except Exception as e:
-                health_status['services']['database'] = f'unhealthy: {e}'
-                health_status['status'] = 'degraded'
+                health_status["services"]["database"] = f"unhealthy: {e}"
+                health_status["status"] = "degraded"
 
             # Check performance monitor
             try:
                 performance_monitor.get_performance_snapshot()
-                health_status['services']['monitoring'] = 'healthy'
+                health_status["services"]["monitoring"] = "healthy"
             except Exception as e:
-                health_status['services']['monitoring'] = f'unhealthy: {e}'
-                health_status['status'] = 'degraded'
+                health_status["services"]["monitoring"] = f"unhealthy: {e}"
+                health_status["status"] = "degraded"
 
             # Check background tasks
             if CELERY_AVAILABLE:
-                health_status['services']['background_tasks'] = 'healthy'
+                health_status["services"]["background_tasks"] = "healthy"
             else:
-                health_status['services']['background_tasks'] = 'disabled'
+                health_status["services"]["background_tasks"] = "disabled"
 
             return jsonify(health_status)
 
         except Exception as e:
             logger.error(f"Health check error: {e}")
-            return jsonify({
-                'status': 'unhealthy',
-                'error': str(e)
-            }), 500
+            return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
 
 def shutdown_optimizations():
@@ -501,7 +481,7 @@ def create_optimized_app():
     from flask import Flask
 
     app = Flask(__name__)
-    app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
+    app.secret_key = os.getenv("SECRET_KEY", "your-secret-key-here")
 
     # Initialize optimizations
     initialize_optimizations(app)
@@ -517,6 +497,7 @@ def create_optimized_app():
 
     # Add shutdown handler
     import atexit
+
     atexit.register(shutdown_optimizations)
 
     return app
@@ -571,6 +552,7 @@ to your existing route structure.
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     logger.info(INTEGRATION_INSTRUCTIONS)

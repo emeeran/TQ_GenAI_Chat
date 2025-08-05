@@ -21,19 +21,19 @@ class CircuitBreaker:
         self.recovery_timeout = recovery_timeout
         self.failure_count = 0
         self.last_failure_time = None
-        self.state = 'CLOSED'  # CLOSED, OPEN, HALF_OPEN
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
 
     async def call(self, func, *args, **kwargs):
-        if self.state == 'OPEN':
+        if self.state == "OPEN":
             if time.time() - self.last_failure_time > self.recovery_timeout:
-                self.state = 'HALF_OPEN'
+                self.state = "HALF_OPEN"
             else:
                 raise Exception("Circuit breaker is OPEN")
 
         try:
             result = await func(*args, **kwargs)
-            if self.state == 'HALF_OPEN':
-                self.state = 'CLOSED'
+            if self.state == "HALF_OPEN":
+                self.state = "CLOSED"
                 self.failure_count = 0
             return result
         except Exception as e:
@@ -41,7 +41,7 @@ class CircuitBreaker:
             self.last_failure_time = time.time()
 
             if self.failure_count >= self.failure_threshold:
-                self.state = 'OPEN'
+                self.state = "OPEN"
                 logger.warning(f"Circuit breaker opened due to {self.failure_count} failures")
 
             raise e
@@ -66,14 +66,10 @@ class OptimizedAPIClient:
             use_dns_cache=True,
             keepalive_timeout=60,
             enable_cleanup_closed=True,
-            limit_per_host=30
+            limit_per_host=30,
         )
 
-        self.timeout = ClientTimeout(
-            total=60,
-            connect=10,
-            sock_read=50
-        )
+        self.timeout = ClientTimeout(total=60, connect=10, sock_read=50)
 
     async def __aenter__(self):
         await self.start()
@@ -85,10 +81,7 @@ class OptimizedAPIClient:
     async def start(self):
         """Initialize the HTTP session."""
         if self.session is None:
-            self.session = aiohttp.ClientSession(
-                connector=self.connector,
-                timeout=self.timeout
-            )
+            self.session = aiohttp.ClientSession(connector=self.connector, timeout=self.timeout)
         return self.session
 
     async def close(self):
@@ -110,10 +103,7 @@ class OptimizedAPIClient:
             self.rate_limits[endpoint] = []
 
         # Clean old requests
-        self.rate_limits[endpoint] = [
-            t for t in self.rate_limits[endpoint]
-            if t > now - 60
-        ]
+        self.rate_limits[endpoint] = [t for t in self.rate_limits[endpoint] if t > now - 60]
 
         if len(self.rate_limits[endpoint]) >= 60:
             return False
@@ -127,7 +117,7 @@ class OptimizedAPIClient:
         url: str,
         headers: dict[str, str] = None,
         json_data: dict[str, Any] = None,
-        max_retries: int = 3
+        max_retries: int = 3,
     ) -> dict[str, Any]:
         """
         Make HTTP request with retry logic and circuit breaker.
@@ -145,13 +135,10 @@ class OptimizedAPIClient:
                     raise Exception("Rate limit exceeded")
 
             async with self.session.request(
-                method=method,
-                url=url,
-                headers=headers or {},
-                json=json_data
+                method=method, url=url, headers=headers or {}, json=json_data
             ) as response:
                 if response.status == 429:  # Rate limit
-                    retry_after = int(response.headers.get('Retry-After', 60))
+                    retry_after = int(response.headers.get("Retry-After", 60))
                     logger.warning(f"Rate limited, waiting {retry_after}s")
                     await asyncio.sleep(retry_after)
                     raise Exception("Rate limit response")
@@ -171,12 +158,13 @@ class OptimizedAPIClient:
                     raise
 
                 # Exponential backoff
-                await asyncio.sleep(2 ** retry_count)
+                await asyncio.sleep(2**retry_count)
                 logger.warning(f"Retrying request {retry_count}/{max_retries}: {str(e)}")
 
 
 # Global instance
 _api_client = None
+
 
 async def get_api_client() -> OptimizedAPIClient:
     """Get or create global API client instance."""
@@ -185,6 +173,7 @@ async def get_api_client() -> OptimizedAPIClient:
         _api_client = OptimizedAPIClient()
         await _api_client.start()
     return _api_client
+
 
 async def cleanup_api_client():
     """Cleanup global API client."""

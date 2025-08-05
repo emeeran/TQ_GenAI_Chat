@@ -21,12 +21,14 @@ try:
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics.pairwise import cosine_similarity
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
 
 try:
     import redis.asyncio as redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -37,6 +39,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class UserInteraction:
     """User interaction data point."""
+
     user_id: str
     message: str
     provider: str
@@ -50,6 +53,7 @@ class UserInteraction:
 @dataclass
 class ContentRecommendation:
     """Content recommendation with confidence score."""
+
     content: str
     confidence: float
     reason: str
@@ -70,9 +74,7 @@ class SemanticCache:
 
         if SKLEARN_AVAILABLE:
             self.vectorizer = TfidfVectorizer(
-                max_features=1000,
-                stop_words='english',
-                ngram_range=(1, 2)
+                max_features=1000, stop_words="english", ngram_range=(1, 2)
             )
 
     async def initialize(self):
@@ -110,21 +112,22 @@ class SemanticCache:
 
         return intersection / union if union > 0 else 0.0
 
-    async def get_similar_response(self, message: str, provider: str = None,
-                                 model: str = None) -> dict | None:
+    async def get_similar_response(
+        self, message: str, provider: str = None, model: str = None
+    ) -> dict | None:
         """Find cached response for similar message."""
         best_match = None
         best_similarity = 0.0
 
         for _cache_key, cached_data in self.cache.items():
             # Check provider/model constraints
-            if provider and cached_data.get('provider') != provider:
+            if provider and cached_data.get("provider") != provider:
                 continue
-            if model and cached_data.get('model') != model:
+            if model and cached_data.get("model") != model:
                 continue
 
             # Compute similarity
-            cached_message = cached_data['message']
+            cached_message = cached_data["message"]
             similarity = self._compute_text_similarity(message, cached_message)
 
             if similarity > best_similarity and similarity >= self.similarity_threshold:
@@ -134,28 +137,33 @@ class SemanticCache:
         if best_match:
             logger.info(f"Cache hit with {best_similarity:.3f} similarity")
             # Update access time and hit count
-            best_match['last_accessed'] = time.time()
-            best_match['hit_count'] = best_match.get('hit_count', 0) + 1
+            best_match["last_accessed"] = time.time()
+            best_match["hit_count"] = best_match.get("hit_count", 0) + 1
 
         return best_match
 
-    async def cache_response(self, message: str, response: str, provider: str,
-                           model: str, response_time: float, user_id: str = None):
+    async def cache_response(
+        self,
+        message: str,
+        response: str,
+        provider: str,
+        model: str,
+        response_time: float,
+        user_id: str = None,
+    ):
         """Cache a response with metadata."""
-        cache_key = hashlib.sha256(
-            f"{message}:{provider}:{model}".encode()
-        ).hexdigest()
+        cache_key = hashlib.sha256(f"{message}:{provider}:{model}".encode()).hexdigest()
 
         cache_data = {
-            'message': message,
-            'response': response,
-            'provider': provider,
-            'model': model,
-            'response_time': response_time,
-            'user_id': user_id,
-            'cached_at': time.time(),
-            'last_accessed': time.time(),
-            'hit_count': 0
+            "message": message,
+            "response": response,
+            "provider": provider,
+            "model": model,
+            "response_time": response_time,
+            "user_id": user_id,
+            "cached_at": time.time(),
+            "last_accessed": time.time(),
+            "hit_count": 0,
         }
 
         self.cache[cache_key] = cache_data
@@ -173,9 +181,9 @@ class SemanticCache:
 
         current_time = time.time()
         for key, data in self.cache.items():
-            recency_score = 1.0 / (current_time - data['last_accessed'] + 1)
-            frequency_score = data['hit_count']
-            speed_score = 1.0 / (data['response_time'] + 0.1)
+            recency_score = 1.0 / (current_time - data["last_accessed"] + 1)
+            frequency_score = data["hit_count"]
+            speed_score = 1.0 / (data["response_time"] + 0.1)
 
             total_score = recency_score + frequency_score + speed_score
             scored_entries.append((total_score, key))
@@ -231,24 +239,25 @@ class SmartRecommendationEngine:
         provider_key = f"{interaction.provider}:{interaction.model}"
         if provider_key not in self.provider_performance:
             self.provider_performance[provider_key] = {
-                'total_requests': 0,
-                'total_response_time': 0.0,
-                'satisfaction_scores': []
+                "total_requests": 0,
+                "total_response_time": 0.0,
+                "satisfaction_scores": [],
             }
 
         perf = self.provider_performance[provider_key]
-        perf['total_requests'] += 1
-        perf['total_response_time'] += interaction.response_time
+        perf["total_requests"] += 1
+        perf["total_response_time"] += interaction.response_time
 
         if interaction.satisfaction_score is not None:
-            perf['satisfaction_scores'].append(interaction.satisfaction_score)
+            perf["satisfaction_scores"].append(interaction.satisfaction_score)
 
         # Trigger model retraining if we have enough data
         if len(self.user_interactions[interaction.user_id]) % 100 == 0:
             await self._retrain_models()
 
-    async def recommend_provider(self, user_id: str, message: str,
-                               available_providers: List[str]) -> str:
+    async def recommend_provider(
+        self, user_id: str, message: str, available_providers: List[str]
+    ) -> str:
         """Recommend best provider for user and message."""
         if not self.models_initialized or not available_providers:
             # Fallback to performance-based recommendation
@@ -258,7 +267,7 @@ class SmartRecommendationEngine:
             # Extract features for prediction
             features = self._extract_message_features(message, user_id)
 
-            if hasattr(self.provider_predictor, 'predict_proba'):
+            if hasattr(self.provider_predictor, "predict_proba"):
                 # Get probabilities for each provider
                 provider_probs = self.provider_predictor.predict_proba([features])[0]
                 classes = self.provider_predictor.classes_
@@ -273,7 +282,9 @@ class SmartRecommendationEngine:
                         best_prob = prob
 
                 if best_provider:
-                    logger.info(f"ML recommended provider: {best_provider} (confidence: {best_prob:.3f})")
+                    logger.info(
+                        f"ML recommended provider: {best_provider} (confidence: {best_prob:.3f})"
+                    )
                     return best_provider
 
         except Exception as e:
@@ -292,14 +303,16 @@ class SmartRecommendationEngine:
             provider_key = f"{provider}:default"
             perf = self.provider_performance.get(provider_key, {})
 
-            if perf.get('total_requests', 0) > 0:
-                avg_response_time = perf['total_response_time'] / perf['total_requests']
-                avg_satisfaction = np.mean(perf['satisfaction_scores']) if perf['satisfaction_scores'] else 0.5
+            if perf.get("total_requests", 0) > 0:
+                avg_response_time = perf["total_response_time"] / perf["total_requests"]
+                avg_satisfaction = (
+                    np.mean(perf["satisfaction_scores"]) if perf["satisfaction_scores"] else 0.5
+                )
 
                 # Score: high satisfaction, low response time
                 speed_score = 1.0 / (avg_response_time + 0.1)
                 satisfaction_score = avg_satisfaction
-                composite_score = (speed_score * 0.3 + satisfaction_score * 0.7)
+                composite_score = speed_score * 0.3 + satisfaction_score * 0.7
 
                 if composite_score > best_score:
                     best_score = composite_score
@@ -307,7 +320,9 @@ class SmartRecommendationEngine:
 
         return best_provider
 
-    async def recommend_content(self, user_id: str, context: str = "") -> List[ContentRecommendation]:
+    async def recommend_content(
+        self, user_id: str, context: str = ""
+    ) -> List[ContentRecommendation]:
         """Recommend content based on user history and context."""
         recommendations = []
 
@@ -339,8 +354,9 @@ class SmartRecommendationEngine:
         recommendations.sort(key=lambda x: x.confidence, reverse=True)
         return recommendations[:5]
 
-    async def _recommend_from_clusters(self, user_interactions: List[UserInteraction],
-                                     context: str) -> List[ContentRecommendation]:
+    async def _recommend_from_clusters(
+        self, user_interactions: List[UserInteraction], context: str
+    ) -> List[ContentRecommendation]:
         """Recommend content based on content clustering."""
         recommendations = []
 
@@ -356,20 +372,23 @@ class SmartRecommendationEngine:
 
             # Generate recommendations based on common themes
             for word in common_words[:3]:
-                recommendations.append(ContentRecommendation(
-                    content=f"Tell me more about {word}",
-                    confidence=0.7,
-                    reason=f"Based on your interest in {word}",
-                    metadata={"topic": word, "source": "clustering"}
-                ))
+                recommendations.append(
+                    ContentRecommendation(
+                        content=f"Tell me more about {word}",
+                        confidence=0.7,
+                        reason=f"Based on your interest in {word}",
+                        metadata={"topic": word, "source": "clustering"},
+                    )
+                )
 
         except Exception as e:
             logger.error(f"Cluster recommendation failed: {e}")
 
         return recommendations
 
-    async def _recommend_collaborative(self, user_id: str,
-                                     user_interactions: List[UserInteraction]) -> List[ContentRecommendation]:
+    async def _recommend_collaborative(
+        self, user_id: str, user_interactions: List[UserInteraction]
+    ) -> List[ContentRecommendation]:
         """Collaborative filtering recommendations."""
         recommendations = []
 
@@ -383,22 +402,25 @@ class SmartRecommendationEngine:
 
                 # Find highly rated interactions
                 high_satisfaction = [
-                    interaction for interaction in similar_user_interactions
+                    interaction
+                    for interaction in similar_user_interactions
                     if interaction.satisfaction_score and interaction.satisfaction_score > 0.8
                 ]
 
                 if high_satisfaction:
                     interaction = high_satisfaction[-1]  # Most recent high satisfaction
-                    recommendations.append(ContentRecommendation(
-                        content=f"Similar to: {interaction.message[:50]}...",
-                        confidence=similarity_score * 0.8,
-                        reason="Users with similar interests enjoyed this",
-                        metadata={
-                            "similar_user": similar_user_id,
-                            "original_message": interaction.message,
-                            "source": "collaborative"
-                        }
-                    ))
+                    recommendations.append(
+                        ContentRecommendation(
+                            content=f"Similar to: {interaction.message[:50]}...",
+                            confidence=similarity_score * 0.8,
+                            reason="Users with similar interests enjoyed this",
+                            metadata={
+                                "similar_user": similar_user_id,
+                                "original_message": interaction.message,
+                                "source": "collaborative",
+                            },
+                        )
+                    )
 
         except Exception as e:
             logger.error(f"Collaborative recommendation failed: {e}")
@@ -415,10 +437,13 @@ class SmartRecommendationEngine:
             recent_interactions = []
 
             for user_interactions in self.user_interactions.values():
-                recent_interactions.extend([
-                    interaction for interaction in user_interactions
-                    if interaction.timestamp > recent_cutoff
-                ])
+                recent_interactions.extend(
+                    [
+                        interaction
+                        for interaction in user_interactions
+                        if interaction.timestamp > recent_cutoff
+                    ]
+                )
 
             # Find trending topics/patterns
             if recent_interactions:
@@ -426,12 +451,14 @@ class SmartRecommendationEngine:
                 trending_words = self._extract_common_words(messages)
 
                 for word in trending_words[:2]:
-                    recommendations.append(ContentRecommendation(
-                        content=f"What's trending: {word}",
-                        confidence=0.6,
-                        reason="This topic is trending today",
-                        metadata={"trending_topic": word, "source": "trending"}
-                    ))
+                    recommendations.append(
+                        ContentRecommendation(
+                            content=f"What's trending: {word}",
+                            confidence=0.6,
+                            reason="This topic is trending today",
+                            metadata={"trending_topic": word, "source": "trending"},
+                        )
+                    )
 
         except Exception as e:
             logger.error(f"Trending recommendation failed: {e}")
@@ -445,20 +472,20 @@ class SmartRecommendationEngine:
                 content="How can I help you today?",
                 confidence=0.9,
                 reason="Getting started",
-                metadata={"source": "default"}
+                metadata={"source": "default"},
             ),
             ContentRecommendation(
                 content="What would you like to know about?",
                 confidence=0.8,
                 reason="Open-ended exploration",
-                metadata={"source": "default"}
+                metadata={"source": "default"},
             ),
             ContentRecommendation(
                 content="I can help with analysis, writing, and problem-solving",
                 confidence=0.7,
                 reason="Capability overview",
-                metadata={"source": "default"}
-            )
+                metadata={"source": "default"},
+            ),
         ]
 
     def _extract_message_features(self, message: str, user_id: str) -> List[float]:
@@ -479,8 +506,7 @@ class SmartRecommendationEngine:
 
             # Recent satisfaction
             recent_satisfaction = [
-                i.satisfaction_score for i in user_history[-10:]
-                if i.satisfaction_score is not None
+                i.satisfaction_score for i in user_history[-10:] if i.satisfaction_score is not None
             ]
             features.append(np.mean(recent_satisfaction) if recent_satisfaction else 0.5)
         else:
@@ -495,7 +521,22 @@ class SmartRecommendationEngine:
     def _extract_common_words(self, messages: List[str], top_k: int = 10) -> List[str]:
         """Extract most common meaningful words."""
         word_counts = defaultdict(int)
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+        stop_words = {
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+        }
 
         for message in messages:
             words = message.lower().split()
@@ -506,8 +547,9 @@ class SmartRecommendationEngine:
 
         return sorted(word_counts.keys(), key=word_counts.get, reverse=True)[:top_k]
 
-    def _find_similar_users(self, user_id: str, user_interactions: List[UserInteraction],
-                          top_k: int = 5) -> List[Tuple[str, float]]:
+    def _find_similar_users(
+        self, user_id: str, user_interactions: List[UserInteraction], top_k: int = 5
+    ) -> List[Tuple[str, float]]:
         """Find users with similar interaction patterns."""
         user_vector = self._create_user_vector(user_interactions)
         similarities = []
@@ -540,29 +582,29 @@ class SmartRecommendationEngine:
             provider_counts[provider] += 1
 
         total_interactions = len(interactions)
-        features.extend([
-            provider_counts.get('openai', 0) / total_interactions,
-            provider_counts.get('anthropic', 0) / total_interactions,
-            provider_counts.get('groq', 0) / total_interactions,
-        ])
+        features.extend(
+            [
+                provider_counts.get("openai", 0) / total_interactions,
+                provider_counts.get("anthropic", 0) / total_interactions,
+                provider_counts.get("groq", 0) / total_interactions,
+            ]
+        )
 
         # Message characteristics
         message_lengths = [len(i.message) for i in interactions]
-        features.extend([
-            np.mean(message_lengths),
-            np.std(message_lengths),
-        ])
+        features.extend(
+            [
+                np.mean(message_lengths),
+                np.std(message_lengths),
+            ]
+        )
 
         # Satisfaction patterns
         satisfaction_scores = [
-            i.satisfaction_score for i in interactions
-            if i.satisfaction_score is not None
+            i.satisfaction_score for i in interactions if i.satisfaction_score is not None
         ]
         if satisfaction_scores:
-            features.extend([
-                np.mean(satisfaction_scores),
-                np.std(satisfaction_scores)
-            ])
+            features.extend([np.mean(satisfaction_scores), np.std(satisfaction_scores)])
         else:
             features.extend([0.5, 0.0])
 
@@ -635,11 +677,11 @@ class SmartRecommendationEngine:
             return
 
         try:
-            if hasattr(self.provider_predictor, 'coef_'):
-                joblib.dump(self.provider_predictor, 'models/provider_predictor.pkl')
+            if hasattr(self.provider_predictor, "coef_"):
+                joblib.dump(self.provider_predictor, "models/provider_predictor.pkl")
 
-            if hasattr(self.satisfaction_predictor, 'feature_importances_'):
-                joblib.dump(self.satisfaction_predictor, 'models/satisfaction_predictor.pkl')
+            if hasattr(self.satisfaction_predictor, "feature_importances_"):
+                joblib.dump(self.satisfaction_predictor, "models/satisfaction_predictor.pkl")
 
             logger.info("Models saved successfully")
 
@@ -654,12 +696,12 @@ class SmartRecommendationEngine:
         try:
             import os
 
-            if os.path.exists('models/provider_predictor.pkl'):
-                self.provider_predictor = joblib.load('models/provider_predictor.pkl')
+            if os.path.exists("models/provider_predictor.pkl"):
+                self.provider_predictor = joblib.load("models/provider_predictor.pkl")
                 logger.info("Provider predictor model loaded")
 
-            if os.path.exists('models/satisfaction_predictor.pkl'):
-                self.satisfaction_predictor = joblib.load('models/satisfaction_predictor.pkl')
+            if os.path.exists("models/satisfaction_predictor.pkl"):
+                self.satisfaction_predictor = joblib.load("models/satisfaction_predictor.pkl")
                 logger.info("Satisfaction predictor model loaded")
 
         except Exception as e:
@@ -677,25 +719,25 @@ class UsagePredictionEngine:
     async def initialize(self):
         """Initialize the prediction engine."""
         if SKLEARN_AVAILABLE:
-            self.prediction_model = RandomForestRegressor(
-                n_estimators=100,
-                random_state=42
-            )
+            self.prediction_model = RandomForestRegressor(n_estimators=100, random_state=42)
 
         logger.info("Usage prediction engine initialized")
 
-    def record_usage(self, timestamp: datetime, concurrent_users: int,
-                    request_rate: float, provider: str):
+    def record_usage(
+        self, timestamp: datetime, concurrent_users: int, request_rate: float, provider: str
+    ):
         """Record usage data point."""
-        self.usage_history.append({
-            'timestamp': timestamp,
-            'concurrent_users': concurrent_users,
-            'request_rate': request_rate,
-            'provider': provider,
-            'hour': timestamp.hour,
-            'day_of_week': timestamp.weekday(),
-            'day_of_month': timestamp.day
-        })
+        self.usage_history.append(
+            {
+                "timestamp": timestamp,
+                "concurrent_users": concurrent_users,
+                "request_rate": request_rate,
+                "provider": provider,
+                "hour": timestamp.hour,
+                "day_of_week": timestamp.weekday(),
+                "day_of_month": timestamp.day,
+            }
+        )
 
     async def predict_usage(self, hours_ahead: int = 24) -> Dict[str, float]:
         """Predict usage metrics for the next N hours."""
@@ -723,8 +765,8 @@ class UsagePredictionEngine:
                 predicted_users = max(0, self.prediction_model.predict([features])[0])
 
                 predictions[f"hour_{hour}"] = {
-                    'predicted_users': predicted_users,
-                    'timestamp': future_time.isoformat()
+                    "predicted_users": predicted_users,
+                    "timestamp": future_time.isoformat(),
                 }
 
             return predictions
@@ -741,14 +783,14 @@ class UsagePredictionEngine:
             # Default prediction
             for hour in range(1, hours_ahead + 1):
                 predictions[f"hour_{hour}"] = {
-                    'predicted_users': 10.0,
-                    'timestamp': (datetime.now() + timedelta(hours=hour)).isoformat()
+                    "predicted_users": 10.0,
+                    "timestamp": (datetime.now() + timedelta(hours=hour)).isoformat(),
                 }
             return predictions
 
         # Use recent average with time-of-day adjustment
         recent_data = list(self.usage_history)[-100:]
-        avg_users = np.mean([d['concurrent_users'] for d in recent_data])
+        avg_users = np.mean([d["concurrent_users"] for d in recent_data])
 
         current_time = datetime.now()
         for hour in range(1, hours_ahead + 1):
@@ -759,8 +801,8 @@ class UsagePredictionEngine:
             predicted_users = avg_users * hour_multiplier
 
             predictions[f"hour_{hour}"] = {
-                'predicted_users': max(1.0, predicted_users),
-                'timestamp': future_time.isoformat()
+                "predicted_users": max(1.0, predicted_users),
+                "timestamp": future_time.isoformat(),
             }
 
         return predictions
@@ -772,14 +814,14 @@ class UsagePredictionEngine:
 
         for data_point in self.usage_history:
             features = [
-                data_point['hour'] / 24.0,
-                data_point['day_of_week'] / 7.0,
-                data_point['day_of_month'] / 31.0,
-                data_point['request_rate']
+                data_point["hour"] / 24.0,
+                data_point["day_of_week"] / 7.0,
+                data_point["day_of_month"] / 31.0,
+                data_point["request_rate"],
             ]
 
             X.append(features)
-            y.append(data_point['concurrent_users'])
+            y.append(data_point["concurrent_users"])
 
         return X, y
 
@@ -789,7 +831,7 @@ class UsagePredictionEngine:
             timestamp.hour / 24.0,
             timestamp.weekday() / 7.0,
             timestamp.day / 31.0,
-            self._get_recent_request_rate()
+            self._get_recent_request_rate(),
         ]
 
     def _get_recent_request_rate(self) -> float:
@@ -798,7 +840,7 @@ class UsagePredictionEngine:
             return 1.0
 
         recent_data = list(self.usage_history)[-10:]
-        return np.mean([d['request_rate'] for d in recent_data])
+        return np.mean([d["request_rate"] for d in recent_data])
 
     def _get_hour_multiplier(self, hour: int) -> float:
         """Get multiplier based on typical usage patterns."""
@@ -820,8 +862,8 @@ class MLPoweredOptimizer:
         self.config = config or {}
 
         self.semantic_cache = SemanticCache(
-            similarity_threshold=self.config.get('similarity_threshold', 0.85),
-            max_cache_size=self.config.get('max_cache_size', 10000)
+            similarity_threshold=self.config.get("similarity_threshold", 0.85),
+            max_cache_size=self.config.get("max_cache_size", 10000),
         )
 
         self.recommendation_engine = SmartRecommendationEngine()
@@ -840,8 +882,9 @@ class MLPoweredOptimizer:
 
         logger.info("ML-powered optimizer started")
 
-    async def process_chat_request(self, user_id: str, message: str,
-                                 available_providers: List[str]) -> Dict[str, Any]:
+    async def process_chat_request(
+        self, user_id: str, message: str, available_providers: List[str]
+    ) -> Dict[str, Any]:
         """Process chat request with ML optimizations."""
         start_time = time.time()
 
@@ -849,11 +892,11 @@ class MLPoweredOptimizer:
         cached_response = await self.semantic_cache.get_similar_response(message)
         if cached_response:
             return {
-                'response': cached_response['response'],
-                'provider': cached_response['provider'],
-                'model': cached_response['model'],
-                'cached': True,
-                'cache_similarity': cached_response.get('similarity', 1.0)
+                "response": cached_response["response"],
+                "provider": cached_response["provider"],
+                "model": cached_response["model"],
+                "cached": True,
+                "cache_similarity": cached_response.get("similarity", 1.0),
             }
 
         # 2. Get provider recommendation
@@ -862,26 +905,28 @@ class MLPoweredOptimizer:
         )
 
         # 3. Get content recommendations
-        recommendations = await self.recommendation_engine.recommend_content(
-            user_id, message
-        )
+        recommendations = await self.recommendation_engine.recommend_content(user_id, message)
 
         return {
-            'recommended_provider': recommended_provider,
-            'content_recommendations': [
-                {
-                    'content': rec.content,
-                    'confidence': rec.confidence,
-                    'reason': rec.reason
-                } for rec in recommendations
+            "recommended_provider": recommended_provider,
+            "content_recommendations": [
+                {"content": rec.content, "confidence": rec.confidence, "reason": rec.reason}
+                for rec in recommendations
             ],
-            'processing_time': time.time() - start_time,
-            'cached': False
+            "processing_time": time.time() - start_time,
+            "cached": False,
         }
 
-    async def record_interaction_result(self, user_id: str, message: str,
-                                      response: str, provider: str, model: str,
-                                      response_time: float, satisfaction_score: float = None):
+    async def record_interaction_result(
+        self,
+        user_id: str,
+        message: str,
+        response: str,
+        provider: str,
+        model: str,
+        response_time: float,
+        satisfaction_score: float = None,
+    ):
         """Record interaction result for learning."""
         # Record for recommendation engine
         interaction = UserInteraction(
@@ -891,7 +936,7 @@ class MLPoweredOptimizer:
             model=model,
             response_time=response_time,
             timestamp=datetime.now(),
-            satisfaction_score=satisfaction_score
+            satisfaction_score=satisfaction_score,
         )
 
         await self.recommendation_engine.record_interaction(interaction)
@@ -910,25 +955,26 @@ class MLPoweredOptimizer:
     async def get_optimization_metrics(self) -> Dict[str, Any]:
         """Get ML optimization performance metrics."""
         return {
-            'semantic_cache': {
-                'size': len(self.semantic_cache.cache),
-                'hit_rate': self.cache_hit_rate,
-                'similarity_threshold': self.semantic_cache.similarity_threshold
+            "semantic_cache": {
+                "size": len(self.semantic_cache.cache),
+                "hit_rate": self.cache_hit_rate,
+                "similarity_threshold": self.semantic_cache.similarity_threshold,
             },
-            'recommendations': {
-                'users_tracked': len(self.recommendation_engine.user_interactions),
-                'providers_tracked': len(self.recommendation_engine.provider_performance),
-                'models_trained': self.recommendation_engine.models_initialized
+            "recommendations": {
+                "users_tracked": len(self.recommendation_engine.user_interactions),
+                "providers_tracked": len(self.recommendation_engine.provider_performance),
+                "models_trained": self.recommendation_engine.models_initialized,
             },
-            'usage_prediction': {
-                'history_size': len(self.usage_predictor.usage_history),
-                'model_available': self.usage_predictor.prediction_model is not None
-            }
+            "usage_prediction": {
+                "history_size": len(self.usage_predictor.usage_history),
+                "model_available": self.usage_predictor.prediction_model is not None,
+            },
         }
 
 
 # Global ML optimizer instance
 _ml_optimizer = None
+
 
 def get_ml_optimizer(config: Dict[str, Any] = None) -> MLPoweredOptimizer:
     """Get or create the global ML optimizer instance."""
@@ -944,10 +990,7 @@ if __name__ == "__main__":
 
     async def main():
         # Create ML optimizer
-        config = {
-            'similarity_threshold': 0.85,
-            'max_cache_size': 5000
-        }
+        config = {"similarity_threshold": 0.85, "max_cache_size": 5000}
 
         optimizer = get_ml_optimizer(config)
         await optimizer.start()
@@ -958,11 +1001,8 @@ if __name__ == "__main__":
 
         # Process a chat request
         await optimizer.process_chat_request(
-            user_id,
-            "What is machine learning?",
-            available_providers
+            user_id, "What is machine learning?", available_providers
         )
-
 
         # Record interaction result
         await optimizer.record_interaction_result(
@@ -972,7 +1012,7 @@ if __name__ == "__main__":
             provider="openai",
             model="gpt-4",
             response_time=1.5,
-            satisfaction_score=0.9
+            satisfaction_score=0.9,
         )
 
         # Get usage predictions
@@ -980,6 +1020,5 @@ if __name__ == "__main__":
 
         # Get metrics
         await optimizer.get_optimization_metrics()
-
 
     asyncio.run(main())

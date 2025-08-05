@@ -19,12 +19,14 @@ import aiohttp
 
 try:
     import redis.asyncio as redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
 
 try:
     import consul
+
     CONSUL_AVAILABLE = True
 except ImportError:
     CONSUL_AVAILABLE = False
@@ -34,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class ServiceState(Enum):
     """Service health states."""
+
     HEALTHY = "healthy"
     UNHEALTHY = "unhealthy"
     DEGRADED = "degraded"
@@ -43,6 +46,7 @@ class ServiceState(Enum):
 @dataclass
 class ServiceInstance:
     """Service instance metadata."""
+
     service_id: str
     service_name: str
     host: str
@@ -67,6 +71,7 @@ class ServiceInstance:
 @dataclass
 class Message:
     """Inter-service message."""
+
     id: str
     type: str
     service_from: str
@@ -79,29 +84,29 @@ class Message:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'id': self.id,
-            'type': self.type,
-            'service_from': self.service_from,
-            'service_to': self.service_to,
-            'payload': self.payload,
-            'timestamp': self.timestamp.isoformat(),
-            'correlation_id': self.correlation_id,
-            'reply_to': self.reply_to,
-            'ttl': self.ttl
+            "id": self.id,
+            "type": self.type,
+            "service_from": self.service_from,
+            "service_to": self.service_to,
+            "payload": self.payload,
+            "timestamp": self.timestamp.isoformat(),
+            "correlation_id": self.correlation_id,
+            "reply_to": self.reply_to,
+            "ttl": self.ttl,
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'Message':
+    def from_dict(cls, data: dict[str, Any]) -> "Message":
         return cls(
-            id=data['id'],
-            type=data['type'],
-            service_from=data['service_from'],
-            service_to=data['service_to'],
-            payload=data['payload'],
-            timestamp=datetime.fromisoformat(data['timestamp']),
-            correlation_id=data.get('correlation_id', ''),
-            reply_to=data.get('reply_to', ''),
-            ttl=data.get('ttl', 300)
+            id=data["id"],
+            type=data["type"],
+            service_from=data["service_from"],
+            service_to=data["service_to"],
+            payload=data["payload"],
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+            correlation_id=data.get("correlation_id", ""),
+            reply_to=data.get("reply_to", ""),
+            ttl=data.get("ttl", 300),
         )
 
 
@@ -199,8 +204,7 @@ class InMemoryServiceDiscovery(ServiceDiscovery):
             if instance.health_check_url:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        instance.health_check_url,
-                        timeout=aiohttp.ClientTimeout(total=5)
+                        instance.health_check_url, timeout=aiohttp.ClientTimeout(total=5)
                     ) as response:
                         if response.status == 200:
                             instance.state = ServiceState.HEALTHY
@@ -244,11 +248,7 @@ class ConsulServiceDiscovery(ServiceDiscovery):
         try:
             check = None
             if instance.health_check_url:
-                check = consul.Check.http(
-                    instance.health_check_url,
-                    interval="10s",
-                    timeout="5s"
-                )
+                check = consul.Check.http(instance.health_check_url, interval="10s", timeout="5s")
 
             self.consul.agent.service.register(
                 name=instance.service_name,
@@ -257,7 +257,7 @@ class ConsulServiceDiscovery(ServiceDiscovery):
                 port=instance.port,
                 tags=instance.tags,
                 check=check,
-                meta=instance.metadata
+                meta=instance.metadata,
             )
 
             logger.info(f"Registered service with Consul: {instance.service_name}")
@@ -285,15 +285,15 @@ class ConsulServiceDiscovery(ServiceDiscovery):
             instances = []
 
             for service in services:
-                service_info = service['Service']
+                service_info = service["Service"]
                 instance = ServiceInstance(
-                    service_id=service_info['ID'],
-                    service_name=service_info['Service'],
-                    host=service_info['Address'],
-                    port=service_info['Port'],
-                    version=service_info.get('Meta', {}).get('version', '1.0.0'),
-                    metadata=service_info.get('Meta', {}),
-                    tags=service_info.get('Tags', [])
+                    service_id=service_info["ID"],
+                    service_name=service_info["Service"],
+                    host=service_info["Address"],
+                    port=service_info["Port"],
+                    version=service_info.get("Meta", {}).get("version", "1.0.0"),
+                    metadata=service_info.get("Meta", {}),
+                    tags=service_info.get("Tags", []),
                 )
                 instances.append(instance)
 
@@ -312,11 +312,11 @@ class ConsulServiceDiscovery(ServiceDiscovery):
                 return ServiceState.UNKNOWN
 
             for check in checks:
-                if check['Status'] == 'passing':
+                if check["Status"] == "passing":
                     return ServiceState.HEALTHY
-                elif check['Status'] == 'warning':
+                elif check["Status"] == "warning":
                     return ServiceState.DEGRADED
-                elif check['Status'] == 'critical':
+                elif check["Status"] == "critical":
                     return ServiceState.UNHEALTHY
 
             return ServiceState.UNKNOWN
@@ -443,9 +443,9 @@ class RedisMessageBroker(MessageBroker):
         """Main message listening loop."""
         try:
             async for message in self.pubsub.listen():
-                if message['type'] == 'message':
-                    channel = message['channel'].decode('utf-8')
-                    data = message['data'].decode('utf-8')
+                if message["type"] == "message":
+                    channel = message["channel"].decode("utf-8")
+                    data = message["data"].decode("utf-8")
 
                     try:
                         message_dict = json.loads(data)
@@ -474,9 +474,15 @@ class RedisMessageBroker(MessageBroker):
 class ServiceBase(ABC):
     """Base class for microservices."""
 
-    def __init__(self, service_name: str, host: str = "localhost", port: int = 8000,
-                 version: str = "1.0.0", discovery: ServiceDiscovery = None,
-                 message_broker: MessageBroker = None):
+    def __init__(
+        self,
+        service_name: str,
+        host: str = "localhost",
+        port: int = 8000,
+        version: str = "1.0.0",
+        discovery: ServiceDiscovery = None,
+        message_broker: MessageBroker = None,
+    ):
         self.service_name = service_name
         self.host = host
         self.port = port
@@ -492,7 +498,7 @@ class ServiceBase(ABC):
             host=host,
             port=port,
             version=version,
-            health_check_url=f"http://{host}:{port}/health"
+            health_check_url=f"http://{host}:{port}/health",
         )
 
         self.running = False
@@ -505,7 +511,7 @@ class ServiceBase(ABC):
             await self.discovery.register_service(self.instance)
 
             # Start message broker if available
-            if self.message_broker and hasattr(self.message_broker, 'start'):
+            if self.message_broker and hasattr(self.message_broker, "start"):
                 await self.message_broker.start()
 
             # Subscribe to service-specific channels
@@ -534,7 +540,7 @@ class ServiceBase(ABC):
             await self._cleanup()
 
             # Stop message broker
-            if self.message_broker and hasattr(self.message_broker, 'stop'):
+            if self.message_broker and hasattr(self.message_broker, "stop"):
                 await self.message_broker.stop()
 
             # Deregister from service discovery
@@ -545,8 +551,13 @@ class ServiceBase(ABC):
         except Exception as e:
             logger.error(f"Failed to stop service {self.service_name}: {e}")
 
-    async def send_message(self, target_service: str, message_type: str,
-                          payload: dict[str, Any], correlation_id: str = "") -> bool:
+    async def send_message(
+        self,
+        target_service: str,
+        message_type: str,
+        payload: dict[str, Any],
+        correlation_id: str = "",
+    ) -> bool:
         """Send a message to another service."""
         if not self.message_broker:
             logger.warning("No message broker configured")
@@ -558,7 +569,7 @@ class ServiceBase(ABC):
             service_from=self.service_name,
             service_to=target_service,
             payload=payload,
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
         )
 
         channel = f"service.{target_service}"
@@ -574,13 +585,14 @@ class ServiceBase(ABC):
             type=message_type,
             service_from=self.service_name,
             service_to="*",
-            payload=payload
+            payload=payload,
         )
 
         return await self.message_broker.publish("service.broadcast", message)
 
-    async def call_service(self, service_name: str, endpoint: str,
-                          data: dict[str, Any] = None, timeout: int = 30) -> dict[str, Any]:
+    async def call_service(
+        self, service_name: str, endpoint: str, data: dict[str, Any] = None, timeout: int = 30
+    ) -> dict[str, Any]:
         """Make a direct HTTP call to another service."""
         instances = await self.discovery.discover_services(service_name)
 
@@ -594,9 +606,7 @@ class ServiceBase(ABC):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    url,
-                    json=data or {},
-                    timeout=aiohttp.ClientTimeout(total=timeout)
+                    url, json=data or {}, timeout=aiohttp.ClientTimeout(total=timeout)
                 ) as response:
                     response.raise_for_status()
                     return await response.json()
@@ -615,7 +625,7 @@ class ServiceBase(ABC):
             "timestamp": datetime.utcnow().isoformat(),
             "version": self.version,
             "host": self.host,
-            "port": self.port
+            "port": self.port,
         }
 
     async def _setup_message_handlers(self):
@@ -624,16 +634,10 @@ class ServiceBase(ABC):
             return
 
         # Subscribe to service-specific messages
-        await self.message_broker.subscribe(
-            f"service.{self.service_name}",
-            self._handle_message
-        )
+        await self.message_broker.subscribe(f"service.{self.service_name}", self._handle_message)
 
         # Subscribe to broadcast messages
-        await self.message_broker.subscribe(
-            "service.broadcast",
-            self._handle_broadcast_message
-        )
+        await self.message_broker.subscribe("service.broadcast", self._handle_broadcast_message)
 
     async def _handle_message(self, message: Message):
         """Handle incoming service-specific messages."""
@@ -717,8 +721,8 @@ class ChatService(ServiceBase):
                 {
                     "user_id": user_id,
                     "response": response,
-                    "correlation_id": message.correlation_id
-                }
+                    "correlation_id": message.correlation_id,
+                },
             )
 
     async def _handle_session_update(self, message: Message):
@@ -779,21 +783,14 @@ class FileService(ServiceBase):
         await self.send_message(
             "chat-service",
             "file_processed",
-            {
-                "filename": filename,
-                "user_id": user_id,
-                "status": "completed"
-            }
+            {"filename": filename, "user_id": user_id, "status": "completed"},
         )
 
     async def _process_files(self):
         """Background file processing loop."""
         while self.running:
             try:
-                message = await asyncio.wait_for(
-                    self.processing_queue.get(),
-                    timeout=1.0
-                )
+                message = await asyncio.wait_for(self.processing_queue.get(), timeout=1.0)
                 await self._handle_file_upload(message)
             except TimeoutError:
                 continue
@@ -815,29 +812,29 @@ class MicroservicesOrchestrator:
     def _setup_infrastructure(self):
         """Setup service discovery and message broker."""
         # Setup service discovery
-        discovery_type = self.config.get('discovery_type', 'memory')
+        discovery_type = self.config.get("discovery_type", "memory")
 
-        if discovery_type == 'consul':
+        if discovery_type == "consul":
             self.discovery = ConsulServiceDiscovery(
-                consul_host=self.config.get('consul_host', 'localhost'),
-                consul_port=self.config.get('consul_port', 8500)
+                consul_host=self.config.get("consul_host", "localhost"),
+                consul_port=self.config.get("consul_port", 8500),
             )
         else:
             self.discovery = InMemoryServiceDiscovery()
 
         # Setup message broker
-        broker_type = self.config.get('broker_type', 'redis')
+        broker_type = self.config.get("broker_type", "redis")
 
-        if broker_type == 'redis' and REDIS_AVAILABLE:
+        if broker_type == "redis" and REDIS_AVAILABLE:
             self.message_broker = RedisMessageBroker(
-                redis_url=self.config.get('redis_url', 'redis://localhost:6379')
+                redis_url=self.config.get("redis_url", "redis://localhost:6379")
             )
 
     async def start(self):
         """Start the orchestrator and all services."""
         try:
             # Start message broker
-            if self.message_broker and hasattr(self.message_broker, 'start'):
+            if self.message_broker and hasattr(self.message_broker, "start"):
                 await self.message_broker.start()
 
             # Start all services
@@ -858,7 +855,7 @@ class MicroservicesOrchestrator:
                 await service.stop()
 
             # Stop message broker
-            if self.message_broker and hasattr(self.message_broker, 'stop'):
+            if self.message_broker and hasattr(self.message_broker, "stop"):
                 await self.message_broker.stop()
 
             logger.info("Microservices orchestrator stopped")
@@ -875,10 +872,7 @@ class MicroservicesOrchestrator:
 
     async def get_service_health(self) -> dict[str, Any]:
         """Get health status of all services."""
-        health_status = {
-            "orchestrator": "healthy",
-            "services": {}
-        }
+        health_status = {"orchestrator": "healthy", "services": {}}
 
         for service_name, service in self.services.items():
             health_status["services"][service_name] = service.get_health_status()
@@ -899,9 +893,9 @@ if __name__ == "__main__":
     async def main():
         # Create orchestrator
         config = {
-            'discovery_type': 'memory',  # or 'consul'
-            'broker_type': 'redis',
-            'redis_url': 'redis://localhost:6379'
+            "discovery_type": "memory",  # or 'consul'
+            "broker_type": "redis",
+            "redis_url": "redis://localhost:6379",
         }
 
         orchestrator = MicroservicesOrchestrator(config)
@@ -921,12 +915,7 @@ if __name__ == "__main__":
             await asyncio.sleep(1)
 
             await chat_service.send_message(
-                "file-service",
-                "file_upload",
-                {
-                    "filename": "test.pdf",
-                    "user_id": "user123"
-                }
+                "file-service", "file_upload", {"filename": "test.pdf", "user_id": "user123"}
             )
 
             # Wait a bit for processing

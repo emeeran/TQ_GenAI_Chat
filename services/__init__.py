@@ -9,7 +9,4 @@ __author__ = "TQ GenAI Chat Team"
 from .file_manager import FileManager
 from .xai_service import XAIService
 
-__all__ = [
-    "FileManager",
-    "XAIService"
-]
+__all__ = ["FileManager", "XAIService"]

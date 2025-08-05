@@ -17,7 +17,7 @@ class APIService {
     async request(endpoint, options = {}, cacheKey = null) {
         const url = `${this.baseURL}${endpoint}`;
         const method = options.method || 'GET';
-        
+
         // Check cache first for GET requests
         if (method === 'GET' && cacheKey && this.cache.has(cacheKey)) {
             const cached = this.cache.get(cacheKey);
@@ -25,19 +25,19 @@ class APIService {
                 return cached.data;
             }
         }
-        
+
         // Prevent duplicate requests
         const requestKey = `${method}:${url}`;
         if (this.requestQueue.has(requestKey)) {
             return this.requestQueue.get(requestKey);
         }
-        
+
         const requestPromise = this._executeRequest(url, options);
         this.requestQueue.set(requestKey, requestPromise);
-        
+
         try {
             const result = await requestPromise;
-            
+
             // Cache GET requests
             if (method === 'GET' && cacheKey) {
                 this.cache.set(cacheKey, {
@@ -45,7 +45,7 @@ class APIService {
                     timestamp: Date.now()
                 });
             }
-            
+
             return result;
         } finally {
             this.requestQueue.delete(requestKey);
@@ -91,7 +91,7 @@ class DOMUtils {
      */
     static createElement(tag, attributes = {}, children = []) {
         const element = document.createElement(tag);
-        
+
         // Set attributes
         Object.entries(attributes).forEach(([key, value]) => {
             if (key === 'className') {
@@ -102,7 +102,7 @@ class DOMUtils {
                 element.setAttribute(key, value);
             }
         });
-        
+
         // Add children
         children.forEach(child => {
             if (typeof child === 'string') {
@@ -111,7 +111,7 @@ class DOMUtils {
                 element.appendChild(child);
             }
         });
-        
+
         return element;
     }
 
@@ -147,15 +147,15 @@ class DOMUtils {
         function step(currentTime) {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            
+
             const value = start + (difference * progress);
             callback(value);
-            
+
             if (progress < 1) {
                 requestAnimationFrame(step);
             }
         }
-        
+
         requestAnimationFrame(step);
     }
 }
@@ -189,7 +189,7 @@ class PerformanceMonitor {
             value,
             timestamp: Date.now()
         });
-        
+
         // Keep only last 100 measurements
         if (this.metrics.get(name).length > 100) {
             this.metrics.get(name).shift();
@@ -199,7 +199,7 @@ class PerformanceMonitor {
     getAverageMetric(name) {
         const values = this.metrics.get(name);
         if (!values || values.length === 0) return 0;
-        
+
         const sum = values.reduce((acc, item) => acc + item.value, 0);
         return sum / values.length;
     }

@@ -17,6 +17,7 @@ from typing import Any
 
 try:
     import redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -51,7 +52,7 @@ class ConnectionPool:
                 self.database_path,
                 check_same_thread=False,
                 timeout=30.0,
-                isolation_level=None  # Enable autocommit mode
+                isolation_level=None,  # Enable autocommit mode
             )
 
             # Enable SQLite optimizations
@@ -145,7 +146,8 @@ class OptimizedDocumentStore:
         """Initialize database schema with optimizations."""
         with self.pool.get_connection() as conn:
             # Main documents table with optimized schema
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS documents (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     filename TEXT NOT NULL,
@@ -157,49 +159,63 @@ class OptimizedDocumentStore:
                     embedding_vector BLOB,
                     last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # Optimized indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents(filename)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(content_hash)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_upload_date ON documents(upload_date)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_last_accessed ON documents(last_accessed)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_documents_upload_date ON documents(upload_date)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_documents_last_accessed ON documents(last_accessed)"
+            )
 
             # Full-text search table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
                     filename, content,
                     content='documents',
                     content_rowid='id'
                 )
-            """)
+            """
+            )
 
             # Triggers to keep FTS in sync
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents BEGIN
                     INSERT INTO documents_fts(rowid, filename, content)
                     VALUES (new.id, new.filename, new.content);
                 END
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
                     INSERT INTO documents_fts(documents_fts, rowid, filename, content)
                     VALUES('delete', old.id, old.filename, old.content);
                 END
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
                     INSERT INTO documents_fts(documents_fts, rowid, filename, content)
                     VALUES('delete', old.id, old.filename, old.content);
                     INSERT INTO documents_fts(rowid, filename, content)
                     VALUES (new.id, new.filename, new.content);
                 END
-            """)
+            """
+            )
 
             # Chat history table with partitioning by date
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS chat_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id TEXT NOT NULL,
@@ -212,7 +228,8 @@ class OptimizedDocumentStore:
                     token_count INTEGER,
                     metadata TEXT
                 )
-            """)
+            """
+            )
 
             # Chat history indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)")
@@ -236,16 +253,14 @@ class OptimizedDocumentStore:
         # Check database for existing document
         with self.pool.get_connection() as conn:
             result = conn.execute(
-                "SELECT id FROM documents WHERE content_hash = ?",
-                (content_hash,)
+                "SELECT id FROM documents WHERE content_hash = ?", (content_hash,)
             ).fetchone()
 
             if result:
-                doc_id = result['id']
+                doc_id = result["id"]
                 # Update last accessed time
                 conn.execute(
-                    "UPDATE documents SET last_accessed = CURRENT_TIMESTAMP WHERE id = ?",
-                    (doc_id,)
+                    "UPDATE documents SET last_accessed = CURRENT_TIMESTAMP WHERE id = ?", (doc_id,)
                 )
 
                 # Cache the result
@@ -256,27 +271,36 @@ class OptimizedDocumentStore:
                 return doc_id
 
             # Insert new document
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO documents (filename, content, content_hash, file_size, metadata)
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                filename,
-                content,
-                content_hash,
-                len(content),
-                json.dumps(metadata) if metadata else None
-            ))
+            """,
+                (
+                    filename,
+                    content,
+                    content_hash,
+                    len(content),
+                    json.dumps(metadata) if metadata else None,
+                ),
+            )
 
             doc_id = cursor.lastrowid
 
             # Cache the new document
             if self.redis_client:
                 self.redis_client.setex(f"doc_hash:{content_hash}", 3600, doc_id)
-                self.redis_client.setex(f"doc:{doc_id}", 1800, json.dumps({
-                    'filename': filename,
-                    'content': content[:1000],  # Cache preview only
-                    'metadata': metadata
-                }))
+                self.redis_client.setex(
+                    f"doc:{doc_id}",
+                    1800,
+                    json.dumps(
+                        {
+                            "filename": filename,
+                            "content": content[:1000],  # Cache preview only
+                            "metadata": metadata,
+                        }
+                    ),
+                )
 
             logger.info(f"Added new document {filename} with ID {doc_id}")
             return doc_id
@@ -294,7 +318,8 @@ class OptimizedDocumentStore:
         # Perform database search
         with self.pool.get_connection() as conn:
             # Use FTS5 for fast full-text search
-            results = conn.execute("""
+            results = conn.execute(
+                """
                 SELECT d.id, d.filename, d.content, d.upload_date, d.metadata,
                        rank as relevance_score
                 FROM documents_fts
@@ -302,18 +327,22 @@ class OptimizedDocumentStore:
                 WHERE documents_fts MATCH ?
                 ORDER BY rank
                 LIMIT ?
-            """, (query, limit)).fetchall()
+            """,
+                (query, limit),
+            ).fetchall()
 
             # Convert to list of dictionaries
             documents = []
             for row in results:
                 doc = {
-                    'id': row['id'],
-                    'filename': row['filename'],
-                    'content': row['content'][:500] + '...' if len(row['content']) > 500 else row['content'],
-                    'upload_date': row['upload_date'],
-                    'metadata': json.loads(row['metadata']) if row['metadata'] else {},
-                    'relevance_score': row['relevance_score']
+                    "id": row["id"],
+                    "filename": row["filename"],
+                    "content": row["content"][:500] + "..."
+                    if len(row["content"]) > 500
+                    else row["content"],
+                    "upload_date": row["upload_date"],
+                    "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+                    "relevance_score": row["relevance_score"],
                 }
                 documents.append(doc)
 
@@ -335,28 +364,30 @@ class OptimizedDocumentStore:
 
         # Get from database
         with self.pool.get_connection() as conn:
-            result = conn.execute("""
+            result = conn.execute(
+                """
                 SELECT id, filename, content, upload_date, metadata, file_size
                 FROM documents
                 WHERE id = ?
-            """, (doc_id,)).fetchone()
+            """,
+                (doc_id,),
+            ).fetchone()
 
             if not result:
                 return None
 
             document = {
-                'id': result['id'],
-                'filename': result['filename'],
-                'content': result['content'],
-                'upload_date': result['upload_date'],
-                'metadata': json.loads(result['metadata']) if result['metadata'] else {},
-                'file_size': result['file_size']
+                "id": result["id"],
+                "filename": result["filename"],
+                "content": result["content"],
+                "upload_date": result["upload_date"],
+                "metadata": json.loads(result["metadata"]) if result["metadata"] else {},
+                "file_size": result["file_size"],
             }
 
             # Update last accessed
             conn.execute(
-                "UPDATE documents SET last_accessed = CURRENT_TIMESTAMP WHERE id = ?",
-                (doc_id,)
+                "UPDATE documents SET last_accessed = CURRENT_TIMESTAMP WHERE id = ?", (doc_id,)
             )
 
             # Cache the document
@@ -374,20 +405,28 @@ class OptimizedDocumentStore:
         model: str,
         response_time_ms: int = None,
         token_count: int = None,
-        metadata: dict = None
+        metadata: dict = None,
     ) -> int:
         """Add chat history entry with optimized insertion."""
         with self.pool.get_connection() as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO chat_history
                 (session_id, user_message, ai_response, provider, model,
                  response_time_ms, token_count, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                session_id, user_message, ai_response, provider, model,
-                response_time_ms, token_count,
-                json.dumps(metadata) if metadata else None
-            ))
+            """,
+                (
+                    session_id,
+                    user_message,
+                    ai_response,
+                    provider,
+                    model,
+                    response_time_ms,
+                    token_count,
+                    json.dumps(metadata) if metadata else None,
+                ),
+            )
 
             return cursor.lastrowid
 
@@ -403,27 +442,30 @@ class OptimizedDocumentStore:
 
         # Get from database
         with self.pool.get_connection() as conn:
-            results = conn.execute("""
+            results = conn.execute(
+                """
                 SELECT id, user_message, ai_response, provider, model,
                        timestamp, response_time_ms, token_count, metadata
                 FROM chat_history
                 WHERE session_id = ?
                 ORDER BY timestamp DESC
                 LIMIT ?
-            """, (session_id, limit)).fetchall()
+            """,
+                (session_id, limit),
+            ).fetchall()
 
             history = []
             for row in results:
                 entry = {
-                    'id': row['id'],
-                    'user_message': row['user_message'],
-                    'ai_response': row['ai_response'],
-                    'provider': row['provider'],
-                    'model': row['model'],
-                    'timestamp': row['timestamp'],
-                    'response_time_ms': row['response_time_ms'],
-                    'token_count': row['token_count'],
-                    'metadata': json.loads(row['metadata']) if row['metadata'] else {}
+                    "id": row["id"],
+                    "user_message": row["user_message"],
+                    "ai_response": row["ai_response"],
+                    "provider": row["provider"],
+                    "model": row["model"],
+                    "timestamp": row["timestamp"],
+                    "response_time_ms": row["response_time_ms"],
+                    "token_count": row["token_count"],
+                    "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
                 }
                 history.append(entry)
 
@@ -439,13 +481,17 @@ class OptimizedDocumentStore:
 
         with self.pool.get_connection() as conn:
             # Clean up old chat history
-            chat_deleted = conn.execute("""
+            chat_deleted = conn.execute(
+                """
                 DELETE FROM chat_history
                 WHERE timestamp < datetime(?, 'unixepoch')
-            """, (cutoff_date,)).rowcount
+            """,
+                (cutoff_date,),
+            ).rowcount
 
             # Clean up unused documents (not accessed in specified days)
-            docs_deleted = conn.execute("""
+            docs_deleted = conn.execute(
+                """
                 DELETE FROM documents
                 WHERE last_accessed < datetime(?, 'unixepoch')
                 AND id NOT IN (
@@ -454,7 +500,9 @@ class OptimizedDocumentStore:
                     JOIN chat_history ch ON ch.metadata LIKE '%"document_id":' || d.id || '%'
                     WHERE ch.timestamp > datetime(?, 'unixepoch')
                 )
-            """, (cutoff_date, cutoff_date)).rowcount
+            """,
+                (cutoff_date, cutoff_date),
+            ).rowcount
 
             # Optimize database
             conn.execute("VACUUM")
@@ -468,12 +516,11 @@ class OptimizedDocumentStore:
                 for key in self.redis_client.scan_iter(match="search:*"):
                     self.redis_client.delete(key)
 
-            logger.info(f"Cleanup completed: {chat_deleted} chat entries, {docs_deleted} documents removed")
+            logger.info(
+                f"Cleanup completed: {chat_deleted} chat entries, {docs_deleted} documents removed"
+            )
 
-            return {
-                'chat_entries_deleted': chat_deleted,
-                'documents_deleted': docs_deleted
-            }
+            return {"chat_entries_deleted": chat_deleted, "documents_deleted": docs_deleted}
 
     def get_statistics(self) -> dict[str, Any]:
         """Get database statistics."""
@@ -481,7 +528,8 @@ class OptimizedDocumentStore:
             stats = {}
 
             # Document statistics
-            doc_stats = conn.execute("""
+            doc_stats = conn.execute(
+                """
                 SELECT
                     COUNT(*) as total_documents,
                     SUM(file_size) as total_size,
@@ -489,12 +537,14 @@ class OptimizedDocumentStore:
                     MIN(upload_date) as first_upload,
                     MAX(upload_date) as last_upload
                 FROM documents
-            """).fetchone()
+            """
+            ).fetchone()
 
-            stats['documents'] = dict(doc_stats)
+            stats["documents"] = dict(doc_stats)
 
             # Chat history statistics
-            chat_stats = conn.execute("""
+            chat_stats = conn.execute(
+                """
                 SELECT
                     COUNT(*) as total_chats,
                     COUNT(DISTINCT session_id) as unique_sessions,
@@ -502,23 +552,30 @@ class OptimizedDocumentStore:
                     MIN(timestamp) as first_chat,
                     MAX(timestamp) as last_chat
                 FROM chat_history
-            """).fetchone()
+            """
+            ).fetchone()
 
-            stats['chat_history'] = dict(chat_stats)
+            stats["chat_history"] = dict(chat_stats)
 
             # Provider usage
-            provider_stats = conn.execute("""
+            provider_stats = conn.execute(
+                """
                 SELECT provider, COUNT(*) as usage_count
                 FROM chat_history
                 GROUP BY provider
                 ORDER BY usage_count DESC
-            """).fetchall()
+            """
+            ).fetchall()
 
-            stats['provider_usage'] = {row['provider']: row['usage_count'] for row in provider_stats}
+            stats["provider_usage"] = {
+                row["provider"]: row["usage_count"] for row in provider_stats
+            }
 
             # Database size
-            db_size = Path(self.database_path).stat().st_size if Path(self.database_path).exists() else 0
-            stats['database_size_bytes'] = db_size
+            db_size = (
+                Path(self.database_path).stat().st_size if Path(self.database_path).exists() else 0
+            )
+            stats["database_size_bytes"] = db_size
 
             return stats
 
@@ -532,7 +589,10 @@ class OptimizedDocumentStore:
 # Global instance
 _document_store = None
 
-def get_document_store(database_path: str = "documents.db", redis_url: str = None) -> OptimizedDocumentStore:
+
+def get_document_store(
+    database_path: str = "documents.db", redis_url: str = None
+) -> OptimizedDocumentStore:
     """Get or create the global document store instance."""
     global _document_store
     if _document_store is None:

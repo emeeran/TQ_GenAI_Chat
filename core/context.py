@@ -14,7 +14,8 @@ class ContextManager:
     def _init_db(self):
         """Initialize context database"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS documents (
                     id TEXT PRIMARY KEY,
                     filename TEXT,
@@ -22,7 +23,8 @@ class ContextManager:
                     metadata TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
     def add_document(self, filename: str, content: str, metadata: dict[str, Any] = None):
         """Add document to context"""
@@ -30,10 +32,13 @@ class ContextManager:
         metadata = metadata or {}
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO documents (id, filename, content, metadata)
                 VALUES (?, ?, ?, ?)
-            """, (doc_id, filename, content, json.dumps(metadata)))
+            """,
+                (doc_id, filename, content, json.dumps(metadata)),
+            )
 
         return doc_id
 
@@ -41,12 +46,15 @@ class ContextManager:
         """Get relevant context for query"""
         with sqlite3.connect(self.db_path) as conn:
             # Simple text search - could be enhanced with vector similarity
-            docs = conn.execute("""
+            docs = conn.execute(
+                """
                 SELECT filename, content FROM documents
                 WHERE content LIKE ?
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (f"%{query}%", limit)).fetchall()
+            """,
+                (f"%{query}%", limit),
+            ).fetchall()
 
             if not docs:
                 return None
@@ -68,4 +76,5 @@ class ContextManager:
     def _generate_id(self) -> str:
         """Generate unique ID"""
         import uuid
+
         return str(uuid.uuid4())

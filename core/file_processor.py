@@ -46,41 +46,40 @@ class ProcessingStatus:
         """Initialize processing status for a file."""
         async with self._lock:
             self._statuses[filename] = {
-                'status': 'processing',
-                'progress': 0,
-                'timestamp': datetime.now().isoformat(),
-                'recoverable': True
+                "status": "processing",
+                "progress": 0,
+                "timestamp": datetime.now().isoformat(),
+                "recoverable": True,
             }
 
     async def update_progress(self, filename: str, progress: int) -> None:
         """Update processing progress."""
         async with self._lock:
             if filename in self._statuses:
-                self._statuses[filename].update({
-                    'progress': min(100, max(0, progress)),
-                    'status': 'complete' if progress >= 100 else 'processing',
-                    'timestamp': datetime.now().isoformat()
-                })
+                self._statuses[filename].update(
+                    {
+                        "progress": min(100, max(0, progress)),
+                        "status": "complete" if progress >= 100 else "processing",
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
     async def set_error(self, filename: str, error: Exception) -> None:
         """Record processing error."""
         async with self._lock:
             self._errors[filename] = {
-                'error': str(error),
-                'type': type(error).__name__,
-                'timestamp': datetime.now().isoformat(),
-                'recoverable': getattr(error, 'recoverable', False)
+                "error": str(error),
+                "type": type(error).__name__,
+                "timestamp": datetime.now().isoformat(),
+                "recoverable": getattr(error, "recoverable", False),
             }
             if filename in self._statuses:
-                self._statuses[filename].update({
-                    'status': 'error',
-                    'error': str(error)
-                })
+                self._statuses[filename].update({"status": "error", "error": str(error)})
 
     def get_status(self, filename: str) -> dict[str, Any]:
         """Get current status for a file."""
         if filename not in self._statuses:
-            raise FileNotFoundError(f'No status found for: {filename}')
+            raise FileNotFoundError(f"No status found for: {filename}")
         return self._statuses[filename].copy()
 
     def get_error(self, filename: str) -> dict[str, Any] | None:
@@ -97,16 +96,16 @@ class FileProcessor:
 
     # Class-level processor mapping for better performance
     _PROCESSORS = {
-        'pdf': '_process_pdf',
-        'docx': '_process_docx',
-        'txt': '_process_text',
-        'md': '_process_text',
-        'csv': '_process_csv',
-        'xlsx': '_process_excel',
-        'xls': '_process_excel',
-        'png': '_process_image',
-        'jpg': '_process_image',
-        'jpeg': '_process_image'
+        "pdf": "_process_pdf",
+        "docx": "_process_docx",
+        "txt": "_process_text",
+        "md": "_process_text",
+        "csv": "_process_csv",
+        "xlsx": "_process_excel",
+        "xls": "_process_excel",
+        "png": "_process_image",
+        "jpg": "_process_image",
+        "jpeg": "_process_image",
     }
 
     def __init__(self):
@@ -114,10 +113,7 @@ class FileProcessor:
 
     @classmethod
     async def process_file(
-        cls,
-        content: bytes,
-        filename: str,
-        progress_callback: Callable[[int], None] | None = None
+        cls, content: bytes, filename: str, progress_callback: Callable[[int], None] | None = None
     ) -> str:
         """
         Process file content and return extracted text.
@@ -137,10 +133,7 @@ class FileProcessor:
         return await processor._process_file_internal(content, filename, progress_callback)
 
     async def _process_file_internal(
-        self,
-        content: bytes,
-        filename: str,
-        progress_callback: Callable[[int], None] | None = None
+        self, content: bytes, filename: str, progress_callback: Callable[[int], None] | None = None
     ) -> str:
         """Internal file processing implementation."""
 
@@ -152,7 +145,7 @@ class FileProcessor:
                 raise ProcessingError("Empty file content", recoverable=False)
 
             # Extract file extension
-            ext = Path(filename).suffix.lstrip('.').lower()
+            ext = Path(filename).suffix.lstrip(".").lower()
             if not ext:
                 raise ProcessingError("File has no extension", recoverable=False)
 
@@ -160,9 +153,7 @@ class FileProcessor:
             processor_method = self._PROCESSORS.get(ext)
             if not processor_method:
                 raise ProcessingError(
-                    f"Unsupported file type: .{ext}",
-                    file_type=ext,
-                    recoverable=False
+                    f"Unsupported file type: .{ext}", file_type=ext, recoverable=False
                 )
 
             # Update progress
@@ -172,9 +163,7 @@ class FileProcessor:
 
             # Process file
             method = getattr(self, processor_method)
-            result = await asyncio.get_event_loop().run_in_executor(
-                None, method, content, filename
-            )
+            result = await asyncio.get_event_loop().run_in_executor(None, method, content, filename)
 
             # Update progress
             if progress_callback:
@@ -199,19 +188,21 @@ class FileProcessor:
                 page_text = page.extract_text()
                 if page_text:
                     text_parts.append(page_text)
-            result = '\n\n'.join(text_parts)
+            result = "\n\n".join(text_parts)
             if result.strip():
                 return result
             # Fallback to OCR if no text found
             if pytesseract is None or convert_from_bytes is None:
-                raise ProcessingError("PDF contains no extractable text and OCR dependencies are not installed.")
+                raise ProcessingError(
+                    "PDF contains no extractable text and OCR dependencies are not installed."
+                )
             images = convert_from_bytes(content)
             ocr_text = []
             for img in images:
                 # Optional: preprocess image for better OCR (grayscale, threshold)
-                img = img.convert('L')
+                img = img.convert("L")
                 ocr_text.append(pytesseract.image_to_string(img))
-            ocr_result = '\n\n'.join(ocr_text)
+            ocr_result = "\n\n".join(ocr_text)
             if not ocr_result.strip():
                 raise ProcessingError("PDF contains no extractable text (even with OCR)")
             return ocr_result
@@ -225,7 +216,7 @@ class FileProcessor:
             doc = docx.Document(docx_file)
 
             paragraphs = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
-            result = '\n\n'.join(paragraphs)
+            result = "\n\n".join(paragraphs)
 
             if not result.strip():
                 raise ProcessingError("DOCX contains no extractable text")
@@ -237,7 +228,7 @@ class FileProcessor:
 
     def _process_text(self, content: bytes, filename: str) -> str:
         """Process plain text files with encoding detection."""
-        encodings = ['utf-8', 'utf-16', 'iso-8859-1', 'cp1252']
+        encodings = ["utf-8", "utf-16", "iso-8859-1", "cp1252"]
 
         for encoding in encodings:
             try:
@@ -250,7 +241,7 @@ class FileProcessor:
     def _process_csv(self, content: bytes, filename: str) -> str:
         """Process CSV files."""
         try:
-            csv_file = io.StringIO(content.decode('utf-8'))
+            csv_file = io.StringIO(content.decode("utf-8"))
             df = pd.read_csv(csv_file)
             return df.to_string(index=False)
         except Exception as e:

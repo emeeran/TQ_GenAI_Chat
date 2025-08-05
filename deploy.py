@@ -13,24 +13,24 @@ from pathlib import Path
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('deployment.log'),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("deployment.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
 
 class DeploymentManager:
     """Manage deployment, testing, and setup operations"""
 
     def __init__(self, project_root: Path = None):
         self.project_root = project_root or Path(__file__).parent
-        self.venv_path = self.project_root / 'venv'
-        self.requirements_file = self.project_root / 'requirements.txt'
-        self.env_file = self.project_root / '.env'
+        self.venv_path = self.project_root / "venv"
+        self.requirements_file = self.project_root / "requirements.txt"
+        self.env_file = self.project_root / ".env"
 
-    def run_command(self, command: str, check: bool = True, cwd: Path = None) -> tuple[int, str, str]:
+    def run_command(
+        self, command: str, check: bool = True, cwd: Path = None
+    ) -> tuple[int, str, str]:
         """Run shell command and return result"""
         try:
             result = subprocess.run(
@@ -38,7 +38,7 @@ class DeploymentManager:
                 cwd=cwd or self.project_root,
                 capture_output=True,
                 text=True,
-                check=check
+                check=check,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.CalledProcessError as e:
@@ -52,24 +52,26 @@ class DeploymentManager:
 
         # Check Python version
         python_version = sys.version_info
-        checks['python'] = python_version >= (3, 9)
-        logger.info(f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}")
+        checks["python"] = python_version >= (3, 9)
+        logger.info(
+            f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}"
+        )
 
         # Check Redis
-        redis_code, _, _ = self.run_command('redis-cli ping', check=False)
-        checks['redis'] = redis_code == 0
+        redis_code, _, _ = self.run_command("redis-cli ping", check=False)
+        checks["redis"] = redis_code == 0
 
         # Check Git
-        git_code, _, _ = self.run_command('git --version', check=False)
-        checks['git'] = git_code == 0
+        git_code, _, _ = self.run_command("git --version", check=False)
+        checks["git"] = git_code == 0
 
         # Check Node.js (optional)
-        node_code, _, _ = self.run_command('node --version', check=False)
-        checks['nodejs'] = node_code == 0
+        node_code, _, _ = self.run_command("node --version", check=False)
+        checks["nodejs"] = node_code == 0
 
         # Check Docker (optional)
-        docker_code, _, _ = self.run_command('docker --version', check=False)
-        checks['docker'] = docker_code == 0
+        docker_code, _, _ = self.run_command("docker --version", check=False)
+        checks["docker"] = docker_code == 0
 
         return checks
 
@@ -83,7 +85,7 @@ class DeploymentManager:
             logger.info("Creating virtual environment...")
             # Use sys.executable to get the correct Python path
             python_executable = sys.executable
-            code, _, stderr = self.run_command(f'{python_executable} -m venv {self.venv_path}')
+            code, _, stderr = self.run_command(f"{python_executable} -m venv {self.venv_path}")
 
             if code != 0:
                 logger.error(f"Failed to create virtual environment: {stderr}")
@@ -104,14 +106,14 @@ class DeploymentManager:
                 return False
 
             # Determine pip path
-            if sys.platform == 'win32':
-                pip_path = self.venv_path / 'Scripts' / 'pip'
+            if sys.platform == "win32":
+                pip_path = self.venv_path / "Scripts" / "pip"
             else:
-                pip_path = self.venv_path / 'bin' / 'pip'
+                pip_path = self.venv_path / "bin" / "pip"
 
             logger.info("Installing dependencies...")
             code, stdout, stderr = self.run_command(
-                f'{pip_path} install -r {self.requirements_file}'
+                f"{pip_path} install -r {self.requirements_file}"
             )
 
             if code != 0:
@@ -128,7 +130,7 @@ class DeploymentManager:
     def setup_environment_file(self) -> bool:
         """Create .env file from template"""
         try:
-            env_template = self.project_root / '.env.example'
+            env_template = self.project_root / ".env.example"
 
             if self.env_file.exists():
                 logger.info(".env file already exists")
@@ -175,7 +177,7 @@ CORS_ORIGINS=*
 SENTRY_DSN=
 DATADOG_API_KEY=
 """
-                with open(self.env_file, 'w') as f:
+                with open(self.env_file, "w") as f:
                     f.write(env_content)
                 logger.info("Created .env file from template")
             else:
@@ -195,7 +197,7 @@ DATADOG_API_KEY=
             import redis
 
             # Try to connect to Redis
-            redis_client = redis.from_url('redis://localhost:6379/0')
+            redis_client = redis.from_url("redis://localhost:6379/0")
             redis_client.ping()
             logger.info("Redis connection test: PASSED")
             return True
@@ -212,22 +214,20 @@ DATADOG_API_KEY=
         """Run comprehensive test suite"""
         try:
             # Determine python path
-            if sys.platform == 'win32':
-                python_path = self.venv_path / 'Scripts' / 'python'
+            if sys.platform == "win32":
+                python_path = self.venv_path / "Scripts" / "python"
             else:
-                python_path = self.venv_path / 'bin' / 'python'
+                python_path = self.venv_path / "bin" / "python"
 
             logger.info("Running test suite...")
 
             # Create basic test if none exists
-            test_file = self.project_root / 'test_app.py'
+            test_file = self.project_root / "test_app.py"
             if not test_file.exists():
                 self.create_basic_tests()
 
             # Run tests
-            code, stdout, stderr = self.run_command(
-                f'{python_path} -m pytest test_app.py -v'
-            )
+            code, stdout, stderr = self.run_command(f"{python_path} -m pytest test_app.py -v")
 
             if code == 0:
                 logger.info("All tests passed!")
@@ -321,7 +321,7 @@ if __name__ == '__main__':
     pytest.main([__file__, '-v'])
 '''
 
-        with open(self.project_root / 'test_app.py', 'w') as f:
+        with open(self.project_root / "test_app.py", "w") as f:
             f.write(test_content)
         logger.info("Created basic test suite")
 
@@ -329,19 +329,17 @@ if __name__ == '__main__':
         """Start the development server"""
         try:
             # Determine python path
-            if sys.platform == 'win32':
-                python_path = self.venv_path / 'Scripts' / 'python'
+            if sys.platform == "win32":
+                python_path = self.venv_path / "Scripts" / "python"
             else:
-                python_path = self.venv_path / 'bin' / 'python'
+                python_path = self.venv_path / "bin" / "python"
 
             logger.info("Starting development server...")
             logger.info("Server will be available at: http://localhost:5000")
             logger.info("Press Ctrl+C to stop the server")
 
             # Start server
-            process = subprocess.Popen([
-                str(python_path), 'app.py'
-            ], cwd=self.project_root)
+            process = subprocess.Popen([str(python_path), "app.py"], cwd=self.project_root)
 
             try:
                 process.wait()
@@ -359,7 +357,7 @@ if __name__ == '__main__':
     def create_docker_files(self):
         """Create Docker configuration files"""
         # Dockerfile
-        dockerfile_content = '''FROM python:3.11-slim
+        dockerfile_content = """FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -387,10 +385,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
 
 # Start command
 CMD ["python", "app.py"]
-'''
+"""
 
         # Docker Compose
-        docker_compose_content = '''version: '3.8'
+        docker_compose_content = """version: '3.8'
 
 services:
   app:
@@ -430,10 +428,10 @@ services:
 
 volumes:
   redis_data:
-'''
+"""
 
         # Nginx configuration
-        nginx_conf_content = '''events {
+        nginx_conf_content = """events {
     worker_connections 1024;
 }
 
@@ -467,16 +465,16 @@ http {
         }
     }
 }
-'''
+"""
 
         # Write files
-        with open(self.project_root / 'Dockerfile', 'w') as f:
+        with open(self.project_root / "Dockerfile", "w") as f:
             f.write(dockerfile_content)
 
-        with open(self.project_root / 'docker-compose.yml', 'w') as f:
+        with open(self.project_root / "docker-compose.yml", "w") as f:
             f.write(docker_compose_content)
 
-        with open(self.project_root / 'nginx.conf', 'w') as f:
+        with open(self.project_root / "nginx.conf", "w") as f:
             f.write(nginx_conf_content)
 
         logger.info("Docker configuration files created")
@@ -499,13 +497,13 @@ http {
 
         # Files status
         important_files = [
-            'app.py',
-            'requirements.txt',
-            '.env',
-            'static/styles.css',
-            'static/script.js',
-            'templates/index.html',
-            'core/ai_enhancements.py'
+            "app.py",
+            "requirements.txt",
+            ".env",
+            "static/styles.css",
+            "static/script.js",
+            "templates/index.html",
+            "core/ai_enhancements.py",
         ]
 
         report.append("Core Files Status:")
@@ -518,9 +516,9 @@ http {
 
         # Next steps
         report.append("Next Steps:")
-        if not checks.get('redis', False):
+        if not checks.get("redis", False):
             report.append("  1. Install and start Redis server")
-        if not (self.project_root / '.env').exists():
+        if not (self.project_root / ".env").exists():
             report.append("  2. Configure .env file with API keys")
 
         report.append("  3. Run: python deploy.py --test")
@@ -538,16 +536,17 @@ http {
 
         return "\n".join(report)
 
+
 def main():
     """Main deployment script"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='TQ GenAI Chat Deployment')
-    parser.add_argument('--setup', action='store_true', help='Setup environment and dependencies')
-    parser.add_argument('--test', action='store_true', help='Run test suite')
-    parser.add_argument('--start', action='store_true', help='Start development server')
-    parser.add_argument('--docker', action='store_true', help='Create Docker configuration')
-    parser.add_argument('--check', action='store_true', help='Check prerequisites only')
+    parser = argparse.ArgumentParser(description="TQ GenAI Chat Deployment")
+    parser.add_argument("--setup", action="store_true", help="Setup environment and dependencies")
+    parser.add_argument("--test", action="store_true", help="Run test suite")
+    parser.add_argument("--start", action="store_true", help="Start development server")
+    parser.add_argument("--docker", action="store_true", help="Create Docker configuration")
+    parser.add_argument("--check", action="store_true", help="Check prerequisites only")
 
     args = parser.parse_args()
 
@@ -610,5 +609,6 @@ def main():
     if not args.start:
         deployer.generate_deployment_report(checks)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

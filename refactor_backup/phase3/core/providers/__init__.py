@@ -11,5 +11,5 @@ __all__ = [
     "ChatMessage",
     "ProviderFactory",
     "OpenAIProvider",
-    "AnthropicProvider"
+    "AnthropicProvider",
 ]

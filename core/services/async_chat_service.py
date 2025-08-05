@@ -27,10 +27,7 @@ class AsyncChatService:
             validation_result = self.validator.validate(data)
             if not validation_result.is_valid:
                 perf_monitor.increment_counter("chat_validation_error")
-                return {
-                    "success": False,
-                    "error": f"Invalid request: {validation_result.errors}"
-                }
+                return {"success": False, "error": f"Invalid request: {validation_result.errors}"}
 
             # Check cache first
             cache_key = self.cache_manager.get_cache_key_for_chat_request(data)
@@ -47,10 +44,7 @@ class AsyncChatService:
             provider_name = data.get("provider", "openai")
             provider = await self.provider_factory.get_provider(provider_name)
             if not provider:
-                return {
-                    "success": False,
-                    "error": f"Provider {provider_name} not available"
-                }
+                return {"success": False, "error": f"Provider {provider_name} not available"}
 
             # Build chat request
             messages = await self._build_messages(data)
@@ -60,7 +54,7 @@ class AsyncChatService:
                 model=data.get("model", (await provider.get_models())[0]),
                 temperature=data.get("temperature", 0.7),
                 max_tokens=data.get("max_tokens"),
-                stream=data.get("stream", False)
+                stream=data.get("stream", False),
             )
 
             # Process request
@@ -73,15 +67,12 @@ class AsyncChatService:
                 "provider": response.provider,
                 "usage": response.usage,
                 "response_time": response.response_time,
-                "cached": False
+                "cached": False,
             }
 
             # Cache the response (async background task)
             await submit_background_task(
-                "cache_response",
-                self.cache_manager.set,
-                cache_key,
-                result
+                "cache_response", self.cache_manager.set, cache_key, result
             )
 
             perf_monitor.increment_counter("chat_success")
@@ -89,11 +80,7 @@ class AsyncChatService:
 
         except Exception as e:
             perf_monitor.increment_counter("chat_error")
-            return {
-                "success": False,
-                "error": str(e),
-                "provider": data.get("provider", "unknown")
-            }
+            return {"success": False, "error": str(e), "provider": data.get("provider", "unknown")}
 
     async def _build_messages(self, data: dict[str, Any]) -> list[ChatMessage]:
         """Build messages from request data with context injection"""

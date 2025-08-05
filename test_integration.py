@@ -37,13 +37,16 @@ async def test_async_functionality():
 
         # Test performance monitor
         from core.performance import perf_monitor
+
         metrics = perf_monitor.get_all_metrics()
         print(f"✅ Performance monitor active with {len(metrics)} metric types")
 
         # Test background task manager
         from core.background_tasks import task_manager
+
         status = task_manager.get_status()
         print(f"✅ Task manager status: {status}")
+
 
 def test_flask_routes():
     """Test Flask routes are properly registered"""
@@ -52,17 +55,18 @@ def test_flask_routes():
     with app.test_client() as client:
         # Test health endpoint
         try:
-            response = client.get('/health')
+            response = client.get("/health")
             print(f"✅ Health endpoint: {response.status_code}")
         except Exception as e:
             print(f"⚠️  Health endpoint: {e}")
 
         # Test main page
         try:
-            response = client.get('/')
+            response = client.get("/")
             print(f"✅ Main page: {response.status_code}")
         except Exception as e:
             print(f"⚠️  Main page: {e}")
+
 
 if __name__ == "__main__":
     print("🚀 Testing Async Architecture Integration")

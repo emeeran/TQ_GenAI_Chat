@@ -21,12 +21,14 @@ try:
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
 
 try:
     import redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -37,6 +39,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SecurityEvent:
     """Security event for audit logging."""
+
     timestamp: float
     event_type: str
     user_id: str
@@ -70,7 +73,7 @@ class APIKeyManager:
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=b'tq_genai_chat_salt',  # In production, use random salt
+            salt=b"tq_genai_chat_salt",  # In production, use random salt
             iterations=100000,
         )
         key = base64.urlsafe_b64encode(kdf.derive(self.master_key.encode()))
@@ -90,7 +93,7 @@ class APIKeyManager:
     def _save_keys(self):
         """Save encrypted keys to file."""
         try:
-            with open(self.keys_file, 'w') as f:
+            with open(self.keys_file, "w") as f:
                 json.dump(self.encrypted_keys, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save API keys: {e}")
@@ -167,7 +170,7 @@ class RateLimiter:
 
         expired_keys = []
         for key, data in self.local_cache.items():
-            if data.get('expires', 0) < current_time:
+            if data.get("expires", 0) < current_time:
                 expired_keys.append(key)
 
         for key in expired_keys:
@@ -176,11 +179,7 @@ class RateLimiter:
         self.last_cleanup = current_time
 
     def check_rate_limit(
-        self,
-        identifier: str,
-        limit: int,
-        window_seconds: int,
-        burst_limit: int = None
+        self, identifier: str, limit: int, window_seconds: int, burst_limit: int = None
     ) -> tuple[bool, dict[str, Any]]:
         """
         Check if request is within rate limits.
@@ -204,7 +203,7 @@ class RateLimiter:
         limit: int,
         window_seconds: int,
         burst_limit: int,
-        current_time: float
+        current_time: float,
     ) -> tuple[bool, dict[str, Any]]:
         """Redis-based rate limiting using sliding window."""
         try:
@@ -229,31 +228,35 @@ class RateLimiter:
             # Check burst limit
             if burst_limit and current_count >= burst_limit:
                 return False, {
-                    'allowed': False,
-                    'current_count': current_count,
-                    'limit': limit,
-                    'burst_limit': burst_limit,
-                    'window_seconds': window_seconds,
-                    'retry_after': window_seconds
+                    "allowed": False,
+                    "current_count": current_count,
+                    "limit": limit,
+                    "burst_limit": burst_limit,
+                    "window_seconds": window_seconds,
+                    "retry_after": window_seconds,
                 }
 
             # Check regular limit
             allowed = current_count < limit
 
             return allowed, {
-                'allowed': allowed,
-                'current_count': current_count,
-                'limit': limit,
-                'window_seconds': window_seconds,
-                'retry_after': window_seconds if not allowed else 0
+                "allowed": allowed,
+                "current_count": current_count,
+                "limit": limit,
+                "window_seconds": window_seconds,
+                "retry_after": window_seconds if not allowed else 0,
             }
 
         except Exception as e:
             logger.error(f"Redis rate limiting error: {e}")
             # Fallback to local cache
             return self._check_rate_limit_local(
-                identifier, limit, window_seconds, burst_limit,
-                current_time, current_time - window_seconds
+                identifier,
+                limit,
+                window_seconds,
+                burst_limit,
+                current_time,
+                current_time - window_seconds,
             )
 
     def _check_rate_limit_local(
@@ -263,46 +266,46 @@ class RateLimiter:
         window_seconds: int,
         burst_limit: int,
         current_time: float,
-        window_start: float
+        window_start: float,
     ) -> tuple[bool, dict[str, Any]]:
         """Local cache-based rate limiting."""
         self._cleanup_local_cache()
 
         if identifier not in self.local_cache:
             self.local_cache[identifier] = {
-                'requests': [],
-                'expires': current_time + window_seconds
+                "requests": [],
+                "expires": current_time + window_seconds,
             }
 
         data = self.local_cache[identifier]
 
         # Remove old requests
-        data['requests'] = [req_time for req_time in data['requests'] if req_time > window_start]
+        data["requests"] = [req_time for req_time in data["requests"] if req_time > window_start]
 
         # Check burst limit
-        if burst_limit and len(data['requests']) >= burst_limit:
+        if burst_limit and len(data["requests"]) >= burst_limit:
             return False, {
-                'allowed': False,
-                'current_count': len(data['requests']),
-                'limit': limit,
-                'burst_limit': burst_limit,
-                'window_seconds': window_seconds,
-                'retry_after': window_seconds
+                "allowed": False,
+                "current_count": len(data["requests"]),
+                "limit": limit,
+                "burst_limit": burst_limit,
+                "window_seconds": window_seconds,
+                "retry_after": window_seconds,
             }
 
         # Check regular limit
-        allowed = len(data['requests']) < limit
+        allowed = len(data["requests"]) < limit
 
         if allowed:
-            data['requests'].append(current_time)
-            data['expires'] = current_time + window_seconds
+            data["requests"].append(current_time)
+            data["expires"] = current_time + window_seconds
 
         return allowed, {
-            'allowed': allowed,
-            'current_count': len(data['requests']),
-            'limit': limit,
-            'window_seconds': window_seconds,
-            'retry_after': window_seconds if not allowed else 0
+            "allowed": allowed,
+            "current_count": len(data["requests"]),
+            "limit": limit,
+            "window_seconds": window_seconds,
+            "retry_after": window_seconds if not allowed else 0,
         }
 
 
@@ -313,23 +316,25 @@ class InputValidator:
 
     def __init__(self):
         # Patterns for validation
-        self.email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-        self.filename_pattern = re.compile(r'^[a-zA-Z0-9._-]+$')
+        self.email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+        self.filename_pattern = re.compile(r"^[a-zA-Z0-9._-]+$")
         self.safe_text_pattern = re.compile(r'^[a-zA-Z0-9\s.,!?;:()\'"@#$%&*+=\-_/\\]+$')
 
         # SQL injection patterns
         self.sql_injection_patterns = [
-            re.compile(r'(\bUNION\b|\bSELECT\b|\bINSERT\b|\bDELETE\b|\bUPDATE\b|\bDROP\b)', re.IGNORECASE),
-            re.compile(r'(--|#|/\*|\*/)', re.IGNORECASE),
-            re.compile(r'(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)', re.IGNORECASE),
+            re.compile(
+                r"(\bUNION\b|\bSELECT\b|\bINSERT\b|\bDELETE\b|\bUPDATE\b|\bDROP\b)", re.IGNORECASE
+            ),
+            re.compile(r"(--|#|/\*|\*/)", re.IGNORECASE),
+            re.compile(r"(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)", re.IGNORECASE),
         ]
 
         # XSS patterns
         self.xss_patterns = [
-            re.compile(r'<script[^>]*>.*?</script>', re.IGNORECASE | re.DOTALL),
-            re.compile(r'javascript:', re.IGNORECASE),
-            re.compile(r'on\w+\s*=', re.IGNORECASE),
-            re.compile(r'<iframe[^>]*>.*?</iframe>', re.IGNORECASE | re.DOTALL),
+            re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL),
+            re.compile(r"javascript:", re.IGNORECASE),
+            re.compile(r"on\w+\s*=", re.IGNORECASE),
+            re.compile(r"<iframe[^>]*>.*?</iframe>", re.IGNORECASE | re.DOTALL),
         ]
 
     def validate_email(self, email: str) -> bool:
@@ -344,7 +349,7 @@ class InputValidator:
             return False
 
         # Check for path traversal
-        if '..' in filename or '/' in filename or '\\' in filename:
+        if ".." in filename or "/" in filename or "\\" in filename:
             return False
 
         return bool(self.filename_pattern.match(filename))
@@ -359,10 +364,10 @@ class InputValidator:
             text = text[:max_length]
 
         # Remove null bytes
-        text = text.replace('\x00', '')
+        text = text.replace("\x00", "")
 
         # Remove excessive whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
 
         return text
 
@@ -385,12 +390,12 @@ class InputValidator:
         errors = []
 
         # Check for required fields
-        if 'message' not in data:
+        if "message" not in data:
             errors.append("Message is required")
 
         # Validate message
-        if 'message' in data:
-            message = data['message']
+        if "message" in data:
+            message = data["message"]
             if not isinstance(message, str):
                 errors.append("Message must be a string")
             elif len(message) == 0:
@@ -403,14 +408,14 @@ class InputValidator:
                 errors.append("Message contains potentially malicious content")
 
         # Validate provider
-        if 'provider' in data:
-            provider = data['provider']
+        if "provider" in data:
+            provider = data["provider"]
             if not isinstance(provider, str) or not provider.isalnum():
                 errors.append("Invalid provider")
 
         # Validate model
-        if 'model' in data:
-            model = data['model']
+        if "model" in data:
+            model = data["model"]
             if not isinstance(model, str) or len(model) > 100:
                 errors.append("Invalid model")
 
@@ -428,11 +433,9 @@ class SecurityAuditor:
         self.max_events = 10000
 
         # Setup audit logger
-        self.audit_logger = logging.getLogger('security_audit')
+        self.audit_logger = logging.getLogger("security_audit")
         handler = logging.FileHandler(self.log_file)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s'
-        )
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         self.audit_logger.addHandler(handler)
         self.audit_logger.setLevel(logging.INFO)
@@ -443,7 +446,7 @@ class SecurityAuditor:
         user_id: str,
         ip_address: str,
         details: dict[str, Any],
-        severity: str = "INFO"
+        severity: str = "INFO",
     ):
         """Log a security event."""
         event = SecurityEvent(
@@ -452,23 +455,25 @@ class SecurityAuditor:
             user_id=user_id,
             ip_address=ip_address,
             details=details,
-            severity=severity
+            severity=severity,
         )
 
         # Add to memory
         self.events.append(event)
         if len(self.events) > self.max_events:
-            self.events = self.events[-self.max_events:]
+            self.events = self.events[-self.max_events :]
 
         # Log to file
-        log_message = json.dumps({
-            'timestamp': event.timestamp,
-            'event_type': event.event_type,
-            'user_id': event.user_id,
-            'ip_address': event.ip_address,
-            'details': event.details,
-            'severity': event.severity
-        })
+        log_message = json.dumps(
+            {
+                "timestamp": event.timestamp,
+                "event_type": event.event_type,
+                "user_id": event.user_id,
+                "ip_address": event.ip_address,
+                "details": event.details,
+                "severity": event.severity,
+            }
+        )
 
         if severity == "CRITICAL":
             self.audit_logger.critical(log_message)
@@ -481,22 +486,12 @@ class SecurityAuditor:
 
     def log_failed_login(self, user_id: str, ip_address: str, reason: str):
         """Log failed login attempt."""
-        self.log_event(
-            "FAILED_LOGIN",
-            user_id,
-            ip_address,
-            {"reason": reason},
-            "WARNING"
-        )
+        self.log_event("FAILED_LOGIN", user_id, ip_address, {"reason": reason}, "WARNING")
 
     def log_rate_limit_exceeded(self, user_id: str, ip_address: str, endpoint: str):
         """Log rate limit exceeded."""
         self.log_event(
-            "RATE_LIMIT_EXCEEDED",
-            user_id,
-            ip_address,
-            {"endpoint": endpoint},
-            "WARNING"
+            "RATE_LIMIT_EXCEEDED", user_id, ip_address, {"endpoint": endpoint}, "WARNING"
         )
 
     def log_suspicious_input(self, user_id: str, ip_address: str, input_type: str, content: str):
@@ -506,33 +501,23 @@ class SecurityAuditor:
             user_id,
             ip_address,
             {"input_type": input_type, "content": content[:100]},
-            "ERROR"
+            "ERROR",
         )
 
     def log_api_key_access(self, user_id: str, ip_address: str, provider: str, action: str):
         """Log API key access."""
         self.log_event(
-            "API_KEY_ACCESS",
-            user_id,
-            ip_address,
-            {"provider": provider, "action": action},
-            "INFO"
+            "API_KEY_ACCESS", user_id, ip_address, {"provider": provider, "action": action}, "INFO"
         )
 
     def get_recent_events(self, hours: int = 24, severity: str = None) -> list[SecurityEvent]:
         """Get recent security events."""
         cutoff_time = time.time() - (hours * 3600)
 
-        recent_events = [
-            event for event in self.events
-            if event.timestamp >= cutoff_time
-        ]
+        recent_events = [event for event in self.events if event.timestamp >= cutoff_time]
 
         if severity:
-            recent_events = [
-                event for event in recent_events
-                if event.severity == severity
-            ]
+            recent_events = [event for event in recent_events if event.severity == severity]
 
         return recent_events
 
@@ -555,29 +540,35 @@ class SecurityAuditor:
 
         # Too many failed logins
         if event_counts.get("FAILED_LOGIN", 0) > 10:
-            anomalies.append({
-                "type": "EXCESSIVE_FAILED_LOGINS",
-                "count": event_counts["FAILED_LOGIN"],
-                "severity": "HIGH"
-            })
+            anomalies.append(
+                {
+                    "type": "EXCESSIVE_FAILED_LOGINS",
+                    "count": event_counts["FAILED_LOGIN"],
+                    "severity": "HIGH",
+                }
+            )
 
         # Too many requests from single IP
         for ip, count in ip_counts.items():
             if count > 100:  # More than 100 events per hour
-                anomalies.append({
-                    "type": "EXCESSIVE_REQUESTS_FROM_IP",
-                    "ip_address": ip,
-                    "count": count,
-                    "severity": "MEDIUM"
-                })
+                anomalies.append(
+                    {
+                        "type": "EXCESSIVE_REQUESTS_FROM_IP",
+                        "ip_address": ip,
+                        "count": count,
+                        "severity": "MEDIUM",
+                    }
+                )
 
         # Too many rate limit violations
         if event_counts.get("RATE_LIMIT_EXCEEDED", 0) > 20:
-            anomalies.append({
-                "type": "EXCESSIVE_RATE_LIMITING",
-                "count": event_counts["RATE_LIMIT_EXCEEDED"],
-                "severity": "MEDIUM"
-            })
+            anomalies.append(
+                {
+                    "type": "EXCESSIVE_RATE_LIMITING",
+                    "count": event_counts["RATE_LIMIT_EXCEEDED"],
+                    "severity": "MEDIUM",
+                }
+            )
 
         return anomalies
 
@@ -603,12 +594,7 @@ class SecurityManager:
         return ""
 
     def validate_request(
-        self,
-        user_id: str,
-        ip_address: str,
-        endpoint: str,
-        data: dict,
-        rate_limit: int = 60
+        self, user_id: str, ip_address: str, endpoint: str, data: dict, rate_limit: int = 60
     ) -> tuple[bool, str]:
         """Validate incoming request."""
 
@@ -616,7 +602,7 @@ class SecurityManager:
         allowed, rate_info = self.rate_limiter.check_rate_limit(
             f"{user_id}:{ip_address}",
             rate_limit,
-            60  # 1 minute window
+            60,  # 1 minute window
         )
 
         if not allowed:
@@ -626,9 +612,7 @@ class SecurityManager:
         # Input validation
         valid, errors = self.input_validator.validate_api_input(data)
         if not valid:
-            self.auditor.log_suspicious_input(
-                user_id, ip_address, "API_INPUT", str(errors)
-            )
+            self.auditor.log_suspicious_input(user_id, ip_address, "API_INPUT", str(errors))
             return False, f"Invalid input: {'; '.join(errors)}"
 
         return True, "OK"
@@ -640,18 +624,14 @@ class SecurityManager:
 
         # Create HMAC signature
         secret_key = secrets.token_urlsafe(32)
-        signature = hmac.new(
-            secret_key.encode(),
-            data.encode(),
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(secret_key.encode(), data.encode(), hashlib.sha256).hexdigest()
 
         return f"{data}:{signature}:{secret_key}"
 
     def verify_session_token(self, token: str, max_age: int = 3600) -> tuple[bool, str]:
         """Verify session token."""
         try:
-            parts = token.split(':')
+            parts = token.split(":")
             if len(parts) != 4:
                 return False, ""
 
@@ -665,9 +645,7 @@ class SecurityManager:
             # Verify signature
             data = f"{user_id}:{timestamp}"
             expected_signature = hmac.new(
-                secret_key.encode(),
-                data.encode(),
-                hashlib.sha256
+                secret_key.encode(), data.encode(), hashlib.sha256
             ).hexdigest()
 
             if hmac.compare_digest(signature, expected_signature):
@@ -681,32 +659,40 @@ class SecurityManager:
 
 # Decorators for easy security integration
 
+
 def require_rate_limit(limit: int = 60, window: int = 60):
     """Decorator for rate limiting."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             # This would need to be integrated with Flask request context
             # Implementation depends on specific framework integration
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 def validate_input(validator_func: Callable = None):
     """Decorator for input validation."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             # This would need to be integrated with Flask request context
             # Implementation depends on specific framework integration
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # Global security manager instance
 _security_manager = None
+
 
 def get_security_manager(master_key: str = None, redis_client=None) -> SecurityManager:
     """Get or create the global security manager instance."""

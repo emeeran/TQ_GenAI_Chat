@@ -12,6 +12,7 @@ from typing import Any
 try:
     import websockets
     from websockets.server import WebSocketServerProtocol
+
     WEBSOCKETS_AVAILABLE = True
 except ImportError:
     WEBSOCKETS_AVAILABLE = False
@@ -51,7 +52,9 @@ class ChatWebSocketHandler:
                 pass
             self._cleanup_task = None
 
-    async def handle_connection(self, websocket: WebSocketServerProtocol, user_id: str, chat_room: str = "default"):
+    async def handle_connection(
+        self, websocket: WebSocketServerProtocol, user_id: str, chat_room: str = "default"
+    ):
         """
         Handle new WebSocket connection.
         """
@@ -65,22 +68,22 @@ class ChatWebSocketHandler:
         self.active_connections[user_id] = websocket
         self.chat_rooms[chat_room].add(user_id)
         self.user_status[user_id] = {
-            'room': chat_room,
-            'connected_at': time.time(),
-            'last_seen': time.time()
+            "room": chat_room,
+            "connected_at": time.time(),
+            "last_seen": time.time(),
         }
 
         # Notify other users in room
-        await self.broadcast_user_event(chat_room, {
-            'type': 'user_joined',
-            'user_id': user_id,
-            'timestamp': time.time()
-        }, exclude_user=user_id)
+        await self.broadcast_user_event(
+            chat_room,
+            {"type": "user_joined", "user_id": user_id, "timestamp": time.time()},
+            exclude_user=user_id,
+        )
 
         try:
             async for message in websocket:
                 await self.handle_message(user_id, chat_room, message)
-                self.user_status[user_id]['last_seen'] = time.time()
+                self.user_status[user_id]["last_seen"] = time.time()
 
         except websockets.exceptions.ConnectionClosed:
             logger.info(f"User {user_id} disconnected")
@@ -95,16 +98,16 @@ class ChatWebSocketHandler:
         """
         try:
             data = json.loads(message)
-            message_type = data.get('type')
+            message_type = data.get("type")
 
-            if message_type == 'chat_message':
+            if message_type == "chat_message":
                 await self.handle_chat_message(user_id, chat_room, data)
-            elif message_type == 'typing_start':
+            elif message_type == "typing_start":
                 await self.handle_typing_start(user_id, chat_room)
-            elif message_type == 'typing_stop':
+            elif message_type == "typing_stop":
                 await self.handle_typing_stop(user_id, chat_room)
-            elif message_type == 'ping':
-                await self.send_to_user(user_id, {'type': 'pong', 'timestamp': time.time()})
+            elif message_type == "ping":
+                await self.send_to_user(user_id, {"type": "pong", "timestamp": time.time()})
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
@@ -118,11 +121,11 @@ class ChatWebSocketHandler:
         Handle chat message and broadcast to room.
         """
         message_data = {
-            'type': 'chat_message',
-            'user_id': user_id,
-            'message': data.get('message', ''),
-            'timestamp': time.time(),
-            'message_id': data.get('message_id')
+            "type": "chat_message",
+            "user_id": user_id,
+            "message": data.get("message", ""),
+            "timestamp": time.time(),
+            "message_id": data.get("message_id"),
         }
 
         await self.broadcast_message(chat_room, message_data, sender_id=user_id)
@@ -133,11 +136,11 @@ class ChatWebSocketHandler:
         """
         self.typing_status[chat_room][user_id] = time.time()
 
-        await self.broadcast_message(chat_room, {
-            'type': 'typing_start',
-            'user_id': user_id,
-            'timestamp': time.time()
-        }, exclude_user=user_id)
+        await self.broadcast_message(
+            chat_room,
+            {"type": "typing_start", "user_id": user_id, "timestamp": time.time()},
+            exclude_user=user_id,
+        )
 
     async def handle_typing_stop(self, user_id: str, chat_room: str):
         """
@@ -145,13 +148,19 @@ class ChatWebSocketHandler:
         """
         self.typing_status[chat_room].pop(user_id, None)
 
-        await self.broadcast_message(chat_room, {
-            'type': 'typing_stop',
-            'user_id': user_id,
-            'timestamp': time.time()
-        }, exclude_user=user_id)
+        await self.broadcast_message(
+            chat_room,
+            {"type": "typing_stop", "user_id": user_id, "timestamp": time.time()},
+            exclude_user=user_id,
+        )
 
-    async def broadcast_message(self, chat_room: str, message: dict[str, Any], sender_id: str = None, exclude_user: str = None):
+    async def broadcast_message(
+        self,
+        chat_room: str,
+        message: dict[str, Any],
+        sender_id: str = None,
+        exclude_user: str = None,
+    ):
         """
         Broadcast message to all users in chat room.
         """
@@ -175,7 +184,9 @@ class ChatWebSocketHandler:
         for user_id in disconnected_users:
             await self.disconnect_user(user_id, chat_room)
 
-    async def broadcast_user_event(self, chat_room: str, event: dict[str, Any], exclude_user: str = None):
+    async def broadcast_user_event(
+        self, chat_room: str, event: dict[str, Any], exclude_user: str = None
+    ):
         """
         Broadcast user event (join/leave) to room.
         """
@@ -219,40 +230,42 @@ class ChatWebSocketHandler:
         self.user_status.pop(user_id, None)
 
         # Notify other users
-        await self.broadcast_user_event(chat_room, {
-            'type': 'user_left',
-            'user_id': user_id,
-            'timestamp': time.time()
-        })
+        await self.broadcast_user_event(
+            chat_room, {"type": "user_left", "user_id": user_id, "timestamp": time.time()}
+        )
 
-    async def notify_file_processing(self, user_id: str, filename: str, status: str, progress: int = None, error: str = None):
+    async def notify_file_processing(
+        self, user_id: str, filename: str, status: str, progress: int = None, error: str = None
+    ):
         """
         Notify user about file processing status.
         """
         message = {
-            'type': 'file_processing',
-            'filename': filename,
-            'status': status,
-            'timestamp': time.time()
+            "type": "file_processing",
+            "filename": filename,
+            "status": status,
+            "timestamp": time.time(),
         }
 
         if progress is not None:
-            message['progress'] = progress
+            message["progress"] = progress
 
         if error:
-            message['error'] = error
+            message["error"] = error
 
         await self.send_to_user(user_id, message)
 
-    async def notify_ai_response_stream(self, user_id: str, response_chunk: str, is_complete: bool = False):
+    async def notify_ai_response_stream(
+        self, user_id: str, response_chunk: str, is_complete: bool = False
+    ):
         """
         Stream AI response chunks to user.
         """
         message = {
-            'type': 'ai_response_stream',
-            'chunk': response_chunk,
-            'is_complete': is_complete,
-            'timestamp': time.time()
+            "type": "ai_response_stream",
+            "chunk": response_chunk,
+            "is_complete": is_complete,
+            "timestamp": time.time(),
         }
 
         await self.send_to_user(user_id, message)
@@ -267,9 +280,9 @@ class ChatWebSocketHandler:
         users = []
         for user_id in self.chat_rooms[chat_room]:
             user_info = {
-                'user_id': user_id,
-                'connected': user_id in self.active_connections,
-                'typing': user_id in self.typing_status.get(chat_room, {}),
+                "user_id": user_id,
+                "connected": user_id in self.active_connections,
+                "typing": user_id in self.typing_status.get(chat_room, {}),
             }
 
             if user_id in self.user_status:
@@ -288,12 +301,10 @@ class ChatWebSocketHandler:
         total_typing = sum(len(users) for users in self.typing_status.values())
 
         return {
-            'total_connections': total_connections,
-            'total_rooms': total_rooms,
-            'total_typing_users': total_typing,
-            'rooms': {
-                room: len(users) for room, users in self.chat_rooms.items()
-            }
+            "total_connections": total_connections,
+            "total_rooms": total_rooms,
+            "total_typing_users": total_typing,
+            "rooms": {room: len(users) for room, users in self.chat_rooms.items()},
         }
 
     async def _cleanup_expired_typing(self):
@@ -314,12 +325,16 @@ class ChatWebSocketHandler:
                 # Remove expired typing indicators
                 for room, user_id in expired_typing:
                     self.typing_status[room].pop(user_id, None)
-                    await self.broadcast_message(room, {
-                        'type': 'typing_stop',
-                        'user_id': user_id,
-                        'timestamp': current_time,
-                        'reason': 'timeout'
-                    }, exclude_user=user_id)
+                    await self.broadcast_message(
+                        room,
+                        {
+                            "type": "typing_stop",
+                            "user_id": user_id,
+                            "timestamp": current_time,
+                            "reason": "timeout",
+                        },
+                        exclude_user=user_id,
+                    )
 
                 # Sleep for 2 seconds before next cleanup
                 await asyncio.sleep(2)
@@ -334,12 +349,14 @@ class ChatWebSocketHandler:
 # Global WebSocket handler instance
 _websocket_handler = None
 
+
 def get_websocket_handler() -> ChatWebSocketHandler:
     """Get or create global WebSocket handler instance."""
     global _websocket_handler
     if _websocket_handler is None:
         _websocket_handler = ChatWebSocketHandler()
     return _websocket_handler
+
 
 async def cleanup_websocket_handler():
     """Cleanup global WebSocket handler."""

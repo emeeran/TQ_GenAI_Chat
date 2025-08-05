@@ -13,7 +13,7 @@ from flask_cors import CORS
 # from config.settings import config
 
 
-def create_app(config_name: str = 'development') -> Flask:
+def create_app(config_name: str = "development") -> Flask:
     """
     Application factory pattern implementation.
 
@@ -26,15 +26,17 @@ def create_app(config_name: str = 'development') -> Flask:
     # Create Flask app
     app = Flask(
         __name__,
-        template_folder=str(Path(__file__).parent.parent / 'templates'),
-        static_folder=str(Path(__file__).parent.parent / 'static')
+        template_folder=str(Path(__file__).parent.parent / "templates"),
+        static_folder=str(Path(__file__).parent.parent / "static"),
     )
 
     # Basic configuration for now
-    app.config.update({
-        'JSON_SORT_KEYS': False,
-        'MAX_CONTENT_LENGTH': 64 * 1024 * 1024,  # 64MB
-    })
+    app.config.update(
+        {
+            "JSON_SORT_KEYS": False,
+            "MAX_CONTENT_LENGTH": 64 * 1024 * 1024,  # 64MB
+        }
+    )
 
     # Configure CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -43,7 +45,7 @@ def create_app(config_name: str = 'development') -> Flask:
     from app.api import api_bp
     from app.web import web_bp
 
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_bp, url_prefix="/api/v1")
     app.register_blueprint(web_bp)
 
     return app

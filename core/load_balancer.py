@@ -16,6 +16,7 @@ import aiohttp
 
 try:
     import redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ServiceInstance:
     """Represents a service instance in the load balancer."""
+
     id: str
     host: str
     port: int
@@ -66,9 +68,7 @@ class HealthChecker:
     async def start(self):
         """Start the health checker."""
         if not self.session:
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=5)
-            )
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5))
         self.running = True
         asyncio.create_task(self._health_check_loop())
         logger.info("Health checker started")
@@ -86,8 +86,7 @@ class HealthChecker:
             start_time = time.time()
 
             async with self.session.get(
-                f"{instance.url}/health",
-                timeout=aiohttp.ClientTimeout(total=3)
+                f"{instance.url}/health", timeout=aiohttp.ClientTimeout(total=3)
             ) as response:
                 response_time = time.time() - start_time
 
@@ -137,7 +136,9 @@ class HealthChecker:
 class LoadBalancingStrategy:
     """Base class for load balancing strategies."""
 
-    def select_instance(self, instances: list[ServiceInstance], request_context: dict = None) -> ServiceInstance | None:
+    def select_instance(
+        self, instances: list[ServiceInstance], request_context: dict = None
+    ) -> ServiceInstance | None:
         raise NotImplementedError
 
 
@@ -147,7 +148,9 @@ class RoundRobinStrategy(LoadBalancingStrategy):
     def __init__(self):
         self.current_index = 0
 
-    def select_instance(self, instances: list[ServiceInstance], request_context: dict = None) -> ServiceInstance | None:
+    def select_instance(
+        self, instances: list[ServiceInstance], request_context: dict = None
+    ) -> ServiceInstance | None:
         healthy_instances = [inst for inst in instances if inst.is_healthy]
         if not healthy_instances:
             return None
@@ -163,7 +166,9 @@ class WeightedRoundRobinStrategy(LoadBalancingStrategy):
     def __init__(self):
         self.current_weights = {}
 
-    def select_instance(self, instances: list[ServiceInstance], request_context: dict = None) -> ServiceInstance | None:
+    def select_instance(
+        self, instances: list[ServiceInstance], request_context: dict = None
+    ) -> ServiceInstance | None:
         healthy_instances = [inst for inst in instances if inst.is_healthy]
         if not healthy_instances:
             return None
@@ -187,7 +192,9 @@ class WeightedRoundRobinStrategy(LoadBalancingStrategy):
 class LeastConnectionsStrategy(LoadBalancingStrategy):
     """Route to instance with fewest active connections."""
 
-    def select_instance(self, instances: list[ServiceInstance], request_context: dict = None) -> ServiceInstance | None:
+    def select_instance(
+        self, instances: list[ServiceInstance], request_context: dict = None
+    ) -> ServiceInstance | None:
         healthy_instances = [inst for inst in instances if inst.is_healthy]
         if not healthy_instances:
             return None
@@ -198,7 +205,9 @@ class LeastConnectionsStrategy(LoadBalancingStrategy):
 class ResponseTimeStrategy(LoadBalancingStrategy):
     """Route to instance with best response time."""
 
-    def select_instance(self, instances: list[ServiceInstance], request_context: dict = None) -> ServiceInstance | None:
+    def select_instance(
+        self, instances: list[ServiceInstance], request_context: dict = None
+    ) -> ServiceInstance | None:
         healthy_instances = [inst for inst in instances if inst.is_healthy]
         if not healthy_instances:
             return None
@@ -243,12 +252,16 @@ class ConsistentHashStrategy(LoadBalancingStrategy):
 
         self.sorted_keys = sorted(self.ring.keys())
 
-    def select_instance(self, instances: list[ServiceInstance], request_context: dict = None) -> ServiceInstance | None:
+    def select_instance(
+        self, instances: list[ServiceInstance], request_context: dict = None
+    ) -> ServiceInstance | None:
         if not instances or not request_context:
             return None
 
         # Use user_id or session_id for consistent routing
-        routing_key = request_context.get('user_id') or request_context.get('session_id') or 'default'
+        routing_key = (
+            request_context.get("user_id") or request_context.get("session_id") or "default"
+        )
         hash_value = self._hash(routing_key)
 
         # Find the first instance clockwise on the ring
@@ -283,7 +296,7 @@ class LoadBalancer:
             "weighted_round_robin": WeightedRoundRobinStrategy(),
             "least_connections": LeastConnectionsStrategy(),
             "response_time": ResponseTimeStrategy(),
-            "consistent_hash": ConsistentHashStrategy()
+            "consistent_hash": ConsistentHashStrategy(),
         }
 
         self.strategy = strategies.get(strategy, ResponseTimeStrategy())
@@ -314,12 +327,7 @@ class LoadBalancer:
 
     def add_instance(self, instance_id: str, host: str, port: int, weight: int = 1):
         """Add a service instance."""
-        instance = ServiceInstance(
-            id=instance_id,
-            host=host,
-            port=port,
-            weight=weight
-        )
+        instance = ServiceInstance(id=instance_id, host=host, port=port, weight=weight)
 
         self.instances[instance_id] = instance
 
@@ -372,7 +380,9 @@ class LoadBalancer:
 
         return selected_instance
 
-    async def complete_request(self, instance: ServiceInstance, response_time: float, success: bool):
+    async def complete_request(
+        self, instance: ServiceInstance, response_time: float, success: bool
+    ):
         """Mark request as completed and update metrics."""
         if instance:
             instance.active_connections = max(0, instance.active_connections - 1)
@@ -415,13 +425,13 @@ class LoadBalancer:
                 "average_response_time": self.total_response_time / max(1, self.request_count),
                 "active_instances": len([i for i in self.instances.values() if i.is_healthy]),
                 "total_instances": len(self.instances),
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
 
             await self.redis_client.setex(
                 "load_balancer:metrics",
-                300,  # 5 minutes TTL
-                json.dumps(metrics)
+                300,
+                json.dumps(metrics),  # 5 minutes TTL
             )
 
         except Exception as e:
@@ -448,10 +458,10 @@ class LoadBalancer:
                     "health_score": instance.health_score,
                     "active_connections": instance.active_connections,
                     "average_response_time": instance.average_response_time,
-                    "error_count": instance.error_count
+                    "error_count": instance.error_count,
                 }
                 for instance in self.instances.values()
-            ]
+            ],
         }
 
 
@@ -460,7 +470,9 @@ class AutoScaler:
     Auto-scaling system for dynamic instance management.
     """
 
-    def __init__(self, load_balancer: LoadBalancer, min_instances: int = 2, max_instances: int = 10):
+    def __init__(
+        self, load_balancer: LoadBalancer, min_instances: int = 2, max_instances: int = 10
+    ):
         self.load_balancer = load_balancer
         self.min_instances = min_instances
         self.max_instances = max_instances
@@ -510,22 +522,22 @@ class AutoScaler:
 
         # Check if we should scale up
         should_scale_up = (
-            current_instances < self.max_instances and
-            current_time - self.last_scale_up > self.scale_up_cooldown and
-            (
-                stats["average_response_time"] > self.response_time_threshold or
-                stats["error_rate"] > self.error_rate_threshold or
-                await self._check_cpu_usage() > self.cpu_scale_up_threshold
+            current_instances < self.max_instances
+            and current_time - self.last_scale_up > self.scale_up_cooldown
+            and (
+                stats["average_response_time"] > self.response_time_threshold
+                or stats["error_rate"] > self.error_rate_threshold
+                or await self._check_cpu_usage() > self.cpu_scale_up_threshold
             )
         )
 
         # Check if we should scale down
         should_scale_down = (
-            current_instances > self.min_instances and
-            current_time - self.last_scale_down > self.scale_down_cooldown and
-            stats["average_response_time"] < self.response_time_threshold * 0.5 and
-            stats["error_rate"] < self.error_rate_threshold * 0.5 and
-            await self._check_cpu_usage() < self.cpu_scale_down_threshold
+            current_instances > self.min_instances
+            and current_time - self.last_scale_down > self.scale_down_cooldown
+            and stats["average_response_time"] < self.response_time_threshold * 0.5
+            and stats["error_rate"] < self.error_rate_threshold * 0.5
+            and await self._check_cpu_usage() < self.cpu_scale_down_threshold
         )
 
         if should_scale_up:
@@ -605,7 +617,7 @@ class AutoScaler:
             instance_id=instance_id,
             host="localhost",  # In production, this would be the actual host
             port=port,
-            weight=1
+            weight=1,
         )
 
     async def _graceful_shutdown(self, instance: ServiceInstance):
@@ -618,7 +630,9 @@ class AutoScaler:
             await asyncio.sleep(1)
 
         if instance.active_connections > 0:
-            logger.warning(f"Force shutting down {instance.id} with {instance.active_connections} active connections")
+            logger.warning(
+                f"Force shutting down {instance.id} with {instance.active_connections} active connections"
+            )
 
 
 # Global instances
@@ -634,7 +648,9 @@ def get_load_balancer(strategy: str = "response_time", redis_client=None) -> Loa
     return _load_balancer
 
 
-def get_auto_scaler(load_balancer: LoadBalancer = None, min_instances: int = 2, max_instances: int = 10) -> AutoScaler:
+def get_auto_scaler(
+    load_balancer: LoadBalancer = None, min_instances: int = 2, max_instances: int = 10
+) -> AutoScaler:
     """Get or create the global auto-scaler instance."""
     global _auto_scaler
     if _auto_scaler is None:
@@ -695,9 +711,9 @@ if __name__ == "__main__":
         for i in range(10):
             instance = await lb.route_request({"user_id": f"user_{i}"})
             if instance:
-
                 # Simulate request completion
                 import random
+
                 response_time = random.uniform(0.1, 2.0)
                 success = random.random() > 0.1  # 90% success rate
 

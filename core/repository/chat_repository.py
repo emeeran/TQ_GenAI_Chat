@@ -17,7 +17,8 @@ class ChatHistoryRepository(BaseRepository):
     def _init_db(self):
         """Initialize database tables"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS chat_sessions (
                     id TEXT PRIMARY KEY,
                     title TEXT,
@@ -25,9 +26,11 @@ class ChatHistoryRepository(BaseRepository):
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     metadata TEXT
                 )
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS chat_messages (
                     id TEXT PRIMARY KEY,
                     session_id TEXT,
@@ -38,23 +41,27 @@ class ChatHistoryRepository(BaseRepository):
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (session_id) REFERENCES chat_sessions (id)
                 )
-            """)
+            """
+            )
 
     def save(self, data: dict[str, Any]) -> str:
         """Save chat session"""
         session_id = data.get("id", self._generate_id())
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO chat_sessions
                 (id, title, metadata, updated_at)
                 VALUES (?, ?, ?, ?)
-            """, (
-                session_id,
-                data.get("title", "New Chat"),
-                json.dumps(data.get("metadata", {})),
-                datetime.now()
-            ))
+            """,
+                (
+                    session_id,
+                    data.get("title", "New Chat"),
+                    json.dumps(data.get("metadata", {})),
+                    datetime.now(),
+                ),
+            )
 
         return session_id
 
@@ -63,18 +70,21 @@ class ChatHistoryRepository(BaseRepository):
         message_id = self._generate_id()
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO chat_messages
                 (id, session_id, role, content, model, provider)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                message_id,
-                session_id,
-                message["role"],
-                message["content"],
-                message.get("model", ""),
-                message.get("provider", "")
-            ))
+            """,
+                (
+                    message_id,
+                    session_id,
+                    message["role"],
+                    message["content"],
+                    message.get("model", ""),
+                    message.get("provider", ""),
+                ),
+            )
 
         return message_id
 
@@ -85,20 +95,22 @@ class ChatHistoryRepository(BaseRepository):
 
             # Get session
             session = conn.execute(
-                "SELECT * FROM chat_sessions WHERE id = ?",
-                (session_id,)
+                "SELECT * FROM chat_sessions WHERE id = ?", (session_id,)
             ).fetchone()
 
             if not session:
                 return None
 
             # Get messages
-            messages = conn.execute("""
+            messages = conn.execute(
+                """
                 SELECT role, content, model, provider, created_at
                 FROM chat_messages
                 WHERE session_id = ?
                 ORDER BY created_at
-            """, (session_id,)).fetchall()
+            """,
+                (session_id,),
+            ).fetchall()
 
             return {
                 "id": session["id"],
@@ -106,18 +118,20 @@ class ChatHistoryRepository(BaseRepository):
                 "created_at": session["created_at"],
                 "updated_at": session["updated_at"],
                 "metadata": json.loads(session["metadata"]),
-                "messages": [dict(msg) for msg in messages]
+                "messages": [dict(msg) for msg in messages],
             }
 
     def find_all(self) -> list[dict[str, Any]]:
         """Find all chat sessions"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            sessions = conn.execute("""
+            sessions = conn.execute(
+                """
                 SELECT id, title, created_at, updated_at
                 FROM chat_sessions
                 ORDER BY updated_at DESC
-            """).fetchall()
+            """
+            ).fetchall()
 
             return [dict(session) for session in sessions]
 
@@ -133,4 +147,5 @@ class ChatHistoryRepository(BaseRepository):
     def _generate_id(self) -> str:
         """Generate unique ID"""
         import uuid
+
         return str(uuid.uuid4())

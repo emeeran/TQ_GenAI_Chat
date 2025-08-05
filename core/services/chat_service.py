@@ -41,7 +41,7 @@ class ChatService:
                 messages=messages,
                 model=data.get("model", provider.get_models()[0]),
                 temperature=data.get("temperature", 0.7),
-                max_tokens=data.get("max_tokens")
+                max_tokens=data.get("max_tokens"),
             )
 
             # Process request
@@ -52,14 +52,14 @@ class ChatService:
                 "content": response.content,
                 "model": response.model,
                 "provider": response.provider,
-                "usage": response.usage
+                "usage": response.usage,
             }
 
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e),
-                "provider": provider_name if 'provider_name' in locals() else "unknown"
+                "provider": provider_name if "provider_name" in locals() else "unknown",
             }
 
     def _build_messages(self, data: dict[str, Any]) -> list[ChatMessage]:

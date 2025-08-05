@@ -37,7 +37,7 @@ def cleanup_codebase():
         "app_integration.py",
         "ai_models.py",
         "modify.md",
-        "idea.md"
+        "idea.md",
     ]
 
     for script in deprecated_scripts:
@@ -46,11 +46,7 @@ def cleanup_codebase():
             move_to_trash(script_path, trash_dir / "deprecated_scripts")
 
     # Move old documentation
-    old_docs = [
-        "dependency_report.md",
-        "IMPLEMENTATION_COMPLETE.md",
-        "OPTIMIZATION_SUMMARY.md"
-    ]
+    old_docs = ["dependency_report.md", "IMPLEMENTATION_COMPLETE.md", "OPTIMIZATION_SUMMARY.md"]
 
     for doc in old_docs:
         doc_path = base_dir / doc
@@ -58,11 +54,7 @@ def cleanup_codebase():
             move_to_trash(doc_path, trash_dir / "old_docs")
 
     # Move unused cache files
-    unused_files = [
-        "models_cache.json",
-        "defaults_cache.json",
-        "documents.db"
-    ]
+    unused_files = ["models_cache.json", "defaults_cache.json", "documents.db"]
 
     for file in unused_files:
         file_path = base_dir / file

@@ -12,11 +12,12 @@ try:
 
     # Get the core directory path
     core_dir = Path(__file__).parent.parent
-    providers_file = core_dir / 'providers.py'
+    providers_file = core_dir / "providers.py"
 
     if providers_file.exists():
         # Import the provider_manager from core.providers module
         import importlib.util
+
         spec = importlib.util.spec_from_file_location("core.providers", providers_file)
         providers_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(providers_module)
@@ -28,10 +29,38 @@ except ImportError:
     # Fallback: create a minimal provider manager for compatibility
     class MinimalProviderManager:
         def is_provider_available(self, provider: str) -> bool:
-            return provider in ['openai', 'groq', 'anthropic', 'gemini', 'mistral', 'cohere', 'xai', 'deepseek', 'alibaba', 'openrouter', 'huggingface', 'moonshot', 'perplexity']
+            return provider in [
+                "openai",
+                "groq",
+                "anthropic",
+                "gemini",
+                "mistral",
+                "cohere",
+                "xai",
+                "deepseek",
+                "alibaba",
+                "openrouter",
+                "huggingface",
+                "moonshot",
+                "perplexity",
+            ]
 
         def list_providers(self) -> list[str]:
-            return ['openai', 'groq', 'anthropic', 'gemini', 'mistral', 'cohere', 'xai', 'deepseek', 'alibaba', 'openrouter', 'huggingface', 'moonshot', 'perplexity']
+            return [
+                "openai",
+                "groq",
+                "anthropic",
+                "gemini",
+                "mistral",
+                "cohere",
+                "xai",
+                "deepseek",
+                "alibaba",
+                "openrouter",
+                "huggingface",
+                "moonshot",
+                "perplexity",
+            ]
 
         def get_provider(self, provider: str):
             return None
@@ -46,5 +75,5 @@ __all__ = [
     "ProviderFactory",
     "OpenAIProvider",
     "AnthropicProvider",
-    "provider_manager"
+    "provider_manager",
 ]

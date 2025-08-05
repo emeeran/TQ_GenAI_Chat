@@ -7,6 +7,7 @@ This guide covers deployment options for the TQ GenAI Chat application, from loc
 ## Quick Deployment
 
 ### Local Development
+
 ```bash
 # Clone and setup
 git clone https://github.com/emeeran/TQ_GenAI_Chat.git
@@ -29,6 +30,7 @@ python app.py
 ```
 
 ### Docker Deployment
+
 ```bash
 # Build image
 docker build -t tq-genai-chat .
@@ -86,7 +88,9 @@ UPLOAD_FOLDER=uploads/temp
 ```
 
 ### API Key Priority
+
 The application will use providers in this order of preference:
+
 1. **Groq** (fastest, free tier available)
 2. **OpenAI** (highest quality)
 3. **Gemini** (good balance, limited free tier)
@@ -95,6 +99,7 @@ The application will use providers in this order of preference:
 ## Production Deployment
 
 ### Using Gunicorn (Recommended)
+
 ```bash
 # Install gunicorn
 pip install gunicorn
@@ -112,6 +117,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 \
 ```
 
 ### Systemd Service (Linux)
+
 Create `/etc/systemd/system/tq-genai-chat.service`:
 
 ```ini
@@ -135,6 +141,7 @@ WantedBy=multi-user.target
 ```
 
 Enable and start:
+
 ```bash
 sudo systemctl enable tq-genai-chat
 sudo systemctl start tq-genai-chat
@@ -142,28 +149,29 @@ sudo systemctl status tq-genai-chat
 ```
 
 ### Nginx Reverse Proxy
+
 Create `/etc/nginx/sites-available/tq-genai-chat`:
 
 ```nginx
 server {
     listen 80;
     server_name yourdomain.com;
-    
+
     client_max_body_size 20M;  # Allow large file uploads
-    
+
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Handle large uploads
         proxy_request_buffering off;
         proxy_read_timeout 300s;
         proxy_connect_timeout 75s;
     }
-    
+
     # Static files (optional optimization)
     location /static {
         alias /opt/tq-genai-chat/static;
@@ -174,6 +182,7 @@ server {
 ```
 
 Enable the site:
+
 ```bash
 sudo ln -s /etc/nginx/sites-available/tq-genai-chat /etc/nginx/sites-enabled/
 sudo nginx -t
@@ -183,12 +192,15 @@ sudo systemctl reload nginx
 ## Cloud Deployment
 
 ### Heroku
+
 Create `Procfile`:
+
 ```
 web: gunicorn -w 4 -b 0.0.0.0:$PORT --timeout 120 app:app
 ```
 
 Deploy:
+
 ```bash
 # Login and create app
 heroku login
@@ -204,7 +216,9 @@ git push heroku main
 ```
 
 ### Railway
+
 Create `railway.toml`:
+
 ```toml
 [build]
 builder = "nixpacks"
@@ -219,6 +233,7 @@ FLASK_ENV = "production"
 ```
 
 Deploy:
+
 ```bash
 # Install Railway CLI
 npm install -g @railway/cli
@@ -230,7 +245,9 @@ railway up
 ```
 
 ### DigitalOcean App Platform
+
 Create `.do/app.yaml`:
+
 ```yaml
 name: tq-genai-chat
 services:
@@ -256,7 +273,9 @@ services:
 ```
 
 ### AWS Elastic Beanstalk
+
 Create `.ebextensions/python.config`:
+
 ```yaml
 option_settings:
   aws:elasticbeanstalk:container:python:
@@ -267,6 +286,7 @@ option_settings:
 ```
 
 Deploy:
+
 ```bash
 # Install EB CLI
 pip install awsebcli
@@ -280,6 +300,7 @@ eb deploy
 ## Docker Configuration
 
 ### Dockerfile
+
 ```dockerfile
 FROM python:3.11-slim
 
@@ -313,6 +334,7 @@ CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "120", "app:app"]
 ```
 
 ### Docker Compose
+
 ```yaml
 version: '3.8'
 
@@ -357,7 +379,9 @@ volumes:
 ## Performance Optimization
 
 ### Gunicorn Configuration
+
 Create `gunicorn.conf.py`:
+
 ```python
 # Worker configuration
 workers = 4
@@ -388,7 +412,9 @@ preload_app = True
 ```
 
 ### Redis Configuration
+
 Add to your deployment:
+
 ```yaml
 # docker-compose.yml redis service
 redis:
@@ -399,7 +425,9 @@ redis:
 ```
 
 ### Database Optimization
+
 For production, consider PostgreSQL:
+
 ```bash
 # Install psycopg2
 pip install psycopg2-binary
@@ -411,12 +439,15 @@ export DATABASE_URL="postgresql://user:password@host:port/database"
 ## Monitoring and Logging
 
 ### Health Checks
+
 The application provides a health endpoint:
+
 ```bash
 curl http://localhost:5000/health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -431,14 +462,18 @@ Response:
 ```
 
 ### Logging Configuration
+
 Add to your environment:
+
 ```env
 LOG_LEVEL=INFO
 LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
 ```
 
 ### Prometheus Metrics (Optional)
+
 Install and configure:
+
 ```bash
 pip install prometheus-flask-exporter
 
@@ -450,12 +485,14 @@ metrics = PrometheusMetrics(app)
 ## Security Considerations
 
 ### API Key Management
+
 - Use environment variables, never hardcode keys
 - Rotate keys regularly
 - Monitor usage and set rate limits
 - Use least privilege principle
 
 ### Web Security
+
 ```nginx
 # Add security headers in Nginx
 add_header X-Frame-Options "SAMEORIGIN" always;
@@ -465,7 +502,9 @@ add_header Referrer-Policy "no-referrer-when-downgrade" always;
 ```
 
 ### SSL/TLS
+
 Use Let's Encrypt for free SSL:
+
 ```bash
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d yourdomain.com
@@ -474,6 +513,7 @@ sudo certbot --nginx -d yourdomain.com
 ## Backup and Recovery
 
 ### Database Backup
+
 ```bash
 # SQLite backup
 sqlite3 documents.db ".backup backup.db"
@@ -483,13 +523,16 @@ pg_dump $DATABASE_URL > backup.sql
 ```
 
 ### File Upload Backup
+
 ```bash
 # Sync uploads directory
 rsync -av uploads/ backup/uploads/
 ```
 
 ### Automated Backups
+
 Create backup script:
+
 ```bash
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
@@ -504,6 +547,7 @@ find backups/ -name "*.tar.gz" -mtime +7 -delete
 ### Common Issues
 
 **Application won't start**:
+
 ```bash
 # Check logs
 sudo journalctl -u tq-genai-chat -f
@@ -513,6 +557,7 @@ python -c "from app import app; print('Config OK')"
 ```
 
 **File upload errors**:
+
 ```bash
 # Check permissions
 ls -la uploads/
@@ -520,6 +565,7 @@ sudo chown -R www-data:www-data uploads/
 ```
 
 **Provider connection issues**:
+
 ```bash
 # Test API keys
 curl -H "Authorization: Bearer $OPENAI_API_KEY" \
@@ -527,6 +573,7 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
 ```
 
 **Performance issues**:
+
 ```bash
 # Monitor resources
 htop
@@ -534,7 +581,9 @@ iostat 1
 ```
 
 ### Debug Mode
+
 For development troubleshooting:
+
 ```env
 FLASK_ENV=development
 FLASK_DEBUG=true

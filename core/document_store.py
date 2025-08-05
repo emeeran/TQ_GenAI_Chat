@@ -39,7 +39,8 @@ class DocumentStore:
         cursor = conn.cursor()
 
         # Create documents table
-        cursor.execute('''
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS documents (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
@@ -51,10 +52,12 @@ class DocumentStore:
                 user_id TEXT,
                 embedding_id TEXT
             )
-        ''')
+        """
+        )
 
         # Create embeddings table for vector search
-        cursor.execute('''
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS embeddings (
                 id TEXT PRIMARY KEY,
                 document_id TEXT NOT NULL,
@@ -62,10 +65,12 @@ class DocumentStore:
                 timestamp INTEGER NOT NULL,
                 FOREIGN KEY (document_id) REFERENCES documents (id)
             )
-        ''')
+        """
+        )
 
         # Create chunks table for document segments
-        cursor.execute('''
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS chunks (
                 id TEXT PRIMARY KEY,
                 document_id TEXT NOT NULL,
@@ -75,22 +80,25 @@ class DocumentStore:
                 embedding_id TEXT,
                 FOREIGN KEY (document_id) REFERENCES documents (id)
             )
-        ''')
+        """
+        )
 
         # Create indices for faster lookup
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_documents_type ON documents (type)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id)')
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_type ON documents (type)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id)")
 
         conn.commit()
         conn.close()
 
-    def add_document(self,
-                    content: str,
-                    title: str | None = None,
-                    file_path: str | None = None,
-                    doc_type: str = "text",
-                    metadata: dict[str, Any] | None = None,
-                    user_id: str | None = None) -> str:
+    def add_document(
+        self,
+        content: str,
+        title: str | None = None,
+        file_path: str | None = None,
+        doc_type: str = "text",
+        metadata: dict[str, Any] | None = None,
+        user_id: str | None = None,
+    ) -> str:
         """
         Add a document to the store
 
@@ -115,7 +123,9 @@ class DocumentStore:
             title = content[:50] + ("..." if len(content) > 50 else "")
 
         # Create unique document ID
-        doc_hash = hashlib.md5(f"{content[:1000]}{timestamp}".encode()).hexdigest()
+        doc_hash = hashlib.md5(
+            f"{content[:1000]}{timestamp}".encode(), usedforsecurity=False
+        ).hexdigest()  # nosec B324
         doc_id = f"doc_{doc_hash}"
 
         metadata_json = json.dumps(metadata or {})
@@ -125,12 +135,12 @@ class DocumentStore:
 
         try:
             cursor.execute(
-                '''
+                """
                 INSERT INTO documents
                 (id, title, content, metadata, file_path, timestamp, type, user_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
-                (doc_id, title, content, metadata_json, file_path, timestamp, doc_type, user_id)
+                """,
+                (doc_id, title, content, metadata_json, file_path, timestamp, doc_type, user_id),
             )
             conn.commit()
 
@@ -146,8 +156,14 @@ class DocumentStore:
         finally:
             conn.close()
 
-    def _process_chunks(self, doc_id: str, content: str, metadata: dict[str, Any],
-                      chunk_size: int = 1000, overlap: int = 200) -> None:
+    def _process_chunks(
+        self,
+        doc_id: str,
+        content: str,
+        metadata: dict[str, Any],
+        chunk_size: int = 1000,
+        overlap: int = 200,
+    ) -> None:
         """
         Process document into overlapping chunks for better retrieval
 
@@ -167,7 +183,7 @@ class DocumentStore:
         # Split into overlapping chunks
         chunks = []
         for i in range(0, len(content), chunk_size - overlap):
-            chunk_content = content[i:i + chunk_size]
+            chunk_content = content[i : i + chunk_size]
             if chunk_content:
                 chunk_index = len(chunks)
                 chunk_id = f"{doc_id}_chunk_{chunk_index}"
@@ -187,8 +203,9 @@ class DocumentStore:
         finally:
             conn.close()
 
-    def _add_chunk(self, chunk_id: str, doc_id: str, content: str,
-                 chunk_index: int, metadata: dict[str, Any]) -> None:
+    def _add_chunk(
+        self, chunk_id: str, doc_id: str, content: str, chunk_index: int, metadata: dict[str, Any]
+    ) -> None:
         """Add a document chunk to the database"""
         metadata_json = json.dumps(metadata)
 
@@ -197,12 +214,12 @@ class DocumentStore:
 
         try:
             cursor.execute(
-                '''
+                """
                 INSERT INTO chunks
                 (id, document_id, content, chunk_index, metadata)
                 VALUES (?, ?, ?, ?, ?)
-                ''',
-                (chunk_id, doc_id, content, chunk_index, metadata_json)
+                """,
+                (chunk_id, doc_id, content, chunk_index, metadata_json),
             )
             conn.commit()
         except sqlite3.Error as e:
@@ -226,7 +243,7 @@ class DocumentStore:
         cursor = conn.cursor()
 
         try:
-            cursor.execute('SELECT * FROM documents WHERE id = ?', (doc_id,))
+            cursor.execute("SELECT * FROM documents WHERE id = ?", (doc_id,))
             row = cursor.fetchone()
 
             if not row:
@@ -236,10 +253,10 @@ class DocumentStore:
             doc = dict(row)
 
             # Parse metadata JSON
-            if doc.get('metadata'):
-                doc['metadata'] = json.loads(doc['metadata'])
+            if doc.get("metadata"):
+                doc["metadata"] = json.loads(doc["metadata"])
             else:
-                doc['metadata'] = {}
+                doc["metadata"] = {}
 
             return doc
 
@@ -249,9 +266,9 @@ class DocumentStore:
         finally:
             conn.close()
 
-    def search_documents(self, query: str,
-                       doc_type: str | None = None,
-                       limit: int = 10) -> list[dict[str, Any]]:
+    def search_documents(
+        self, query: str, doc_type: str | None = None, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """
         Search documents by simple keyword matching
 
@@ -272,23 +289,23 @@ class DocumentStore:
 
             if doc_type:
                 cursor.execute(
-                    '''
+                    """
                     SELECT * FROM documents
                     WHERE (title LIKE ? OR content LIKE ?) AND type = ?
                     ORDER BY timestamp DESC
                     LIMIT ?
-                    ''',
-                    (search_term, search_term, doc_type, limit)
+                    """,
+                    (search_term, search_term, doc_type, limit),
                 )
             else:
                 cursor.execute(
-                    '''
+                    """
                     SELECT * FROM documents
                     WHERE title LIKE ? OR content LIKE ?
                     ORDER BY timestamp DESC
                     LIMIT ?
-                    ''',
-                    (search_term, search_term, limit)
+                    """,
+                    (search_term, search_term, limit),
                 )
 
             results = []
@@ -296,10 +313,10 @@ class DocumentStore:
                 doc = dict(row)
 
                 # Parse metadata JSON
-                if doc.get('metadata'):
-                    doc['metadata'] = json.loads(doc['metadata'])
+                if doc.get("metadata"):
+                    doc["metadata"] = json.loads(doc["metadata"])
                 else:
-                    doc['metadata'] = {}
+                    doc["metadata"] = {}
 
                 results.append(doc)
 
@@ -326,13 +343,13 @@ class DocumentStore:
 
         try:
             # First delete associated chunks
-            cursor.execute('DELETE FROM chunks WHERE document_id = ?', (doc_id,))
+            cursor.execute("DELETE FROM chunks WHERE document_id = ?", (doc_id,))
 
             # Then delete embeddings if any
-            cursor.execute('DELETE FROM embeddings WHERE document_id = ?', (doc_id,))
+            cursor.execute("DELETE FROM embeddings WHERE document_id = ?", (doc_id,))
 
             # Finally delete the document itself
-            cursor.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
+            cursor.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
 
             conn.commit()
             return cursor.rowcount > 0
@@ -344,8 +361,9 @@ class DocumentStore:
         finally:
             conn.close()
 
-    def get_recent_documents(self, limit: int = 10,
-                          doc_type: str | None = None) -> list[dict[str, Any]]:
+    def get_recent_documents(
+        self, limit: int = 10, doc_type: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get most recent documents
 
@@ -362,22 +380,22 @@ class DocumentStore:
         try:
             if doc_type:
                 cursor.execute(
-                    '''
+                    """
                     SELECT * FROM documents
                     WHERE type = ?
                     ORDER BY timestamp DESC
                     LIMIT ?
-                    ''',
-                    (doc_type, limit)
+                    """,
+                    (doc_type, limit),
                 )
             else:
                 cursor.execute(
-                    '''
+                    """
                     SELECT * FROM documents
                     ORDER BY timestamp DESC
                     LIMIT ?
-                    ''',
-                    (limit,)
+                    """,
+                    (limit,),
                 )
 
             results = []
@@ -385,10 +403,10 @@ class DocumentStore:
                 doc = dict(row)
 
                 # Parse metadata JSON
-                if doc.get('metadata'):
-                    doc['metadata'] = json.loads(doc['metadata'])
+                if doc.get("metadata"):
+                    doc["metadata"] = json.loads(doc["metadata"])
                 else:
-                    doc['metadata'] = {}
+                    doc["metadata"] = {}
 
                 results.append(doc)
 
@@ -408,30 +426,32 @@ class DocumentStore:
 
             if limit:
                 cursor.execute(
-                    'SELECT * FROM documents ORDER BY timestamp DESC LIMIT ? OFFSET ?',
-                    (limit, offset)
+                    "SELECT * FROM documents ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                    (limit, offset),
                 )
             else:
-                cursor.execute('SELECT * FROM documents ORDER BY timestamp DESC')
+                cursor.execute("SELECT * FROM documents ORDER BY timestamp DESC")
 
             results = []
             for row in cursor.fetchall():
                 doc = dict(row)
 
                 # Parse metadata JSON
-                if doc.get('metadata'):
-                    doc['metadata'] = json.loads(doc['metadata'])
+                if doc.get("metadata"):
+                    doc["metadata"] = json.loads(doc["metadata"])
                 else:
-                    doc['metadata'] = {}
+                    doc["metadata"] = {}
 
                 # Add formatted timestamp
-                doc['formatted_timestamp'] = datetime.fromtimestamp(doc['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+                doc["formatted_timestamp"] = datetime.fromtimestamp(doc["timestamp"]).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
 
                 # Add file size from metadata if available
-                if 'file_size' in doc['metadata']:
-                    doc['file_size'] = doc['metadata']['file_size']
+                if "file_size" in doc["metadata"]:
+                    doc["file_size"] = doc["metadata"]["file_size"]
                 else:
-                    doc['file_size'] = len(doc['content']) if doc['content'] else 0
+                    doc["file_size"] = len(doc["content"]) if doc["content"] else 0
 
                 results.append(doc)
 
@@ -450,42 +470,45 @@ class DocumentStore:
             cursor = conn.cursor()
 
             # Count total documents
-            cursor.execute('SELECT COUNT(*) as total_documents FROM documents')
-            total_documents = cursor.fetchone()['total_documents']
+            cursor.execute("SELECT COUNT(*) as total_documents FROM documents")
+            total_documents = cursor.fetchone()["total_documents"]
 
             # Calculate total file size (from metadata or content length fallback)
-            cursor.execute('SELECT metadata, content FROM documents')
+            cursor.execute("SELECT metadata, content FROM documents")
             total_size = 0
             for row in cursor.fetchall():
-                metadata = json.loads(row['metadata']) if row['metadata'] else {}
-                if 'file_size' in metadata:
-                    total_size += metadata['file_size']
+                metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+                if "file_size" in metadata:
+                    total_size += metadata["file_size"]
                 else:
-                    total_size += len(row['content']) if row['content'] else 0
+                    total_size += len(row["content"]) if row["content"] else 0
 
             # Get document types
-            cursor.execute('SELECT type, COUNT(*) as count FROM documents GROUP BY type')
-            types = {row['type']: row['count'] for row in cursor.fetchall()}
+            cursor.execute("SELECT type, COUNT(*) as count FROM documents GROUP BY type")
+            types = {row["type"]: row["count"] for row in cursor.fetchall()}
 
             # Get recent activity (last 24 hours)
             recent_threshold = int(time.time()) - (24 * 60 * 60)
-            cursor.execute('SELECT COUNT(*) as recent_count FROM documents WHERE timestamp > ?', (recent_threshold,))
-            recent_documents = cursor.fetchone()['recent_count']
+            cursor.execute(
+                "SELECT COUNT(*) as recent_count FROM documents WHERE timestamp > ?",
+                (recent_threshold,),
+            )
+            recent_documents = cursor.fetchone()["recent_count"]
 
             return {
-                'total_documents': total_documents,
-                'total_size': total_size,
-                'document_types': types,
-                'recent_documents': recent_documents
+                "total_documents": total_documents,
+                "total_size": total_size,
+                "document_types": types,
+                "recent_documents": recent_documents,
             }
 
         except sqlite3.Error as e:
             current_app.logger.error(f"Database error getting statistics: {str(e)}")
             return {
-                'total_documents': 0,
-                'total_size': 0,
-                'document_types': {},
-                'recent_documents': 0
+                "total_documents": 0,
+                "total_size": 0,
+                "document_types": {},
+                "recent_documents": 0,
             }
         finally:
             conn.close()

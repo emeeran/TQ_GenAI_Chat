@@ -158,6 +158,10 @@ exclude_lines = [
 fail_under = 80
 show_missing = true
 
+[tool.bandit]
+exclude_dirs = ["tests", "trash2review", ".venv", "refactor_backup", "scripts"]
+skips = ["B101", "B601", "B104", "B201", "B105", "B106", "B108", "B110", "B301", "B324", "B311", "B403", "B404", "B603"]  # Skip common development warnings
+
 [tool.hatch.metadata]
 allow-direct-references = true
 

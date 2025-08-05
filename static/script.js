@@ -400,7 +400,7 @@ function editMessage(messageIndex) {
                         <textarea class="form-control" id="edit-message-text" rows="4" placeholder="Enter your message...">${messageToEdit.content}</textarea>
                     </div>
                     <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> 
+                        <i class="fas fa-info-circle"></i>
                         Editing this message will remove all subsequent messages and regenerate the conversation from this point.
                     </div>
                 </div>

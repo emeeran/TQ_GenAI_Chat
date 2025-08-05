@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 @dataclass
 class DatabaseConfig:
     """Database configuration."""
+
     url: str = "sqlite:///documents.db"
     pool_size: int = 10
     max_overflow: int = 20
@@ -21,6 +22,7 @@ class DatabaseConfig:
 @dataclass
 class CacheConfig:
     """Cache configuration."""
+
     type: str = "memory"  # memory, redis, file
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 3600
@@ -30,6 +32,7 @@ class CacheConfig:
 @dataclass
 class SecurityConfig:
     """Security configuration."""
+
     secret_key: str = os.getenv("SECRET_KEY", "dev-key-change-in-production")
     jwt_expiry: int = 86400  # 24 hours
     rate_limit_per_minute: int = 60
@@ -44,6 +47,7 @@ class SecurityConfig:
 @dataclass
 class AIProviderConfig:
     """AI Provider configuration."""
+
     name: str
     api_key: str
     endpoint: str
@@ -62,6 +66,7 @@ class AIProviderConfig:
 @dataclass
 class AppConfig:
     """Main application configuration."""
+
     debug: bool = False
     testing: bool = False
     host: str = "0.0.0.0"
@@ -104,68 +109,68 @@ class ConfigManager:
             "openai": {
                 "endpoint": "https://api.openai.com/v1/chat/completions",
                 "default_model": "gpt-4o-mini",
-                "fallback_model": "gpt-3.5-turbo"
+                "fallback_model": "gpt-3.5-turbo",
             },
             "groq": {
                 "endpoint": "https://api.groq.com/openai/v1/chat/completions",
                 "default_model": "mixtral-8x7b-32768",
-                "fallback_model": "llama3-8b-8192"
+                "fallback_model": "llama3-8b-8192",
             },
             "anthropic": {
                 "endpoint": "https://api.anthropic.com/v1/messages",
                 "default_model": "claude-3-haiku-20240307",
-                "fallback_model": "claude-3-haiku-20240307"
+                "fallback_model": "claude-3-haiku-20240307",
             },
             "mistral": {
                 "endpoint": "https://api.mistral.ai/v1/chat/completions",
                 "default_model": "mistral-small-latest",
-                "fallback_model": "mistral-tiny"
+                "fallback_model": "mistral-tiny",
             },
             "xai": {
                 "endpoint": "https://api.x.ai/v1/chat/completions",
                 "default_model": "grok-beta",
-                "fallback_model": "grok-beta"
+                "fallback_model": "grok-beta",
             },
             "deepseek": {
                 "endpoint": "https://api.deepseek.com/v1/chat/completions",
                 "default_model": "deepseek-coder",
-                "fallback_model": "deepseek-chat"
+                "fallback_model": "deepseek-chat",
             },
             "gemini": {
                 "endpoint": "https://generativelanguage.googleapis.com/v1/models/",
                 "default_model": "gemini-2.5-flash-lite-preview",
-                "fallback_model": "gemini-pro"
+                "fallback_model": "gemini-pro",
             },
             "cohere": {
                 "endpoint": "https://api.cohere.ai/v1/generate",
                 "default_model": "command",
-                "fallback_model": "command-light"
+                "fallback_model": "command-light",
             },
             "alibaba": {
                 "endpoint": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
                 "default_model": "qwen3-235b-a22b-instruct",
-                "fallback_model": "qwen-turbo"
+                "fallback_model": "qwen-turbo",
             },
             "openrouter": {
                 "endpoint": "https://openrouter.ai/api/v1/chat/completions",
                 "default_model": "anthropic/claude-3.5-sonnet",
-                "fallback_model": "meta-llama/llama-3-8b-instruct"
+                "fallback_model": "meta-llama/llama-3-8b-instruct",
             },
             "huggingface": {
                 "endpoint": "https://api-inference.huggingface.co/models/",
                 "default_model": "moonshotai/Kimi-K2-Instruct",
-                "fallback_model": "microsoft/DialoGPT-medium"
+                "fallback_model": "microsoft/DialoGPT-medium",
             },
             "moonshot": {
                 "endpoint": "https://api.moonshot.ai/v1/chat/completions",
                 "default_model": "moonshot-v1-128k",
-                "fallback_model": "moonshot-v1-32k"
+                "fallback_model": "moonshot-v1-32k",
             },
             "perplexity": {
                 "endpoint": "https://api.perplexity.ai/chat/completions",
                 "default_model": "llama-3.1-sonar-small-128k-online",
-                "fallback_model": "llama-3.1-sonar-small-128k-chat"
-            }
+                "fallback_model": "llama-3.1-sonar-small-128k-chat",
+            },
         }
 
         for name, config in providers.items():
@@ -176,7 +181,7 @@ class ConfigManager:
                 api_key=api_key,
                 endpoint=config["endpoint"],
                 default_model=config["default_model"],
-                fallback_model=config["fallback_model"]
+                fallback_model=config["fallback_model"],
             )
 
     @property
@@ -187,7 +192,7 @@ class ConfigManager:
             testing=self.env == "testing",
             host=os.getenv("HOST", "0.0.0.0"),
             port=int(os.getenv("PORT", "5000")),
-            workers=int(os.getenv("WORKERS", "4"))
+            workers=int(os.getenv("WORKERS", "4")),
         )
 
     @property
@@ -197,7 +202,7 @@ class ConfigManager:
             url=os.getenv("DATABASE_URL", "sqlite:///documents.db"),
             pool_size=int(os.getenv("DB_POOL_SIZE", "10")),
             max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
-            pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "30"))
+            pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "30")),
         )
 
     @property
@@ -207,7 +212,7 @@ class ConfigManager:
             type=os.getenv("CACHE_TYPE", "memory"),
             redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
             ttl=int(os.getenv("CACHE_TTL", "3600")),
-            max_size=int(os.getenv("CACHE_MAX_SIZE", "1000"))
+            max_size=int(os.getenv("CACHE_MAX_SIZE", "1000")),
         )
 
     @property
@@ -219,7 +224,7 @@ class ConfigManager:
             jwt_expiry=int(os.getenv("JWT_EXPIRY", "86400")),
             rate_limit_per_minute=int(os.getenv("RATE_LIMIT", "60")),
             max_file_size=int(os.getenv("MAX_FILE_SIZE", "67108864")),  # 64MB
-            allowed_origins=origins if origins != ["*"] else ["*"]
+            allowed_origins=origins if origins != ["*"] else ["*"],
         )
 
     def get_provider(self, name: str) -> AIProviderConfig | None:
@@ -228,10 +233,7 @@ class ConfigManager:
 
     def get_available_providers(self) -> dict[str, AIProviderConfig]:
         """Get all available (configured) providers."""
-        return {
-            name: config for name, config in self._providers.items()
-            if config.is_available
-        }
+        return {name: config for name, config in self._providers.items() if config.is_available}
 
     def validate_configuration(self) -> list[str]:
         """Validate configuration and return any errors."""
@@ -308,8 +310,8 @@ class TestingConfig(BaseConfig):
 
 
 config = {
-    'development': DevelopmentConfig(),
-    'production': ProductionConfig(),
-    'testing': TestingConfig(),
-    'default': DevelopmentConfig()
+    "development": DevelopmentConfig(),
+    "production": ProductionConfig(),
+    "testing": TestingConfig(),
+    "default": DevelopmentConfig(),
 }

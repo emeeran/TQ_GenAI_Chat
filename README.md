@@ -9,18 +9,21 @@ A **high-performance, modular multi-provider GenAI chat application** with advan
 ## 🚀 Key Improvements (2025 Refactor)
 
 ### Architecture Transformation
+
 - **82% code reduction**: Main app.py reduced from 2,127 to 381 lines
 - **Modular design**: Business logic separated into focused modules
 - **Provider abstraction**: Unified interface for all AI providers
 - **Modern Python**: Python 3.11+ with updated type annotations
 
 ### Performance Optimizations
+
 - **Eliminated code duplication**: Single provider interface handles all APIs
 - **Async file processing**: Non-blocking file uploads and processing
 - **Intelligent caching**: Model and response caching with TTL
 - **Connection pooling**: Persistent HTTP sessions with retry strategies
 
 ### Code Quality
+
 - **Industry standards**: PEP 8 compliant, properly typed
 - **500-line file limit**: All modules under 500 lines for maintainability
 - **Comprehensive error handling**: Graceful degradation and informative errors
@@ -61,6 +64,7 @@ TQ_GenAI_Chat/
 ## ⚡ Quick Start
 
 ### Prerequisites
+
 - Python 3.11 or higher
 - Git
 
@@ -116,22 +120,26 @@ Visit `http://localhost:5000` to access the chat interface.
 ## 🔧 Advanced Features
 
 ### File Processing
+
 - **Document types**: PDF, DOCX, CSV, XLSX, Markdown, TXT
 - **Image metadata**: PNG, JPG, JPEG
 - **Size limits**: 16MB per file, 10 files per upload
 - **Vector search**: TF-IDF similarity search across documents
 
 ### Context-Aware Responses
+
 - **Automatic context injection**: Relevant documents auto-added to prompts
 - **Smart excerpting**: Optimal content chunks for context
 - **Source citation**: Responses reference source documents
 
 ### Response Verification
+
 - **Dual-model validation**: Responses verified by different models
 - **Accuracy checking**: Fact-checking and error correction
 - **Free model prioritization**: Uses cost-effective models for verification
 
 ### Audio Processing
+
 - **Speech-to-text**: Google Speech Recognition
 - **Text-to-speech**: Multiple engine support (pyttsx3, gTTS)
 - **Voice selection**: Multiple voice options available
@@ -139,6 +147,7 @@ Visit `http://localhost:5000` to access the chat interface.
 ## 🎯 API Endpoints
 
 ### Core Chat API
+
 ```http
 POST /chat
 Content-Type: application/json
@@ -154,6 +163,7 @@ Content-Type: application/json
 ```
 
 ### File Upload
+
 ```http
 POST /upload
 Content-Type: multipart/form-data
@@ -162,6 +172,7 @@ files: [file1.pdf, file2.docx]
 ```
 
 ### Model Management
+
 ```http
 GET /get_models/{provider}
 POST /update_models/{provider}
@@ -170,12 +181,14 @@ POST /update_models/{provider}
 ## 🛠️ Development
 
 ### Code Quality Standards
+
 - **Line limit**: Maximum 500 lines per file
 - **Type hints**: Full type annotation coverage
 - **Error handling**: Comprehensive exception management
 - **Documentation**: Docstrings for all public methods
 
 ### Testing
+
 ```bash
 # Run tests
 python -m pytest tests/
@@ -185,6 +198,7 @@ python -m pytest --cov=core tests/
 ```
 
 ### Performance Monitoring
+
 - **Health check**: `/health` endpoint
 - **Metrics**: Response times, error rates
 - **Caching**: Model responses and file processing
@@ -209,18 +223,21 @@ python -m pytest --cov=core tests/
 ## 📦 Dependencies
 
 ### Core Dependencies
+
 - **Flask 3.0+**: Web framework
 - **Requests**: HTTP client with connection pooling
 - **Python-dotenv**: Environment variable management
 - **Werkzeug**: File upload handling
 
 ### AI/ML Dependencies
+
 - **OpenAI**: Official OpenAI client
 - **Anthropic**: Claude API client
 - **Google-generativeai**: Gemini integration
 - **Speech Recognition**: Audio transcription
 
 ### Optional Dependencies
+
 - **pyttsx3**: Text-to-speech (offline)
 - **gTTS**: Google Text-to-Speech
 - **PyPDF2**: PDF processing
@@ -229,6 +246,7 @@ python -m pytest --cov=core tests/
 ## 🚀 Deployment Options
 
 ### Docker
+
 ```bash
 # Build and run
 docker build -t tq-genai-chat .
@@ -236,6 +254,7 @@ docker run -p 5000:5000 --env-file .env tq-genai-chat
 ```
 
 ### Cloud Platforms
+
 - **Heroku**: Ready for deployment
 - **Railway**: One-click deploy
 - **AWS/GCP**: Container deployment
@@ -250,6 +269,7 @@ docker run -p 5000:5000 --env-file .env tq-genai-chat
 5. Open a Pull Request
 
 ### Development Guidelines
+
 - Follow PEP 8 style guide
 - Add type hints to all functions
 - Write tests for new features
@@ -285,6 +305,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ├── templates/                   # Jinja2 templates
 ├── static/                      # Static assets
 └── main.py                     # Application entry point
+
 ```
 
 ## 🚀 Quick Start
@@ -303,6 +324,7 @@ cd TQ_GenAI_Chat
 ```
 
 2. **Create and activate virtual environment**
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
@@ -311,6 +333,7 @@ source .venv/bin/activate  # Linux/Mac
 ```
 
 3. **Install dependencies**
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -341,11 +364,13 @@ CACHE_TTL=3600
 ```
 
 5. **Initialize the application**
+
 ```bash
 python -c "from app import create_app; app = create_app(); app.app_context().push()"
 ```
 
 6. **Run the application**
+
 ```bash
 # Development mode
 python main.py
@@ -354,7 +379,7 @@ python main.py
 gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
 ```
 
-The application will be available at http://localhost:5000
+The application will be available at <http://localhost:5000>
 
 ### Docker Setup (Alternative)
 
@@ -371,7 +396,7 @@ docker run -p 5000:5000 --env-file .env tq-genai-chat
 
 ### Web Interface
 
-1. **Access the application** at http://localhost:5000
+1. **Access the application** at <http://localhost:5000>
 2. **Select AI provider and model** from the dropdown menus
 3. **Choose a persona** to customize the assistant's behavior
 4. **Start chatting** by typing messages or uploading files
@@ -391,6 +416,7 @@ The application supports intelligent processing of multiple file types:
 | **Images** | `.jpg`, `.png`, `.gif` | OCR text extraction, metadata analysis |
 
 #### File Upload Process
+
 1. **Drag and drop** files or click to browse
 2. **Monitor progress** with real-time processing status
 3. **Search content** using the intelligent search engine
@@ -444,7 +470,7 @@ base_url = "http://localhost:5000"
 headers = {"Content-Type": "application/json"}
 
 # Send chat message
-response = requests.post(f"{base_url}/api/chat", 
+response = requests.post(f"{base_url}/api/chat",
     json={
         "message": "Explain quantum computing",
         "provider": "openai",
@@ -460,22 +486,25 @@ print(result["response"])
 ### Advanced Features
 
 #### Custom Personas
+
 Create custom assistant personalities by modifying `persona.py`:
 
 ```python
 PERSONAS = {
-    "technical_expert": """You are a technical expert with deep knowledge 
-    in software engineering, AI, and system architecture. Provide detailed, 
+    "technical_expert": """You are a technical expert with deep knowledge
+    in software engineering, AI, and system architecture. Provide detailed,
     accurate technical explanations with code examples when appropriate.""",
-    
-    "creative_writer": """You are a creative writing assistant. Help users 
-    craft compelling stories, improve their writing style, and provide 
+
+    "creative_writer": """You are a creative writing assistant. Help users
+    craft compelling stories, improve their writing style, and provide
     creative inspiration."""
 }
 ```
 
 #### Performance Monitoring
+
 Access real-time performance metrics:
+
 - **Response times** for all endpoints
 - **Memory and CPU usage** tracking
 - **Cache hit rates** and efficiency metrics
@@ -484,6 +513,7 @@ Access real-time performance metrics:
 Visit `/api/performance/dashboard` for the web interface.
 
 #### Caching Strategies
+
 The application uses intelligent multi-level caching:
 
 ```python
@@ -505,16 +535,19 @@ POST /api/cache/invalidate
 ### Development Setup
 
 1. **Install development dependencies**
+
 ```bash
 pip install -r requirements-dev.txt
 ```
 
 2. **Set up pre-commit hooks**
+
 ```bash
 pre-commit install
 ```
 
 3. **Run in development mode**
+
 ```bash
 export FLASK_ENV=development
 export LOG_LEVEL=DEBUG
@@ -526,6 +559,7 @@ python main.py
 The project includes comprehensive testing at multiple levels:
 
 #### Unit Tests
+
 ```bash
 # Run all unit tests
 pytest tests/unit/ -v
@@ -538,6 +572,7 @@ pytest tests/unit/test_providers.py -v
 ```
 
 #### Integration Tests
+
 ```bash
 # Run integration tests
 pytest tests/integration/ -v
@@ -547,6 +582,7 @@ pytest tests/integration/test_chat_workflow.py::TestChatWorkflow::test_complete_
 ```
 
 #### Performance Tests
+
 ```bash
 # Run performance benchmarks
 python tests/performance/run_benchmarks.py
@@ -561,6 +597,7 @@ python tests/performance/run_benchmarks.py --tests "tests/performance/test_load_
 ### Code Quality
 
 #### Linting and Formatting
+
 ```bash
 # Format code with black
 black .
@@ -579,6 +616,7 @@ bandit -r core/ app/
 ```
 
 #### Code Coverage
+
 ```bash
 # Generate coverage report
 pytest --cov=core --cov=app --cov-report=html --cov-report=term
@@ -590,6 +628,7 @@ open htmlcov/index.html
 ### Architecture Guidelines
 
 #### Adding New AI Providers
+
 1. **Create provider class** extending `BaseProvider`
 2. **Implement required methods**: `generate_completion`, `get_available_models`
 3. **Add configuration** to `config/settings.py`
@@ -597,6 +636,7 @@ open htmlcov/index.html
 5. **Add comprehensive tests**
 
 Example:
+
 ```python
 # core/providers/new_provider.py
 from .base import BaseProvider
@@ -605,13 +645,14 @@ class NewProvider(BaseProvider):
     @property
     def provider_name(self) -> str:
         return "new_provider"
-    
+
     async def generate_completion(self, messages, model, **kwargs):
         # Implementation here
         pass
 ```
 
 #### Adding File Processors
+
 1. **Create processor class** extending `BaseFileProcessor`
 2. **Define capabilities** and supported extensions
 3. **Implement processing logic** with error handling
@@ -619,6 +660,7 @@ class NewProvider(BaseProvider):
 5. **Add unit and integration tests**
 
 #### Performance Considerations
+
 - **Use async/await** for I/O operations
 - **Implement caching** for expensive operations
 - **Add progress tracking** for long-running tasks
@@ -628,6 +670,7 @@ class NewProvider(BaseProvider):
 ### Debugging
 
 #### Logging Configuration
+
 ```python
 # Enable debug logging
 import logging
@@ -636,6 +679,7 @@ logging.getLogger('app').setLevel(logging.DEBUG)
 ```
 
 #### Performance Profiling
+
 ```bash
 # Profile application startup
 python -m cProfile -o profile.stats main.py
@@ -648,6 +692,7 @@ python -m memory_profiler main.py
 ```
 
 #### Database Debugging
+
 ```bash
 # View SQLite database
 sqlite3 documents.db ".tables"
@@ -660,6 +705,7 @@ export LOG_LEVEL=DEBUG
 ### Deployment
 
 #### Production Configuration
+
 ```bash
 # Set production environment
 export FLASK_ENV=production
@@ -672,6 +718,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 --timeout 120 "app:create_app()"
 ```
 
 #### Docker Deployment
+
 ```dockerfile
 # Dockerfile
 FROM python:3.10-slim
@@ -687,6 +734,7 @@ CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:create_app()"]
 ```
 
 #### Health Checks
+
 ```bash
 # Application health
 curl http://localhost:5000/api/health
@@ -710,6 +758,7 @@ curl http://localhost:5000/api/cache/metrics
 8. **Open a Pull Request**
 
 #### Pull Request Guidelines
+
 - Include a clear description of changes
 - Add tests for new features
 - Update documentation as needed
@@ -720,6 +769,7 @@ curl http://localhost:5000/api/cache/metrics
 ## 📊 Performance Benchmarks
 
 ### Typical Performance Metrics
+
 - **Chat Response Time**: < 2s average, < 5s 95th percentile
 - **File Processing**: 1MB/s for text files, 500KB/s for PDFs
 - **Search Queries**: < 100ms average, > 50 QPS
@@ -727,6 +777,7 @@ curl http://localhost:5000/api/cache/metrics
 - **Memory Usage**: < 500MB baseline, < 2GB under load
 
 ### Optimization Tips
+
 - **Enable Redis caching** for production deployments
 - **Use SSD storage** for better file I/O performance
 - **Configure connection pooling** for high-concurrency scenarios
@@ -749,6 +800,7 @@ curl http://localhost:5000/api/cache/metrics
 | `CACHE_TTL` | `3600` | Default cache TTL in seconds |
 
 ### Provider Configuration
+
 Each AI provider can be configured in `config/settings.py`:
 
 ```python
@@ -768,29 +820,34 @@ API_CONFIGS = {
 ### Common Issues
 
 #### "Provider not configured" Error
+
 - Ensure API keys are set in `.env` file
 - Check that the provider is enabled in configuration
 - Verify API key format and permissions
 
 #### File Processing Failures
+
 - Check file size limits (`MAX_FILE_SIZE`)
 - Verify file format is supported
 - Review processing logs for specific errors
 - Ensure sufficient disk space for temporary files
 
 #### Performance Issues
+
 - Monitor memory usage with `/api/performance/summary`
 - Check cache hit rates with `/api/cache/metrics`
 - Review slow query logs in debug mode
 - Consider enabling Redis for better caching
 
 #### Database Errors
+
 - Check SQLite file permissions
 - Verify database schema with migrations
 - Monitor disk space for database growth
 - Consider database cleanup for old records
 
 ### Getting Help
+
 - Check the [Issues](https://github.com/username/TQ_GenAI_Chat/issues) page
 - Review the [Wiki](https://github.com/username/TQ_GenAI_Chat/wiki) for detailed guides
 - Join our [Discord](https://discord.gg/example) for community support
@@ -802,12 +859,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgements
 
 ### Core Technologies
+
 - **[Flask](https://flask.palletsprojects.com/)** - Web framework
 - **[aiohttp](https://docs.aiohttp.org/)** - Async HTTP client
 - **[SQLite](https://www.sqlite.org/)** - Database engine
 - **[Redis](https://redis.io/)** - Caching and session storage
 
 ### AI Providers
+
 - **[OpenAI](https://openai.com/)** - GPT models and API
 - **[Anthropic](https://www.anthropic.com/)** - Claude models
 - **[Groq](https://groq.com/)** - High-performance inference
@@ -815,12 +874,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **[xAI](https://x.ai/)** - Grok models
 
 ### Development Tools
+
 - **[pytest](https://pytest.org/)** - Testing framework
 - **[black](https://black.readthedocs.io/)** - Code formatting
 - **[mypy](https://mypy.readthedocs.io/)** - Type checking
 - **[pre-commit](https://pre-commit.com/)** - Git hooks
 
 ### Special Thanks
+
 - Contributors and community members
 - Open-source projects that made this possible
 - Beta testers and early adopters

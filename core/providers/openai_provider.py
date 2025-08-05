@@ -16,12 +16,7 @@ class OpenAIProvider(AIProviderInterface):
             self.client = None
         else:
             self.client = openai.OpenAI(api_key=api_key)
-        self._models = [
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4-turbo",
-            "gpt-3.5-turbo"
-        ]
+        self._models = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
 
     @property
     def name(self) -> str:
@@ -39,16 +34,13 @@ class OpenAIProvider(AIProviderInterface):
             raise Exception("OpenAI client not initialized - API key missing")
 
         try:
-            messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in request.messages
-            ]
+            messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
 
             response = self.client.chat.completions.create(
                 model=request.model,
                 messages=messages,
                 temperature=request.temperature,
-                max_tokens=request.max_tokens
+                max_tokens=request.max_tokens,
             )
 
             return ChatResponse(
@@ -57,9 +49,9 @@ class OpenAIProvider(AIProviderInterface):
                 usage={
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
+                    "total_tokens": response.usage.total_tokens,
                 },
-                provider=self.name
+                provider=self.name,
             )
 
         except Exception as e:

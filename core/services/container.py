@@ -6,7 +6,7 @@ from core.providers import ProviderFactory
 
 from .chat_service import ChatService
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ServiceContainer:
@@ -23,14 +23,15 @@ class ServiceContainer:
         self.register("provider_factory", lambda: ProviderFactory())
         self.register("context_manager", lambda: ContextManager())
         self.register("cache_manager", lambda: self._create_cache_manager())
-        self.register("chat_service", lambda: ChatService(
-            self.get("provider_factory"),
-            self.get("context_manager")
-        ))
+        self.register(
+            "chat_service",
+            lambda: ChatService(self.get("provider_factory"), self.get("context_manager")),
+        )
 
     def _create_cache_manager(self):
         """Create cache manager instance"""
         from core.cache import CacheManager
+
         return CacheManager()
 
     def register(self, name: str, factory_func):

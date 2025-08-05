@@ -35,7 +35,7 @@ DEPRECATED_PATTERNS = [
     "backup_*",
     "old_*",
     "deprecated_*",
-    "unused_*"
+    "unused_*",
 ]
 
 # Cache directories and files to purge
@@ -49,30 +49,27 @@ CACHE_PATTERNS = [
     ".DS_Store",
     "Thumbs.db",
     "*.sqlite-journal",
-    "*.db-journal"
+    "*.db-journal",
 ]
 
 # Test scripts to move to scripts directory
-TEST_SCRIPT_PATTERNS = [
-    "test_*.py",
-    "*_test.py",
-    "*_tests.py",
-    "tests.py"
-]
+TEST_SCRIPT_PATTERNS = ["test_*.py", "*_test.py", "*_tests.py", "tests.py"]
 
 # Directories to organize
 ORGANIZE_DIRS = {
-    'logs': ['*.log', '*.out'],
-    'docs': ['*.md', '*.txt', '*.rst'],
-    'config': ['*.ini', '*.cfg', '*.conf', '*.yaml', '*.yml', '*.json'],
-    'scripts': ['*.sh', '*.bat', '*.ps1']
+    "logs": ["*.log", "*.out"],
+    "docs": ["*.md", "*.txt", "*.rst"],
+    "config": ["*.ini", "*.cfg", "*.conf", "*.yaml", "*.yml", "*.json"],
+    "scripts": ["*.sh", "*.bat", "*.ps1"],
 }
+
 
 def log_action(message, verbose=False):
     """Log action with timestamp"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if verbose:
         print(f"[{timestamp}] {message}")
+
 
 def find_files_by_patterns(directory, patterns):
     """Find files matching given patterns in directory"""
@@ -81,6 +78,7 @@ def find_files_by_patterns(directory, patterns):
         files.extend(glob.glob(os.path.join(directory, pattern), recursive=True))
         files.extend(glob.glob(os.path.join(directory, "**", pattern), recursive=True))
     return list(set(files))  # Remove duplicates
+
 
 def move_deprecated_files(dry_run=False, verbose=False):
     """Move deprecated and redundant files to trash2review"""
@@ -93,7 +91,7 @@ def move_deprecated_files(dry_run=False, verbose=False):
     exclude_files = [
         str(PROJECT_ROOT / "test_get_models.py"),
         str(PROJECT_ROOT / "test_update_models.py"),
-        str(PROJECT_ROOT / "test_edit_functionality.py")
+        str(PROJECT_ROOT / "test_edit_functionality.py"),
     ]
 
     deprecated_files = [f for f in deprecated_files if f not in exclude_files]
@@ -107,7 +105,10 @@ def move_deprecated_files(dry_run=False, verbose=False):
             if not dry_run:
                 shutil.move(file_path, dest_path)
 
-            log_action(f"{'[DRY RUN] ' if dry_run else ''}Moved {relative_path} to trash2review/", verbose)
+            log_action(
+                f"{'[DRY RUN] ' if dry_run else ''}Moved {relative_path} to trash2review/", verbose
+            )
+
 
 def move_test_scripts(dry_run=False, verbose=False):
     """Move test scripts to scripts directory"""
@@ -130,6 +131,7 @@ def move_test_scripts(dry_run=False, verbose=False):
 
             log_action(f"{'[DRY RUN] ' if dry_run else ''}Moved {filename} to scripts/", verbose)
 
+
 def purge_cache_files(dry_run=False, verbose=False):
     """Remove cache files and temporary data"""
     cache_files = find_files_by_patterns(PROJECT_ROOT, CACHE_PATTERNS)
@@ -146,10 +148,11 @@ def purge_cache_files(dry_run=False, verbose=False):
 
             log_action(f"{'[DRY RUN] ' if dry_run else ''}Removed cache: {relative_path}", verbose)
 
+
 def organize_project_structure(dry_run=False, verbose=False):
     """Organize files into appropriate directories"""
     for dir_name, patterns in ORGANIZE_DIRS.items():
-        if dir_name == 'scripts':  # Skip scripts as we handle them separately
+        if dir_name == "scripts":  # Skip scripts as we handle them separately
             continue
 
         target_dir = PROJECT_ROOT / dir_name
@@ -173,7 +176,10 @@ def organize_project_structure(dry_run=False, verbose=False):
             if not dry_run:
                 shutil.move(file_path, dest_path)
 
-            log_action(f"{'[DRY RUN] ' if dry_run else ''}Organized {filename} to {dir_name}/", verbose)
+            log_action(
+                f"{'[DRY RUN] ' if dry_run else ''}Organized {filename} to {dir_name}/", verbose
+            )
+
 
 def create_gitignore():
     """Create or update .gitignore file"""
@@ -252,24 +258,26 @@ documents.db
 
         # Add missing entries
         lines_to_add = []
-        for line in gitignore_content.split('\n'):
+        for line in gitignore_content.split("\n"):
             if line.strip() and line not in existing:
                 lines_to_add.append(line)
 
         if lines_to_add:
-            with open(gitignore_path, 'a') as f:
-                f.write('\n\n# Added by cleanup script\n')
-                f.write('\n'.join(lines_to_add))
+            with open(gitignore_path, "a") as f:
+                f.write("\n\n# Added by cleanup script\n")
+                f.write("\n".join(lines_to_add))
     else:
-        with open(gitignore_path, 'w') as f:
+        with open(gitignore_path, "w") as f:
             f.write(gitignore_content)
+
 
 def generate_cleanup_report():
     """Generate a cleanup report"""
     report_path = PROJECT_ROOT / "cleanup_report.md"
 
-    with open(report_path, 'w') as f:
-        f.write(f"""# Project Cleanup Report
+    with open(report_path, "w") as f:
+        f.write(
+            f"""# Project Cleanup Report
 Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 ## Project Structure
@@ -305,11 +313,15 @@ to the `trash2review/` directory for manual review before permanent deletion.
 2. Permanently delete confirmed unnecessary files
 3. Update documentation as needed
 4. Commit organized project structure
-""")
+"""
+        )
+
 
 def main():
     parser = argparse.ArgumentParser(description="Clean up and organize TQ GenAI Chat project")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be done without making changes")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done without making changes"
+    )
     parser.add_argument("--verbose", action="store_true", help="Show detailed output")
 
     args = parser.parse_args()
@@ -352,6 +364,7 @@ def main():
         print("💡 Run without --dry-run to actually perform the cleanup")
     else:
         print("📋 Check cleanup_report.md for details")
+
 
 if __name__ == "__main__":
     main()

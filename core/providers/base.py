@@ -7,6 +7,7 @@ from typing import Any
 @dataclass
 class ChatMessage:
     """Standardized chat message format"""
+
     role: str
     content: str
 
@@ -14,6 +15,7 @@ class ChatMessage:
 @dataclass
 class ChatRequest:
     """Standardized chat request format"""
+
     messages: list[ChatMessage]
     model: str
     temperature: float = 0.7
@@ -23,6 +25,7 @@ class ChatRequest:
 @dataclass
 class ChatResponse:
     """Standardized chat response format"""
+
     content: str
     model: str
     usage: dict[str, Any]

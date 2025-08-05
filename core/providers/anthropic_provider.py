@@ -20,7 +20,7 @@ class AnthropicProvider(AIProviderInterface):
             "claude-3-5-sonnet-20241022",
             "claude-3-5-haiku-20241022",
             "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229"
+            "claude-3-sonnet-20240229",
         ]
 
     @property
@@ -54,7 +54,7 @@ class AnthropicProvider(AIProviderInterface):
                 max_tokens=request.max_tokens or 4000,
                 temperature=request.temperature,
                 system=system_message,
-                messages=messages
+                messages=messages,
             )
 
             return ChatResponse(
@@ -63,9 +63,9 @@ class AnthropicProvider(AIProviderInterface):
                 usage={
                     "input_tokens": response.usage.input_tokens,
                     "output_tokens": response.usage.output_tokens,
-                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
                 },
-                provider=self.name
+                provider=self.name,
             )
 
         except Exception as e:

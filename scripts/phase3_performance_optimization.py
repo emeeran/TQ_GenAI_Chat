@@ -43,12 +43,7 @@ class RefactorPhase3:
         self.backup_dir.mkdir(parents=True, exist_ok=True)
 
         # Backup key files that will be modified
-        backup_items = [
-            "core/providers",
-            "core/services",
-            "static/script.js",
-            "app/__init__.py"
-        ]
+        backup_items = ["core/providers", "core/services", "static/script.js", "app/__init__.py"]
 
         for item in backup_items:
             src = self.root / item
@@ -863,7 +858,7 @@ def get_task_status(task_id: str) -> Optional[BackgroundTask]:
             return
 
         # Create optimized utilities
-        optimized_js = '''/**
+        optimized_js = """/**
  * High-Performance Frontend Utilities
  * Optimized for modern browsers with async/await and performance monitoring
  */
@@ -1090,7 +1085,7 @@ window.PerformanceMonitor = PerformanceMonitor;
 // Global instances
 window.apiService = new APIService();
 window.perfMonitor = new PerformanceMonitor();
-'''
+"""
 
         optimized_file = self.root / "static/optimizations.js"
         optimized_file.write_text(optimized_js)

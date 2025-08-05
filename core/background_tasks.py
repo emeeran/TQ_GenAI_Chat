@@ -50,8 +50,7 @@ class BackgroundTaskManager:
 
         self.running = True
         self.workers = [
-            asyncio.create_task(self._worker(f"worker-{i}"))
-            for i in range(self.max_workers)
+            asyncio.create_task(self._worker(f"worker-{i}")) for i in range(self.max_workers)
         ]
         self.logger.info(f"Started {self.max_workers} background workers")
 
@@ -73,18 +72,13 @@ class BackgroundTaskManager:
         return {
             "running": self.running,
             "workers": len(self.workers),
-            "queue_size": self.task_queue.qsize() if hasattr(self.task_queue, 'qsize') else 0,
-            "total_tasks": len(self.tasks)
+            "queue_size": self.task_queue.qsize() if hasattr(self.task_queue, "qsize") else 0,
+            "total_tasks": len(self.tasks),
         }
 
     async def submit_task(self, name: str, func: Callable, *args, **kwargs) -> str:
         """Submit a task for background processing"""
-        task = BackgroundTask(
-            name=name,
-            func=func,
-            args=args,
-            kwargs=kwargs
-        )
+        task = BackgroundTask(name=name, func=func, args=args, kwargs=kwargs)
 
         self.tasks[task.id] = task
         await self.task_queue.put(task)
@@ -111,10 +105,7 @@ class BackgroundTaskManager:
         while self.running:
             try:
                 # Get task from queue with timeout
-                task = await asyncio.wait_for(
-                    self.task_queue.get(),
-                    timeout=1.0
-                )
+                task = await asyncio.wait_for(self.task_queue.get(), timeout=1.0)
 
                 await self._execute_task(task, worker_name)
 

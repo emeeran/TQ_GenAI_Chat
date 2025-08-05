@@ -33,7 +33,7 @@ def test_endpoints():
         response = requests.post(
             f"{base_url}/tts",
             json={"text": "Hello, this is a test of text-to-speech functionality."},
-            timeout=10
+            timeout=10,
         )
         if response.status_code == 200:
             print("✅ Text-to-Speech endpoint working")
@@ -50,7 +50,7 @@ def test_endpoints():
         response = requests.post(f"{base_url}/transcribe", timeout=5)
         if response.status_code == 400:
             data = response.json()
-            if "No audio file provided" in data.get('error', ''):
+            if "No audio file provided" in data.get("error", ""):
                 print("✅ Transcription endpoint properly handles missing file")
             else:
                 print(f"⚠️  Transcription endpoint unexpected error: {data}")
@@ -69,6 +69,7 @@ def test_endpoints():
     except Exception as e:
         print(f"❌ Health endpoint error: {e}")
 
+
 def test_audio_dependencies():
     """Test if audio dependencies are working"""
     print("\n🔧 Testing Audio Dependencies")
@@ -76,6 +77,7 @@ def test_audio_dependencies():
 
     try:
         import speech_recognition as sr
+
         recognizer = sr.Recognizer()
         print("✅ speech_recognition module working")
     except Exception as e:
@@ -88,11 +90,12 @@ def test_audio_dependencies():
 
     try:
         import pyttsx3
+
         engine = pyttsx3.init()
         print("✅ pyttsx3 module working")
 
         # Test voice listing
-        voices = engine.getProperty('voices')
+        voices = engine.getProperty("voices")
         print(f"   Available voices: {len(voices) if voices else 0}")
         engine.stop()
     except Exception as e:
@@ -102,6 +105,7 @@ def test_audio_dependencies():
         print("✅ gTTS module working")
     except Exception as e:
         print(f"❌ gTTS error: {e}")
+
 
 def main():
     """Main test function"""
@@ -122,6 +126,7 @@ def main():
     print("2. 🎙️  For speech input: Use browser-based recognition (Chrome/Edge recommended)")
     print("3. 🔊 For speech output: Auto-speak can be enabled in audio settings")
     print("4. 🛠️  If tests fail, check microphone permissions and browser support")
+
 
 if __name__ == "__main__":
     main()

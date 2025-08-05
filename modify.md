@@ -2,7 +2,7 @@
 
 [] remove dipslaying persona content
 
-[] when custom persona selected, show a dynamic input box below persona dropdown list 
+[] when custom persona selected, show a dynamic input box below persona dropdown list
 
 [] within the model settings drawer, add two sliders: 1, Max.Tokens (1K-12K), 2, Temperature (0-1)
 
@@ -20,16 +20,15 @@
 
 [] in input container, replace "Send" with a icon denoting sending
 
-[] in dark mode, make font color black in dropdown list 
+[] in dark mode, make font color black in dropdown list
 
 [] declutter project dir by moving deprecated  and redundant files to trash2review, test scripts to ./scripts
-
 
 [✅] default set for provider & model should persist until reset
 
 [✅] remove dipslaying persona content
 
-[✅] when custom persona selected, show a dynamic input box below persona dropdown list 
+[✅] when custom persona selected, show a dynamic input box below persona dropdown list
 
 [✅] within the model settings drawer, add two sliders: 1, Max.Tokens (1K-12K), 2, Temperature (0-1)
 
@@ -47,7 +46,7 @@
 
 [✅] in input container, replace "Send" with a icon denoting sending
 
-[✅] in dark mode, make font color black in dropdown list 
+[✅] in dark mode, make font color black in dropdown list
 
 [✅] declutter project dir by moving deprecated  and redundant files to trash2review, test scripts to ./scripts
 

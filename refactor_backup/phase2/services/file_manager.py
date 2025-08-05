@@ -5,26 +5,37 @@ Handles file operations, storage, and retrieval.
 import os
 from datetime import datetime
 
-from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
 from flask import current_app
 from werkzeug.utils import secure_filename
+
+from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
 
 
 class FileManager:
     def get_document(self, filename: str):
         """Retrieve a document by filename (title)."""
         from core.document_store import DocumentStore
-        if not hasattr(self, '_document_store'):
+
+        if not hasattr(self, "_document_store"):
             self._document_store = DocumentStore()
         # Search for document by title (filename)
         docs = self._document_store.search_documents(filename, limit=1)
         if docs:
             return docs[0]
         return None
-    def add_document(self, filename: str, content: str, doc_type: str = "text", metadata: dict = None, user_id: str = None):
+
+    def add_document(
+        self,
+        filename: str,
+        content: str,
+        doc_type: str = "text",
+        metadata: dict = None,
+        user_id: str = None,
+    ):
         """Add a document to the document store (proxy)."""
         from core.document_store import DocumentStore
-        if not hasattr(self, '_document_store'):
+
+        if not hasattr(self, "_document_store"):
             self._document_store = DocumentStore()
         return self._document_store.add_document(
             content=content,
@@ -32,35 +43,40 @@ class FileManager:
             file_path=None,
             doc_type=doc_type,
             metadata=metadata,
-            user_id=user_id
+            user_id=user_id,
         )
+
     def search_documents(self, query, top_n=3):
         """Proxy to DocumentStore.search_documents for context search."""
         from core.document_store import DocumentStore
-        if not hasattr(self, '_document_store'):
+
+        if not hasattr(self, "_document_store"):
             self._document_store = DocumentStore()
         results = self._document_store.search_documents(query, limit=top_n)
         # Optionally add similarity score if not present
         for r in results:
-            if 'similarity' not in r:
-                r['similarity'] = 1.0  # Placeholder if not calculated
-            if 'filename' not in r and 'title' in r:
-                r['filename'] = r['title']
+            if "similarity" not in r:
+                r["similarity"] = 1.0  # Placeholder if not calculated
+            if "filename" not in r and "title" in r:
+                r["filename"] = r["title"]
         return results
 
     def get_all_documents(self, limit: int = None, offset: int = 0):
         """Get all documents from document store"""
         from core.document_store import DocumentStore
-        if not hasattr(self, '_document_store'):
+
+        if not hasattr(self, "_document_store"):
             self._document_store = DocumentStore()
         return self._document_store.get_all_documents(limit=limit, offset=offset)
 
     def get_document_statistics(self):
         """Get document statistics"""
         from core.document_store import DocumentStore
-        if not hasattr(self, '_document_store'):
+
+        if not hasattr(self, "_document_store"):
             self._document_store = DocumentStore()
         return self._document_store.get_statistics()
+
     """Service for managing file operations in the application"""
 
     def __init__(self):
@@ -75,8 +91,7 @@ class FileManager:
 
     def allowed_file(self, filename: str) -> bool:
         """Check if a file has an allowed extension"""
-        return '.' in filename and \
-               filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+        return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
     def save_uploaded_file(self, file, custom_filename: str | None = None) -> str:
         """Save an uploaded file to the upload directory with secure naming"""
@@ -88,13 +103,15 @@ class FileManager:
             raise ValueError("Invalid filename")
 
         if not self.allowed_file(original_filename):
-            raise ValueError(f"File type not allowed. Supported types: {', '.join(ALLOWED_EXTENSIONS)}")
+            raise ValueError(
+                f"File type not allowed. Supported types: {', '.join(ALLOWED_EXTENSIONS)}"
+            )
 
         # Use custom filename if provided, otherwise use timestamp + original
         if custom_filename:
             filename = f"{secure_filename(custom_filename)}_{int(datetime.now().timestamp())}"
             # Preserve original extension
-            if '.' in original_filename:
+            if "." in original_filename:
                 filename += f".{original_filename.rsplit('.', 1)[1].lower()}"
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -118,7 +135,8 @@ class FileManager:
         filepath = os.path.join(self.save_dir, filename)
 
         import json
-        with open(filepath, 'w', encoding='utf-8') as f:
+
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(chat_data, f, ensure_ascii=False, indent=2)
 
         current_app.logger.info(f"Saved chat history: {filepath}")
@@ -153,7 +171,7 @@ class FileManager:
 
     def _export_to_markdown(self, chat_data: dict, filepath: str) -> None:
         """Export chat data to markdown format"""
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             # Write header
             title = chat_data.get("title", "Chat Export")
             f.write(f"# {title}\n\n")
@@ -181,17 +199,20 @@ class FileManager:
             if item.is_file():
                 try:
                     import json
-                    with open(item, encoding='utf-8') as f:
+
+                    with open(item, encoding="utf-8") as f:
                         chat_data = json.load(f)
 
                     # Extract basic metadata
-                    chats.append({
-                        "filename": item.name,
-                        "path": str(item),
-                        "created": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
-                        "title": chat_data.get("title", item.name),
-                        "message_count": len(chat_data.get("messages", [])),
-                    })
+                    chats.append(
+                        {
+                            "filename": item.name,
+                            "path": str(item),
+                            "created": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
+                            "title": chat_data.get("title", item.name),
+                            "message_count": len(chat_data.get("messages", [])),
+                        }
+                    )
                 except Exception as e:
                     current_app.logger.error(f"Error reading chat file {item}: {str(e)}")
 

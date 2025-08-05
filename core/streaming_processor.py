@@ -18,6 +18,7 @@ from PIL import Image
 try:
     import pytesseract
     from pdf2image import convert_from_bytes
+
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
@@ -49,7 +50,7 @@ class StreamingFileProcessor:
         self,
         file_stream: io.BytesIO,
         filename: str,
-        progress_callback: Callable[[int], None] = None
+        progress_callback: Callable[[int], None] = None,
     ) -> str:
         """
         Process large files in chunks to reduce memory usage.
@@ -58,11 +59,11 @@ class StreamingFileProcessor:
         total_size = file_stream.seek(0, 2)  # Get file size
         file_stream.seek(0)  # Reset to beginning
 
-        if file_extension == '.pdf':
+        if file_extension == ".pdf":
             return await self._process_large_pdf(file_stream, progress_callback, total_size)
-        elif file_extension == '.csv':
+        elif file_extension == ".csv":
             return await self._process_large_csv(file_stream, progress_callback, total_size)
-        elif file_extension in ['.xlsx', '.xls']:
+        elif file_extension in [".xlsx", ".xls"]:
             return await self._process_large_excel(file_stream, progress_callback, total_size)
         else:
             # For other file types, use regular processing
@@ -71,10 +72,7 @@ class StreamingFileProcessor:
             return await self._process_regular_file(content, filename, progress_callback)
 
     async def _process_large_pdf(
-        self,
-        file_stream: io.BytesIO,
-        progress_callback: Callable[[int], None],
-        total_size: int
+        self, file_stream: io.BytesIO, progress_callback: Callable[[int], None], total_size: int
     ) -> str:
         """
         Process large PDF files page by page.
@@ -99,7 +97,7 @@ class StreamingFileProcessor:
                 if i % 5 == 0:
                     await asyncio.sleep(0)
 
-            text_content = '\n'.join(text_parts)
+            text_content = "\n".join(text_parts)
 
             # If no text found, try OCR
             if not text_content.strip() and OCR_AVAILABLE:
@@ -113,10 +111,7 @@ class StreamingFileProcessor:
             raise
 
     async def _process_large_csv(
-        self,
-        file_stream: io.BytesIO,
-        progress_callback: Callable[[int], None],
-        total_size: int
+        self, file_stream: io.BytesIO, progress_callback: Callable[[int], None], total_size: int
     ) -> str:
         """
         Process large CSV files in chunks.
@@ -128,8 +123,8 @@ class StreamingFileProcessor:
             chunk_iter = pd.read_csv(
                 file_stream,
                 chunksize=1000,  # Process 1000 rows at a time
-                encoding='utf-8',
-                on_bad_lines='skip'
+                encoding="utf-8",
+                on_bad_lines="skip",
             )
 
             processed_chunks = []
@@ -149,7 +144,7 @@ class StreamingFileProcessor:
                 # Yield control to event loop
                 await asyncio.sleep(0)
 
-            result = '\n'.join(processed_chunks)
+            result = "\n".join(processed_chunks)
             if progress_callback:
                 progress_callback(100)
 
@@ -159,14 +154,11 @@ class StreamingFileProcessor:
             logger.error(f"Error processing large CSV: {e}")
             # Fallback to reading as text
             file_stream.seek(0)
-            content = file_stream.read().decode('utf-8', errors='ignore')
+            content = file_stream.read().decode("utf-8", errors="ignore")
             return content
 
     async def _process_large_excel(
-        self,
-        file_stream: io.BytesIO,
-        progress_callback: Callable[[int], None],
-        total_size: int
+        self, file_stream: io.BytesIO, progress_callback: Callable[[int], None], total_size: int
     ) -> str:
         """
         Process large Excel files sheet by sheet.
@@ -185,7 +177,7 @@ class StreamingFileProcessor:
                     df = pd.read_excel(excel_file, sheet_name=sheet_name)
 
                     if len(df) > 10000:  # Large sheet, process in chunks
-                        chunks = [df[i:i+1000] for i in range(0, len(df), 1000)]
+                        chunks = [df[i : i + 1000] for i in range(0, len(df), 1000)]
                         sheet_parts = []
 
                         for chunk in chunks:
@@ -193,7 +185,7 @@ class StreamingFileProcessor:
                             sheet_parts.append(chunk_text)
                             await asyncio.sleep(0)  # Yield control
 
-                        sheet_content = '\n'.join(sheet_parts)
+                        sheet_content = "\n".join(sheet_parts)
                     else:
                         sheet_content = df.to_string(index=False)
 
@@ -210,16 +202,14 @@ class StreamingFileProcessor:
                     logger.warning(f"Error processing sheet {sheet_name}: {e}")
                     continue
 
-            return '\n'.join(processed_sheets)
+            return "\n".join(processed_sheets)
 
         except Exception as e:
             logger.error(f"Error processing large Excel: {e}")
             raise
 
     async def _ocr_pdf(
-        self,
-        file_stream: io.BytesIO,
-        progress_callback: Callable[[int], None]
+        self, file_stream: io.BytesIO, progress_callback: Callable[[int], None]
     ) -> str:
         """
         Perform OCR on PDF pages.
@@ -248,17 +238,14 @@ class StreamingFileProcessor:
                 # Yield control to event loop
                 await asyncio.sleep(0)
 
-            return '\n'.join(text_parts)
+            return "\n".join(text_parts)
 
         except Exception as e:
             logger.error(f"OCR processing failed: {e}")
             return ""
 
     async def _process_regular_file(
-        self,
-        content: bytes,
-        filename: str,
-        progress_callback: Callable[[int], None]
+        self, content: bytes, filename: str, progress_callback: Callable[[int], None]
     ) -> str:
         """
         Process regular-sized files using existing methods.
@@ -269,14 +256,14 @@ class StreamingFileProcessor:
             progress_callback(25)
 
         try:
-            if file_extension == '.docx':
+            if file_extension == ".docx":
                 result = await self._process_docx(content)
-            elif file_extension == '.txt' or file_extension == '.md':
-                result = content.decode('utf-8', errors='ignore')
-            elif file_extension in ['.png', '.jpg', '.jpeg']:
+            elif file_extension == ".txt" or file_extension == ".md":
+                result = content.decode("utf-8", errors="ignore")
+            elif file_extension in [".png", ".jpg", ".jpeg"]:
                 result = await self._process_image(content)
             else:
-                result = content.decode('utf-8', errors='ignore')
+                result = content.decode("utf-8", errors="ignore")
 
             if progress_callback:
                 progress_callback(100)
@@ -300,7 +287,7 @@ class StreamingFileProcessor:
                 if paragraph.text.strip():
                     text_parts.append(paragraph.text)
 
-            return '\n'.join(text_parts)
+            return "\n".join(text_parts)
 
         except Exception as e:
             logger.error(f"Error processing DOCX: {e}")
@@ -313,11 +300,7 @@ class StreamingFileProcessor:
             image = Image.open(image_file)
 
             # Extract basic metadata
-            metadata = {
-                'format': image.format,
-                'size': image.size,
-                'mode': image.mode
-            }
+            metadata = {"format": image.format, "size": image.size, "mode": image.mode}
 
             result = f"Image metadata: {metadata}"
 
@@ -344,31 +327,31 @@ class StreamingFileProcessor:
         file_size = len(content)
 
         info = {
-            'filename': filename,
-            'size': file_size,
-            'extension': file_path.suffix.lower(),
-            'processing_method': 'regular'
+            "filename": filename,
+            "size": file_size,
+            "extension": file_path.suffix.lower(),
+            "processing_method": "regular",
         }
 
         # Determine processing method based on size and type
         if file_size > 10 * 1024 * 1024:  # 10MB
-            info['processing_method'] = 'streaming'
+            info["processing_method"] = "streaming"
 
         # Additional file-specific info
-        if file_path.suffix.lower() == '.pdf':
+        if file_path.suffix.lower() == ".pdf":
             try:
                 pdf_file = io.BytesIO(content)
                 pdf_reader = PyPDF2.PdfReader(pdf_file)
-                info['pages'] = len(pdf_reader.pages)
+                info["pages"] = len(pdf_reader.pages)
             except Exception:
                 pass
 
-        elif file_path.suffix.lower() in ['.png', '.jpg', '.jpeg']:
+        elif file_path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
             try:
                 image_file = io.BytesIO(content)
                 image = Image.open(image_file)
-                info['image_size'] = image.size
-                info['image_format'] = image.format
+                info["image_size"] = image.size
+                info["image_format"] = image.format
             except Exception:
                 pass
 

@@ -51,7 +51,7 @@ class RefactorPhase1:
             "app_integration.py",
             "ai_models.py",
             "requirements.txt",
-            "pyproject.toml"
+            "pyproject.toml",
         ]
 
         for file in backup_files:
@@ -68,18 +68,18 @@ class RefactorPhase1:
             "app_refactored.py": {
                 "lines": 445,
                 "duplicates": ["chat routes", "file upload", "model management"],
-                "unique": ["enhanced error handling", "better validation"]
+                "unique": ["enhanced error handling", "better validation"],
             },
             "app_integration.py": {
                 "lines": 500,
                 "duplicates": ["optimization routes", "background tasks"],
-                "unique": ["async optimizations", "performance monitoring"]
+                "unique": ["async optimizations", "performance monitoring"],
             },
             "ai_models.py": {
                 "lines": 439,
                 "duplicates": ["model configurations", "API endpoints"],
-                "unique": ["centralized model config"]
-            }
+                "unique": ["centralized model config"],
+            },
         }
 
         for file, info in duplicate_files.items():
@@ -92,11 +92,7 @@ class RefactorPhase1:
         print("🗑️ Removing duplicate files...")
 
         # Files to remove (after extracting unique features)
-        files_to_remove = [
-            "app_refactored.py",
-            "app_integration.py",
-            "ai_models.py"
-        ]
+        files_to_remove = ["app_refactored.py", "app_integration.py", "ai_models.py"]
 
         for file in files_to_remove:
             file_path = self.project_root / file
@@ -416,12 +412,12 @@ def register_blueprints(app: Flask) -> None:
         print("  ✓ Created app/blueprints.py")
 
         # Create blueprint directories
-        for bp_name in ['api', 'web']:
+        for bp_name in ["api", "web"]:
             bp_dir = app_dir / bp_name
             bp_dir.mkdir(exist_ok=True)
 
             # Create blueprint __init__.py
-            if bp_name == 'api':
+            if bp_name == "api":
                 bp_init = '''"""
 API Blueprint - REST API endpoints.
 """
@@ -497,6 +493,7 @@ if __name__ == "__main__":
 
         # Make it executable
         import stat
+
         migration_path = self.project_root / "migrate.py"
         migration_path.chmod(migration_path.stat().st_mode | stat.S_IEXEC)
 
@@ -510,7 +507,8 @@ def main():
     refactor.execute()
     refactor.generate_migration_script()
 
-    print("""
+    print(
+        """
 🎉 Phase 1 Complete!
 
 Next steps:
@@ -526,7 +524,8 @@ Files modified:
 - ✅ Created blueprint structure
 
 Ready for Phase 2: Architectural Refactoring
-""")
+"""
+    )
 
 
 if __name__ == "__main__":

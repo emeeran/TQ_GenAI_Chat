@@ -18,6 +18,7 @@
 TQ GenAI Chat (AI Chatpal) is a sophisticated multi-provider AI chat application built with Flask, supporting 10+ AI providers with advanced file processing capabilities. It provides a unified interface for interacting with various AI models while maintaining conversation history and supporting file uploads for context-aware conversations.
 
 ### Key Highlights
+
 - **Multi-Provider Support**: OpenAI, Anthropic, Groq, XAI, Mistral, and more
 - **Advanced File Processing**: PDF, DOCX, images, spreadsheets with context injection
 - **Real-time Chat Interface**: Responsive web UI with dark/light theme
@@ -28,6 +29,7 @@ TQ GenAI Chat (AI Chatpal) is a sophisticated multi-provider AI chat application
 ## ✨ Features
 
 ### Core Features
+
 - 🤖 **Multi-AI Provider Support**
   - OpenAI (GPT-4, GPT-4o, O1 series)
   - Anthropic (Claude models)
@@ -57,6 +59,7 @@ TQ GenAI Chat (AI Chatpal) is a sophisticated multi-provider AI chat application
   - Provider/model persistence
 
 ### Technical Features
+
 - 🔄 **Error Recovery**: Smart retry with provider switching
 - 💾 **Caching**: Multi-layer response caching
 - 🔍 **Search**: Vector-based document search
@@ -66,6 +69,7 @@ TQ GenAI Chat (AI Chatpal) is a sophisticated multi-provider AI chat application
 ## 🚀 Installation
 
 ### Prerequisites
+
 - Python 3.8 or higher
 - pip package manager
 - Internet connection for API calls
@@ -73,34 +77,40 @@ TQ GenAI Chat (AI Chatpal) is a sophisticated multi-provider AI chat application
 ### Quick Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/emeeran/TQ_GenAI_Chat.git
    cd TQ_GenAI_Chat
    ```
 
 2. **Create virtual environment**
+
    ```bash
    python -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Set up environment variables** (optional but recommended)
+
    ```bash
    cp .env.example .env
    # Edit .env with your API keys
    ```
 
 5. **Run the application**
+
    ```bash
    python app.py
    ```
 
 6. **Open in browser**
+
    ```
    http://localhost:5000
    ```
@@ -164,37 +174,44 @@ REQUEST_TIMEOUT=60  # seconds
 ### Advanced Features
 
 #### Custom Personas
+
 - Select "Custom" from persona dropdown
 - Enter your custom system prompt
 - Persona applies to subsequent messages
 
 #### Temperature Control
+
 - **0.0**: Deterministic, focused responses
 - **0.7**: Balanced creativity and consistency
 - **1.0**: Maximum creativity and randomness
 
 #### Max Tokens
+
 - Controls response length
 - Range: 1K-12K tokens
 - Higher values allow longer responses
 
 #### Voice Features
+
 - **Speech-to-Text**: Click microphone to record
 - **Text-to-Speech**: Click speaker icon to hear responses
 
 ### Conversation Management
 
 #### Save Conversations
+
 1. Click **Save** button in sidebar
 2. Enter a filename
 3. Conversation saved to `saved_chats/`
 
 #### Load Conversations
+
 1. Click **Load** button
 2. Select from saved conversations
 3. Chat history restored
 
 #### Export Options
+
 - **Markdown**: Formatted text export
 - **JSON**: Structured data export
 
@@ -203,6 +220,7 @@ REQUEST_TIMEOUT=60  # seconds
 ### Core Endpoints
 
 #### Chat Endpoint
+
 ```http
 POST /chat
 Content-Type: application/json
@@ -218,6 +236,7 @@ Content-Type: application/json
 ```
 
 #### File Upload
+
 ```http
 POST /upload
 Content-Type: multipart/form-data
@@ -226,12 +245,14 @@ files: [file1, file2, ...]
 ```
 
 #### Model Management
+
 ```http
 GET /get_models/{provider}
 POST /update_models/{provider}
 ```
 
 #### Document Search
+
 ```http
 POST /search_context
 Content-Type: application/json
@@ -244,6 +265,7 @@ Content-Type: application/json
 ### Response Formats
 
 #### Success Response
+
 ```json
 {
   "response": {
@@ -258,6 +280,7 @@ Content-Type: application/json
 ```
 
 #### Error Response
+
 ```json
 {
   "error": "Error description",
@@ -296,21 +319,25 @@ TQ_GenAI_Chat/
 ### Development Workflow
 
 1. **Set up development environment**
+
    ```bash
    python scripts/dependency_checker.py --verbose
    ```
 
 2. **Run cleanup (optional)**
+
    ```bash
    python scripts/cleanup_project.py --dry-run
    ```
 
 3. **Start development server**
+
    ```bash
    python app.py
    ```
 
 4. **Run tests**
+
    ```bash
    python scripts/test_*.py
    ```
@@ -318,6 +345,7 @@ TQ_GenAI_Chat/
 ### Adding New Providers
 
 1. **Update API configuration** in `app.py`:
+
    ```python
    API_CONFIGS['new_provider'] = {
        'endpoint': 'https://api.provider.com/chat',
@@ -343,21 +371,25 @@ TQ_GenAI_Chat/
 ### Common Issues
 
 #### "Module not found" errors
+
 ```bash
 pip install -r requirements.txt
 ```
 
 #### API key errors
+
 - Check environment variables
 - Verify API key validity
 - Check provider-specific requirements
 
 #### File upload failures
+
 - Check file size limits (16MB max)
 - Verify file format support
 - Check disk space
 
 #### Performance issues
+
 - Enable Redis caching
 - Reduce max token limits
 - Use faster providers (Groq)
@@ -365,6 +397,7 @@ pip install -r requirements.txt
 ### Debug Mode
 
 Enable verbose logging:
+
 ```bash
 export FLASK_DEBUG=1
 python app.py
@@ -373,6 +406,7 @@ python app.py
 ### Health Check
 
 Check system status:
+
 ```bash
 curl http://localhost:5000/health
 ```
@@ -380,6 +414,7 @@ curl http://localhost:5000/health
 ### Dependency Check
 
 Verify all dependencies:
+
 ```bash
 python scripts/dependency_checker.py --verbose --fix
 ```
@@ -397,16 +432,19 @@ python scripts/dependency_checker.py --verbose --fix
 ### Development Setup
 
 1. Install development dependencies:
+
    ```bash
    pip install -r requirements-dev.txt
    ```
 
 2. Set up pre-commit hooks:
+
    ```bash
    pre-commit install
    ```
 
 3. Run tests before committing:
+
    ```bash
    python -m pytest
    ```
@@ -421,6 +459,7 @@ python scripts/dependency_checker.py --verbose --fix
 ## 📝 Changelog
 
 ### v2.0.0 (Current)
+
 - ✅ Multi-provider AI support (10+ providers)
 - ✅ Advanced file processing pipeline
 - ✅ Real-time chat interface
@@ -431,6 +470,7 @@ python scripts/dependency_checker.py --verbose --fix
 - ✅ Comprehensive documentation
 
 ### v1.0.0
+
 - Basic chat functionality
 - OpenAI integration
 - File upload support

@@ -6,7 +6,7 @@ from core.providers import ProviderFactory
 
 from .chat_service import ChatService
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ServiceContainer:
@@ -22,10 +22,10 @@ class ServiceContainer:
         # Register factory functions
         self.register("provider_factory", lambda: ProviderFactory())
         self.register("context_manager", lambda: ContextManager())
-        self.register("chat_service", lambda: ChatService(
-            self.get("provider_factory"),
-            self.get("context_manager")
-        ))
+        self.register(
+            "chat_service",
+            lambda: ChatService(self.get("provider_factory"), self.get("context_manager")),
+        )
 
     def register(self, name: str, factory_func):
         """Register a service factory function"""

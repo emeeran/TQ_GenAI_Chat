@@ -14,7 +14,7 @@ def test_update_models():
     print("=" * 50)
 
     # Test various providers
-    providers_to_test = ['openai', 'anthropic', 'groq', 'xai', 'invalid_provider']
+    providers_to_test = ["openai", "anthropic", "groq", "xai", "invalid_provider"]
 
     for provider in providers_to_test:
         print(f"\nTesting update models for: {provider}")
@@ -28,14 +28,14 @@ def test_update_models():
             print(f"Content-Type: {response.headers.get('content-type', 'unknown')}")
 
             # Check if response is JSON
-            if 'application/json' in response.headers.get('content-type', ''):
+            if "application/json" in response.headers.get("content-type", ""):
                 try:
                     data = response.json()
                     print(f"Response: {json.dumps(data, indent=2)}")
 
                     if response.status_code == 200:
-                        if data.get('success'):
-                            models = data.get('models', [])
+                        if data.get("success"):
+                            models = data.get("models", [])
                             print(f"✅ Success! Found {len(models)} models")
                         else:
                             print(f"❌ Failed: {data.get('error', 'Unknown error')}")
@@ -58,5 +58,6 @@ def test_update_models():
     print("\n" + "=" * 50)
     print("Update models test completed!")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_update_models()

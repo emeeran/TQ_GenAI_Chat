@@ -6,6 +6,7 @@ from typing import Any
 
 try:
     import redis.asyncio as redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -33,7 +34,7 @@ class CacheManager:
         """Generate consistent cache key from request data"""
         # Create deterministic hash from request data
         data_str = json.dumps(data, sort_keys=True)
-        hash_obj = hashlib.md5(data_str.encode())
+        hash_obj = hashlib.md5(data_str.encode(), usedforsecurity=False)  # nosec B324
         return f"{prefix}:{hash_obj.hexdigest()}"
 
     async def get(self, key: str) -> Any | None:
@@ -69,10 +70,7 @@ class CacheManager:
                 await self.redis_client.setex(key, ttl, json.dumps(value))
 
             # Always store in memory cache as backup
-            self.memory_cache[key] = {
-                "data": value,
-                "expires_at": time.time() + ttl
-            }
+            self.memory_cache[key] = {"data": value, "expires_at": time.time() + ttl}
 
             return True
 
@@ -108,16 +106,14 @@ class CacheManager:
     def get_cache_key_for_chat_request(self, request_data: dict[str, Any]) -> str:
         """Generate cache key for chat requests"""
         # Remove timestamp and other non-deterministic fields
-        cache_data = {k: v for k, v in request_data.items()
-                     if k not in ['timestamp', 'request_id']}
+        cache_data = {k: v for k, v in request_data.items() if k not in ["timestamp", "request_id"]}
         return self._generate_cache_key("chat", cache_data)
 
     async def cleanup_expired(self):
         """Clean up expired memory cache entries"""
         current_time = time.time()
         expired_keys = [
-            key for key, entry in self.memory_cache.items()
-            if current_time >= entry["expires_at"]
+            key for key, entry in self.memory_cache.items() if current_time >= entry["expires_at"]
         ]
 
         for key in expired_keys:

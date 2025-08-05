@@ -9,15 +9,15 @@ from setuptools import find_packages, setup
 
 # Read the README file
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text(encoding='utf-8')
+long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 # Read requirements
 requirements = []
 requirements_file = this_directory / "requirements.txt"
 if requirements_file.exists():
-    requirements = requirements_file.read_text().strip().split('\n')
+    requirements = requirements_file.read_text().strip().split("\n")
     # Filter out comments and empty lines
-    requirements = [req.strip() for req in requirements if req.strip() and not req.startswith('#')]
+    requirements = [req.strip() for req in requirements if req.strip() and not req.startswith("#")]
 
 setup(
     name="tq-genai-chat",
@@ -29,27 +29,30 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/emeeran/TQ_GenAI_Chat",
     packages=find_packages(),
-    py_modules=['app', 'ai_models', 'persona'],
+    py_modules=["app", "ai_models", "persona"],
     include_package_data=True,
     package_data={
-        '': ['*.md', '*.txt', '*.json', '*.toml'],
-        'static': ['*'],
-        'templates': ['*'],
-        'config': ['*'],
+        "": ["*.md", "*.txt", "*.json", "*.toml"],
+        "static": ["*"],
+        "templates": ["*"],
+        "config": ["*"],
     },
     data_files=[
-        ('share/tq-genai-chat', ['README.md', 'requirements.txt']),
-        ('share/tq-genai-chat/templates', ['templates/index.html']),
-        ('share/tq-genai-chat/static', [
-            'static/script.js',
-            'static/styles.css',
-            'static/favicon.ico',
-            'static/portrait-sketch-simple.svg',
-            'static/portrait-sketch.svg'
-        ]),
-        ('share/applications', ['debian/tq-genai-chat.desktop']),
-        ('usr/bin', ['debian/tq-genai-chat-launcher']),
-        ('etc/systemd/system', ['debian/tq-genai-chat.service']),
+        ("share/tq-genai-chat", ["README.md", "requirements.txt"]),
+        ("share/tq-genai-chat/templates", ["templates/index.html"]),
+        (
+            "share/tq-genai-chat/static",
+            [
+                "static/script.js",
+                "static/styles.css",
+                "static/favicon.ico",
+                "static/portrait-sketch-simple.svg",
+                "static/portrait-sketch.svg",
+            ],
+        ),
+        ("share/applications", ["debian/tq-genai-chat.desktop"]),
+        ("usr/bin", ["debian/tq-genai-chat-launcher"]),
+        ("etc/systemd/system", ["debian/tq-genai-chat.service"]),
     ],
     install_requires=requirements,
     classifiers=[
@@ -69,8 +72,8 @@ setup(
     ],
     python_requires=">=3.10",
     entry_points={
-        'console_scripts': [
-            'tq-genai-chat=app:main',
+        "console_scripts": [
+            "tq-genai-chat=app:main",
         ],
     },
 )

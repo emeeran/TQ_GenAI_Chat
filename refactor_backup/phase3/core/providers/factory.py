@@ -38,7 +38,4 @@ class ProviderFactory:
 
     def get_all_models(self) -> dict[str, list[str]]:
         """Get all models grouped by provider"""
-        return {
-            name: provider.get_models()
-            for name, provider in self._providers.items()
-        }
+        return {name: provider.get_models() for name, provider in self._providers.items()}

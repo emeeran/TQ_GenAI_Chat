@@ -19,7 +19,7 @@ DEFAULT_MODELS = {
         "gpt-4-turbo",
         "gpt-4-turbo-preview",
         "gpt-4o-realtime-preview",
-        "gpt-4o-audio-preview"
+        "gpt-4o-audio-preview",
     ],
     "gemini": [
         "gemini-2.5-pro",
@@ -33,14 +33,14 @@ DEFAULT_MODELS = {
         "gemini-2.0-flash-lite",
         "gemini-1.5-flash",
         "gemini-1.5-flash-8b",
-        "gemini-1.5-pro"
+        "gemini-1.5-pro",
     ],
     "anthropic": [
         "claude-3-5-sonnet-latest",
         "claude-3-5-haiku-latest",
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
-        "claude-3-haiku-20240307"
+        "claude-3-haiku-20240307",
     ],
     "groq": [
         "llama-3.3-70b-versatile",
@@ -50,33 +50,24 @@ DEFAULT_MODELS = {
         "mixtral-8x7b-32768",
         "mistral-saba-24b",
         "qwen/qwen3-32b",
-        "moonshotai/kimi-k2-instruct"
+        "moonshotai/kimi-k2-instruct",
     ],
     "mistral": [
         "mistral-large-latest",
         "mistral-saba-24b",
         "codestral-latest",
         "mistral-small-latest",
-        "pixtral-large-latest"
+        "pixtral-large-latest",
     ],
-    "xai": [
-        "grok-4",
-        "grok-4-latest",
-        "grok-3",
-        "grok-3-mini"
-    ],
-    "deepseek": [
-        "deepseek-r1-distill-llama-70b",
-        "deepseek-chat",
-        "deepseek-reasoner"
-    ],
+    "xai": ["grok-4", "grok-4-latest", "grok-3", "grok-3-mini"],
+    "deepseek": ["deepseek-r1-distill-llama-70b", "deepseek-chat", "deepseek-reasoner"],
     "cohere": [
         "command-a-03-2025",
         "command-r7b-12-2024",
         "command-r-plus",
         "command-r",
         "command",
-        "command-light"
+        "command-light",
     ],
     "alibaba": [
         "qwen3-32b",
@@ -85,7 +76,7 @@ DEFAULT_MODELS = {
         "qwen-2.5-14b-instruct",
         "qwen-2.5-7b-instruct",
         "qwen-2.5-coder-32b-instruct",
-        "qwen-2.5-math-72b-instruct"
+        "qwen-2.5-math-72b-instruct",
     ],
     "openrouter": [
         "kimi-k2-0711-preview",
@@ -102,11 +93,9 @@ DEFAULT_MODELS = {
         "openai/gpt-4o",
         "moonshotai/kimi-k2-instruct",
         "meta-llama/llama-3.3-70b-versatile",
-        "qwen/qwen3-32b"
+        "qwen/qwen3-32b",
     ],
-    "huggingface": [
-        "Qwen/Qwen3-Coder-480B-A35B-Instruct"
-    ],
+    "huggingface": ["Qwen/Qwen3-Coder-480B-A35B-Instruct"],
     "moonshot": [
         "kimi-k2-0711-preview",
         "kimi-latest",
@@ -117,12 +106,9 @@ DEFAULT_MODELS = {
         "moonshot-v1-32k-vision-preview",
         "moonshot-v1-8k",
         "moonshot-v1-8k-vision-preview",
-        "moonshot-v1-auto"
+        "moonshot-v1-auto",
     ],
-    "perplexity": [
-        "pplx-70b-chat",
-        "pplx-7b-chat"
-    ]
+    "perplexity": ["pplx-70b-chat", "pplx-7b-chat"],
 }
 
 
@@ -131,8 +117,8 @@ class ModelManager:
 
     def __init__(self, cache_dir: Path | None = None):
         self.cache_dir = cache_dir or Path(__file__).parent.parent
-        self.models_cache_file = self.cache_dir / 'models_cache.json'
-        self.defaults_cache_file = self.cache_dir / 'defaults_cache.json'
+        self.models_cache_file = self.cache_dir / "models_cache.json"
+        self.defaults_cache_file = self.cache_dir / "defaults_cache.json"
         self.models = DEFAULT_MODELS.copy()
         self.defaults = {}
         self.load_cached_models()
@@ -147,8 +133,8 @@ class ModelManager:
                     models_cache = json.load(f)
 
                 for provider, data in models_cache.items():
-                    if provider in self.models and 'models' in data:
-                        self.models[provider] = data['models']
+                    if provider in self.models and "models" in data:
+                        self.models[provider] = data["models"]
                         if current_app:
                             current_app.logger.info(
                                 f"Loaded {len(data['models'])} cached models for {provider}"
@@ -166,9 +152,9 @@ class ModelManager:
                 with open(self.models_cache_file) as f:
                     cache_data = json.load(f)
 
-            cache_data[provider] = {'models': models}
+            cache_data[provider] = {"models": models}
 
-            with open(self.models_cache_file, 'w') as f:
+            with open(self.models_cache_file, "w") as f:
                 json.dump(cache_data, f, indent=2)
 
             # Update in-memory cache
@@ -211,7 +197,7 @@ class ModelManager:
     def save_defaults_cache(self):
         """Save default models to cache"""
         try:
-            with open(self.defaults_cache_file, 'w') as f:
+            with open(self.defaults_cache_file, "w") as f:
                 json.dump(self.defaults, f, indent=2)
         except Exception as e:
             if current_app:
@@ -219,7 +205,7 @@ class ModelManager:
 
     def set_default_model(self, provider: str, model: str):
         """Set default model for a provider"""
-        if not hasattr(self, 'defaults'):
+        if not hasattr(self, "defaults"):
             self.load_defaults_cache()
 
         if not self.is_model_available(provider, model):
@@ -230,7 +216,7 @@ class ModelManager:
 
     def get_default_model(self, provider: str) -> str | None:
         """Get default model for a provider"""
-        if not hasattr(self, 'defaults'):
+        if not hasattr(self, "defaults"):
             self.load_defaults_cache()
 
         return self.defaults.get(provider)

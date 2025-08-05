@@ -29,5 +29,5 @@ __all__ = [
     "get_fallback_model",
     "get_model_info",
     "get_available_providers",
-    "get_api_endpoint"
+    "get_api_endpoint",
 ]
