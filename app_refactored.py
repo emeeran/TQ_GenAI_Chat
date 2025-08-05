@@ -92,10 +92,11 @@ def get_persona_content(persona_key):
 def get_models(provider):
     """Get available models for a provider"""
     try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({'error': f'Provider {provider} not available'}), 404
-        
+        # Check if we have model definitions for this provider
         models = model_manager.get_models(provider)
+        if not models:
+            return jsonify({'error': f'No models defined for provider {provider}'}), 404
+        
         default_model = model_manager.get_default_model(provider)
         
         return jsonify({
@@ -111,12 +112,13 @@ def get_models(provider):
 def update_models(provider):
     """Update models for a provider"""
     try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({'error': f'Provider {provider} not available'}), 404
+        # Check if we have model definitions for this provider
+        models = model_manager.get_models(provider)
+        if not models:
+            return jsonify({'error': f'No models defined for provider {provider}'}), 404
 
         # For now, just refresh the existing models list
         # In a real implementation, this would fetch fresh models from the provider API
-        models = model_manager.get_models(provider)
         
         return jsonify({
             'success': True,
@@ -405,8 +407,10 @@ def set_default_model(provider):
 
         model = data['model']
         
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({'error': f'Provider {provider} not available'}), 404
+        # Check if we have model definitions for this provider
+        models = model_manager.get_models(provider)
+        if not models:
+            return jsonify({'error': f'No models defined for provider {provider}'}), 404
 
         # Set default model in model manager
         model_manager.set_default_model(provider, model)
