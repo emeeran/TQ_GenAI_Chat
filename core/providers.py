@@ -34,6 +34,7 @@ class ProviderType(Enum):
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
     COHERE = "cohere"
+    HUGGINGFACE = "huggingface"
 
 @runtime_checkable
 class Configurable(Protocol):
@@ -443,6 +444,70 @@ class CohereProvider(BaseProvider):
             )
 
 
+class HuggingFaceProvider(BaseProvider):
+    """Hugging Face Inference API provider"""
+    
+    @property
+    def provider_name(self) -> str:
+        return 'huggingface'
+    
+    def _prepare_request(self, model: str, message: str, persona: str,
+                        temperature: float, max_tokens: int) -> tuple[str, dict, dict]:
+        # Hugging Face uses model-specific endpoints
+        endpoint = f"{self.config.endpoint}{model}"
+        headers = {
+            'Authorization': f'Bearer {self.config.key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Build the prompt with persona if provided
+        prompt = f"{persona}\n{message}" if persona.strip() else message
+        
+        payload = {
+            'inputs': prompt,
+            'parameters': {
+                'temperature': temperature,
+                'max_new_tokens': max_tokens,
+                'return_full_text': False
+            }
+        }
+        
+        return endpoint, headers, payload
+    
+    def _extract_response(self, result: dict, model: str, 
+                         response_time: float, fallback_used: bool) -> APIResponse:
+        try:
+            # Hugging Face returns different formats depending on the model
+            if isinstance(result, list) and len(result) > 0:
+                if 'generated_text' in result[0]:
+                    text = result[0]['generated_text']
+                elif 'text' in result[0]:
+                    text = result[0]['text']
+                else:
+                    text = str(result[0])
+            elif isinstance(result, dict):
+                if 'generated_text' in result:
+                    text = result['generated_text']
+                elif 'text' in result:
+                    text = result['text']
+                else:
+                    text = str(result)
+            else:
+                text = str(result)
+            
+            return APIResponse(
+                text=text,
+                metadata=self._create_metadata(model, response_time, fallback_used)
+            )
+        except (KeyError, IndexError, TypeError) as e:
+            return APIResponse(
+                text="", 
+                metadata={}, 
+                success=False, 
+                error=f"Invalid Hugging Face response structure: {str(e)}"
+            )
+
+
 class ProviderManager:
     """Enhanced centralized provider management with factory pattern"""
     
@@ -495,6 +560,55 @@ class ProviderManager:
                 default_model="command-r-plus-08-2024",
                 fallback_model="command-r-08-2024",
                 provider_type=ProviderType.COHERE
+            ),
+            'xai': ProviderConfig(
+                endpoint="https://api.x.ai/v1/chat/completions",
+                key=os.getenv("XAI_API_KEY", ""),
+                default_model="grok-4",
+                fallback_model="grok-3",
+                provider_type=ProviderType.OPENAI_COMPATIBLE
+            ),
+            'deepseek': ProviderConfig(
+                endpoint="https://api.deepseek.com/v1/chat/completions",
+                key=os.getenv("DEEPSEEK_API_KEY", ""),
+                default_model="deepseek-chat",
+                fallback_model="deepseek-reasoner",
+                provider_type=ProviderType.OPENAI_COMPATIBLE
+            ),
+            'alibaba': ProviderConfig(
+                endpoint="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                key=os.getenv("ALIBABA_API_KEY", ""),
+                default_model="qwen-2.5-72b-instruct",
+                fallback_model="qwen-2.5-32b-instruct",
+                provider_type=ProviderType.OPENAI_COMPATIBLE
+            ),
+            'openrouter': ProviderConfig(
+                endpoint="https://openrouter.ai/api/v1/chat/completions",
+                key=os.getenv("OPENROUTER_API_KEY", ""),
+                default_model="openai/gpt-4o",
+                fallback_model="meta-llama/llama-3.3-70b-versatile",
+                provider_type=ProviderType.OPENAI_COMPATIBLE
+            ),
+            'huggingface': ProviderConfig(
+                endpoint="https://api-inference.huggingface.co/models/",
+                key=os.getenv("HUGGINGFACE_API_KEY", ""),
+                default_model="Qwen/Qwen3-Coder-480B-A35B-Instruct",
+                fallback_model="Qwen/Qwen3-Coder-480B-A35B-Instruct",
+                provider_type=ProviderType.HUGGINGFACE
+            ),
+            'moonshot': ProviderConfig(
+                endpoint="https://api.moonshot.cn/v1/chat/completions",
+                key=os.getenv("MOONSHOT_API_KEY", ""),
+                default_model="moonshot-v1-128k",
+                fallback_model="moonshot-v1-32k",
+                provider_type=ProviderType.OPENAI_COMPATIBLE
+            ),
+            'perplexity': ProviderConfig(
+                endpoint="https://api.perplexity.ai/chat/completions",
+                key=os.getenv("PERPLEXITY_API_KEY", ""),
+                default_model="pplx-70b-chat",
+                fallback_model="pplx-7b-chat",
+                provider_type=ProviderType.OPENAI_COMPATIBLE
             )
         }
     
@@ -507,6 +621,8 @@ class ProviderManager:
                 return GeminiProvider(config)
             case ProviderType.COHERE:
                 return CohereProvider(config)
+            case ProviderType.HUGGINGFACE:
+                return HuggingFaceProvider(config)
             case ProviderType.OPENAI_COMPATIBLE:
                 return OpenAICompatibleProvider(config, name)
             case _:  # Default fallback
