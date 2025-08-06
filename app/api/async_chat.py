@@ -1,4 +1,5 @@
 """Async API endpoints with performance optimizations"""
+
 import asyncio
 
 from flask import jsonify, request
@@ -93,7 +94,10 @@ def get_models(provider: str):
     if models:
         return jsonify({"success": True, "models": models, "provider": provider})
     else:
-        return jsonify({"success": False, "error": f"Provider {provider} not available"}), 404
+        return (
+            jsonify({"success": False, "error": f"Provider {provider} not available"}),
+            404,
+        )
 
 
 @api_bp.route("/performance/metrics", methods=["GET"])
@@ -134,8 +138,12 @@ def get_background_tasks():
                     "name": task.name,
                     "status": task.status.value,
                     "progress": task.progress,
-                    "created_at": task.created_at.isoformat() if task.created_at else None,
-                    "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+                    "created_at": (
+                        task.created_at.isoformat() if task.created_at else None
+                    ),
+                    "completed_at": (
+                        task.completed_at.isoformat() if task.completed_at else None
+                    ),
                     "error": task.error,
                 }
                 for task in tasks

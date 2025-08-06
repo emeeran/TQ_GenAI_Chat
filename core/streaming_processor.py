@@ -34,7 +34,9 @@ class StreamingFileProcessor:
     def __init__(self, chunk_size: int = 1024 * 1024):  # 1MB chunks
         self.chunk_size = chunk_size
 
-    async def read_chunks(self, file_stream: io.BytesIO, chunk_size: int) -> AsyncIterator[bytes]:
+    async def read_chunks(
+        self, file_stream: io.BytesIO, chunk_size: int
+    ) -> AsyncIterator[bytes]:
         """
         Read file in chunks asynchronously.
         """
@@ -60,19 +62,30 @@ class StreamingFileProcessor:
         file_stream.seek(0)  # Reset to beginning
 
         if file_extension == ".pdf":
-            return await self._process_large_pdf(file_stream, progress_callback, total_size)
+            return await self._process_large_pdf(
+                file_stream, progress_callback, total_size
+            )
         elif file_extension == ".csv":
-            return await self._process_large_csv(file_stream, progress_callback, total_size)
+            return await self._process_large_csv(
+                file_stream, progress_callback, total_size
+            )
         elif file_extension in [".xlsx", ".xls"]:
-            return await self._process_large_excel(file_stream, progress_callback, total_size)
+            return await self._process_large_excel(
+                file_stream, progress_callback, total_size
+            )
         else:
             # For other file types, use regular processing
             file_stream.seek(0)
             content = file_stream.read()
-            return await self._process_regular_file(content, filename, progress_callback)
+            return await self._process_regular_file(
+                content, filename, progress_callback
+            )
 
     async def _process_large_pdf(
-        self, file_stream: io.BytesIO, progress_callback: Callable[[int], None], total_size: int
+        self,
+        file_stream: io.BytesIO,
+        progress_callback: Callable[[int], None],
+        total_size: int,
     ) -> str:
         """
         Process large PDF files page by page.
@@ -111,7 +124,10 @@ class StreamingFileProcessor:
             raise
 
     async def _process_large_csv(
-        self, file_stream: io.BytesIO, progress_callback: Callable[[int], None], total_size: int
+        self,
+        file_stream: io.BytesIO,
+        progress_callback: Callable[[int], None],
+        total_size: int,
     ) -> str:
         """
         Process large CSV files in chunks.
@@ -158,7 +174,10 @@ class StreamingFileProcessor:
             return content
 
     async def _process_large_excel(
-        self, file_stream: io.BytesIO, progress_callback: Callable[[int], None], total_size: int
+        self,
+        file_stream: io.BytesIO,
+        progress_callback: Callable[[int], None],
+        total_size: int,
     ) -> str:
         """
         Process large Excel files sheet by sheet.

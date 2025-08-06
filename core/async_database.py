@@ -1,4 +1,5 @@
 """Async database operations with connection pooling"""
+
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, AsyncContextManager
@@ -110,7 +111,9 @@ class AsyncDatabaseManager:
             # Return connection to pool
             await self._connection_pool.put(conn)
 
-    async def execute_query(self, query: str, params: tuple = ()) -> list[dict[str, Any]] | None:
+    async def execute_query(
+        self, query: str, params: tuple = ()
+    ) -> list[dict[str, Any]] | None:
         """Execute SELECT query and return results"""
         async with self.get_connection() as conn:
             conn.row_factory = aiosqlite.Row

@@ -1,4 +1,5 @@
 """Redis-based caching with fallback to memory"""
+
 import hashlib
 import json
 import time
@@ -26,7 +27,9 @@ class CacheManager:
         """Initialize Redis connection if available"""
         if REDIS_AVAILABLE:
             try:
-                self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
+                self.redis_client = redis.from_url(
+                    self.redis_url, decode_responses=True
+                )
             except Exception:
                 self.redis_client = None
 
@@ -106,14 +109,20 @@ class CacheManager:
     def get_cache_key_for_chat_request(self, request_data: dict[str, Any]) -> str:
         """Generate cache key for chat requests"""
         # Remove timestamp and other non-deterministic fields
-        cache_data = {k: v for k, v in request_data.items() if k not in ["timestamp", "request_id"]}
+        cache_data = {
+            k: v
+            for k, v in request_data.items()
+            if k not in ["timestamp", "request_id"]
+        }
         return self._generate_cache_key("chat", cache_data)
 
     async def cleanup_expired(self):
         """Clean up expired memory cache entries"""
         current_time = time.time()
         expired_keys = [
-            key for key, entry in self.memory_cache.items() if current_time >= entry["expires_at"]
+            key
+            for key, entry in self.memory_cache.items()
+            if current_time >= entry["expires_at"]
         ]
 
         for key in expired_keys:

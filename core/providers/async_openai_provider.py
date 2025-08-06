@@ -1,4 +1,5 @@
 """High-performance async OpenAI provider"""
+
 import json
 import os
 import time

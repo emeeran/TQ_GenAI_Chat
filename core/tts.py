@@ -31,7 +31,12 @@ class TTSVoice:
         self.gender = gender
 
     def to_dict(self) -> dict:
-        return {"id": self.id, "name": self.name, "lang": self.lang, "gender": self.gender}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "lang": self.lang,
+            "gender": self.gender,
+        }
 
 
 class TTSEngine:
@@ -59,7 +64,9 @@ class TTSEngine:
 
         # Add gTTS voice if available
         if gTTS:
-            voices.append(TTSVoice(voice_id="gtts", name="Google TTS", lang="en", gender=""))
+            voices.append(
+                TTSVoice(voice_id="gtts", name="Google TTS", lang="en", gender="")
+            )
 
         return voices
 

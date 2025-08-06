@@ -66,11 +66,17 @@ class MetricsCollector:
         self.histograms: dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
         self.lock = threading.Lock()
 
-    def record_metric(self, name: str, value: float, labels: dict[str, str] = None, unit: str = ""):
+    def record_metric(
+        self, name: str, value: float, labels: dict[str, str] = None, unit: str = ""
+    ):
         """Record a metric value."""
         with self.lock:
             metric = MetricData(
-                name=name, value=value, timestamp=time.time(), labels=labels or {}, unit=unit
+                name=name,
+                value=value,
+                timestamp=time.time(),
+                labels=labels or {},
+                unit=unit,
             )
             self.metrics[name].append(metric)
 
@@ -160,7 +166,9 @@ class SystemMonitor:
         """Collect system performance metrics."""
         # CPU usage
         cpu_percent = psutil.cpu_percent(interval=None)
-        self.metrics_collector.record_metric("system_cpu_percent", cpu_percent, unit="percent")
+        self.metrics_collector.record_metric(
+            "system_cpu_percent", cpu_percent, unit="percent"
+        )
 
         # Memory usage
         memory = psutil.virtual_memory()
@@ -177,14 +185,22 @@ class SystemMonitor:
         # Disk I/O
         disk_io = psutil.disk_io_counters()
         if disk_io and self._last_disk_io:
-            read_mb_delta = (disk_io.read_bytes - self._last_disk_io.read_bytes) / 1024 / 1024
-            write_mb_delta = (disk_io.write_bytes - self._last_disk_io.write_bytes) / 1024 / 1024
+            read_mb_delta = (
+                (disk_io.read_bytes - self._last_disk_io.read_bytes) / 1024 / 1024
+            )
+            write_mb_delta = (
+                (disk_io.write_bytes - self._last_disk_io.write_bytes) / 1024 / 1024
+            )
 
             self.metrics_collector.record_metric(
-                "system_disk_read_mb_per_sec", read_mb_delta / self.interval, unit="MB/s"
+                "system_disk_read_mb_per_sec",
+                read_mb_delta / self.interval,
+                unit="MB/s",
             )
             self.metrics_collector.record_metric(
-                "system_disk_write_mb_per_sec", write_mb_delta / self.interval, unit="MB/s"
+                "system_disk_write_mb_per_sec",
+                write_mb_delta / self.interval,
+                unit="MB/s",
             )
 
         self._last_disk_io = disk_io
@@ -192,14 +208,22 @@ class SystemMonitor:
         # Network I/O
         network_io = psutil.net_io_counters()
         if network_io and self._last_network_io:
-            sent_mb_delta = (network_io.bytes_sent - self._last_network_io.bytes_sent) / 1024 / 1024
-            recv_mb_delta = (network_io.bytes_recv - self._last_network_io.bytes_recv) / 1024 / 1024
+            sent_mb_delta = (
+                (network_io.bytes_sent - self._last_network_io.bytes_sent) / 1024 / 1024
+            )
+            recv_mb_delta = (
+                (network_io.bytes_recv - self._last_network_io.bytes_recv) / 1024 / 1024
+            )
 
             self.metrics_collector.record_metric(
-                "system_network_sent_mb_per_sec", sent_mb_delta / self.interval, unit="MB/s"
+                "system_network_sent_mb_per_sec",
+                sent_mb_delta / self.interval,
+                unit="MB/s",
             )
             self.metrics_collector.record_metric(
-                "system_network_recv_mb_per_sec", recv_mb_delta / self.interval, unit="MB/s"
+                "system_network_recv_mb_per_sec",
+                recv_mb_delta / self.interval,
+                unit="MB/s",
             )
 
         self._last_network_io = network_io
@@ -218,12 +242,16 @@ class SystemMonitor:
         # File descriptors (Unix-like systems)
         try:
             num_fds = process.num_fds()
-            self.metrics_collector.record_metric("process_file_descriptors", num_fds, unit="count")
+            self.metrics_collector.record_metric(
+                "process_file_descriptors", num_fds, unit="count"
+            )
         except (AttributeError, OSError):
             pass  # Not available on all platforms
 
         # Thread count
-        self.metrics_collector.record_metric("process_threads", process.num_threads(), unit="count")
+        self.metrics_collector.record_metric(
+            "process_threads", process.num_threads(), unit="count"
+        )
 
 
 class RequestTracker:
@@ -259,8 +287,12 @@ class RequestTracker:
 
             # Record response time
             endpoint = request_info["endpoint"]
-            self.metrics_collector.record_histogram(f"http_request_duration_{endpoint}", duration)
-            self.metrics_collector.record_histogram("http_request_duration_all", duration)
+            self.metrics_collector.record_histogram(
+                f"http_request_duration_{endpoint}", duration
+            )
+            self.metrics_collector.record_histogram(
+                "http_request_duration_all", duration
+            )
 
             # Record status codes
             self.metrics_collector.increment_counter(f"http_status_{status_code}")
@@ -319,14 +351,18 @@ class AIProviderMonitor:
 
         # Cost tracking
         if cost:
-            self.metrics_collector.record_metric("ai_request_cost", cost, labels=labels, unit="USD")
+            self.metrics_collector.record_metric(
+                "ai_request_cost", cost, labels=labels, unit="USD"
+            )
             self.metrics_collector.increment_counter("ai_cost_total", cost)
 
         # Error tracking
         if error:
             self.metrics_collector.increment_counter(f"ai_errors_{provider}")
             self.metrics_collector.increment_counter("ai_errors_total")
-            self.metrics_collector.record_metric("ai_error_rate", 1.0, labels=labels, unit="rate")
+            self.metrics_collector.record_metric(
+                "ai_error_rate", 1.0, labels=labels, unit="rate"
+            )
 
 
 class PerformanceMonitor:
@@ -386,9 +422,7 @@ class PerformanceMonitor:
 
     def _trigger_alert(self, metric_name: str, value: float, threshold: float):
         """Trigger performance alert."""
-        message = (
-            f"Performance alert: {metric_name} = {value:.2f} exceeds threshold {threshold:.2f}"
-        )
+        message = f"Performance alert: {metric_name} = {value:.2f} exceeds threshold {threshold:.2f}"
         logger.warning(message)
 
         for callback in self.alert_callbacks:
@@ -402,7 +436,9 @@ class PerformanceMonitor:
         latest_metrics = self.metrics_collector.get_latest_metrics()
 
         def get_metric_value(name: str, default: float = 0.0) -> float:
-            return latest_metrics.get(name, MetricData(name, default, time.time())).value
+            return latest_metrics.get(
+                name, MetricData(name, default, time.time())
+            ).value
 
         return PerformanceSnapshot(
             timestamp=time.time(),
@@ -424,16 +460,26 @@ class PerformanceMonitor:
                 "ai_total": self._calculate_error_rate("ai"),
             },
             custom_metrics={
-                "ai_requests_total": self.metrics_collector.get_counter_value("ai_requests_total"),
-                "ai_tokens_total": self.metrics_collector.get_counter_value("ai_tokens_total"),
-                "ai_cost_total": self.metrics_collector.get_counter_value("ai_cost_total"),
+                "ai_requests_total": self.metrics_collector.get_counter_value(
+                    "ai_requests_total"
+                ),
+                "ai_tokens_total": self.metrics_collector.get_counter_value(
+                    "ai_tokens_total"
+                ),
+                "ai_cost_total": self.metrics_collector.get_counter_value(
+                    "ai_cost_total"
+                ),
             },
         )
 
     def _calculate_error_rate(self, prefix: str) -> float:
         """Calculate error rate for a metric prefix."""
-        total_requests = self.metrics_collector.get_counter_value(f"{prefix}_requests_total")
-        total_errors = self.metrics_collector.get_counter_value(f"{prefix}_errors_total")
+        total_requests = self.metrics_collector.get_counter_value(
+            f"{prefix}_requests_total"
+        )
+        total_errors = self.metrics_collector.get_counter_value(
+            f"{prefix}_errors_total"
+        )
 
         if total_requests > 0:
             return total_errors / total_requests
@@ -452,7 +498,9 @@ class PerformanceMonitor:
                 labels_str = ",".join([f'{k}="{v}"' for k, v in metric.labels.items()])
                 line = f"{prometheus_name}{{{labels_str}}} {metric.value} {int(metric.timestamp * 1000)}"
             else:
-                line = f"{prometheus_name} {metric.value} {int(metric.timestamp * 1000)}"
+                line = (
+                    f"{prometheus_name} {metric.value} {int(metric.timestamp * 1000)}"
+                )
 
             lines.append(line)
 
@@ -571,14 +619,18 @@ def get_performance_monitor(redis_url: str = None) -> PerformanceMonitor:
 class request_timer:
     """Context manager for timing requests."""
 
-    def __init__(self, endpoint: str, method: str = "GET", monitor: PerformanceMonitor = None):
+    def __init__(
+        self, endpoint: str, method: str = "GET", monitor: PerformanceMonitor = None
+    ):
         self.endpoint = endpoint
         self.method = method
         self.monitor = monitor or get_performance_monitor()
         self.request_id = f"{endpoint}_{time.time()}_{threading.get_ident()}"
 
     def __enter__(self):
-        self.monitor.request_tracker.start_request(self.request_id, self.endpoint, self.method)
+        self.monitor.request_tracker.start_request(
+            self.request_id, self.endpoint, self.method
+        )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

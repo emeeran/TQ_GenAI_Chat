@@ -320,56 +320,55 @@
     <script>
         // Dynamically load personas from backend and update dropdown and description
         let personaContents = {};
-        async function loadPersonas() {
+        function loadPersonas() {
+            console.log('🔄 Starting loadPersonas function...');
             const personaSelect = document.getElementById('persona');
-            const customInput = document.getElementById('custom-persona-textarea');
-            const contentDiv = document.getElementById('persona-content');
-            try {
-                const resp = await fetch('/get_personas?' + new Date().getTime());
-                console.log('Fetching /get_personas, status:', resp.status);
-                if (!resp.ok) throw new Error(`Failed to fetch personas: ${resp.status} ${resp.statusText}`);
-                const data = await resp.json();
-                console.log('Persona data received:', data);
 
-                if (!data.personas || !Array.isArray(data.personas)) {
-                    throw new Error('Invalid personas data structure');
-                }
-
-                personaContents = {};
-                personaSelect.innerHTML = '';
-                data.personas.forEach(persona => {
-                    const opt = document.createElement('option');
-                    opt.value = persona.id;
-                    opt.textContent = persona.name;
-                    if (persona.id === 'helpful_assistant') opt.selected = true;
-                    personaSelect.appendChild(opt);
-                    personaContents[persona.id] = persona.content;
-                });
-                // Add custom option
-                const customOpt = document.createElement('option');
-                customOpt.value = 'custom';
-                customOpt.textContent = 'Custom Persona...';
-                personaSelect.appendChild(customOpt);
-                updatePersonaContent();
-                console.log('Personas loaded successfully:', data.personas.length);
-            } catch (e) {
-                console.error('Error loading personas:', e);
-                console.error('Error details:', e.message, e.stack);
-                // Provide a more comprehensive fallback without alert
-                personaSelect.innerHTML = `
-                    <option value="helpful_assistant">Helpful Assistant</option>
-                    <option value="code_expert">Code Expert</option>
-                    <option value="medical_doctor">Medical Doctor</option>
-                    <option value="research_scientist">Research Scientist</option>
-                    <option value="custom">Custom Persona...</option>
-                `;
-                if (contentDiv) {
-                    contentDiv.textContent = 'Using default personas. (Could not load from server)';
-                }
-                console.warn('Using fallback personas due to loading error');
+            if (!personaSelect) {
+                console.error('❌ Persona select element not found!');
+                return;
             }
+
+            // Load personas immediately with hardcoded values to ensure they show up
+            console.log('🔄 Loading personas directly...');
+            personaSelect.innerHTML = `
+                <option value="helpful_assistant" selected>Helpful Assistant</option>
+                <option value="code_expert">Code Expert</option>
+                <option value="medical_doctor">Medical Doctor</option>
+                <option value="pharmacist">Pharmacist</option>
+                <option value="psychologist">Psychologist</option>
+                <option value="business_analyst">Business Analyst</option>
+                <option value="legal_advisor">Legal Advisor</option>
+                <option value="tech_reviewer">Tech Reviewer</option>
+                <option value="authenticity_verifier">Authenticity Verifier</option>
+                <option value="research_scientist">Research Scientist</option>
+                <option value="custom">Custom Persona...</option>
+            `;
+
+            // Set up persona contents
+            window.personaContents = {
+                'helpful_assistant': 'You are a friendly and knowledgeable AI assistant. Your responses should: - Explain concepts clearly and patiently - Use simple language for complex topics - Provide practical examples - Answer step-by-step - Stay focused and relevant - Be supportive and encouraging - Maintain a helpful tone - Suggest additional resources',
+                'code_expert': 'You are a senior software developer. Your responses should: - Write clean, efficient code - Follow best practices - Include error handling - Provide documentation - Explain design choices - Consider performance - Include testing strategies - Suggest improvements',
+                'medical_doctor': 'You are an experienced medical professional. Your responses should: - Explain medical concepts clearly - Use evidence-based information - Consider patient context - Explain preventive measures - Discuss treatment options - Reference medical research - Maintain professional tone - Focus on accurate information',
+                'pharmacist': 'You are a professional pharmacist. Your responses should: - Provide pharmaceutical information - Explain medication usage and side effects - Advise on drug interactions - Emphasize safety and adherence - Reference clinical guidelines - Maintain a professional tone - Suggest consulting a healthcare provider for complex issues - Focus on patient well-being',
+                'psychologist': 'You are a professional psychologist. Your responses should: - Explain psychological concepts - Use supportive language - Consider mental health aspects - Provide coping strategies - Reference research findings - Maintain boundaries - Focus on well-being - Suggest professional resources',
+                'business_analyst': 'You are a skilled business analyst. Your responses should: - Analyze market trends - Provide data insights - Consider business context - Suggest strategies - Evaluate risks - Include metrics - Reference case studies - Focus on actionable insights',
+                'legal_advisor': 'You are an experienced legal professional. Your responses should: - Explain legal concepts - Reference relevant laws - Consider jurisdictions - Explain implications - Suggest precautions - Maintain clarity - Include disclaimers - Focus on understanding',
+                'tech_reviewer': 'You are a technology review specialist. Your responses should: - Analyze features - Compare alternatives - Consider use cases - Evaluate performance - Address limitations - Include benchmarks - Suggest configurations - Provide practical tips',
+                'authenticity_verifier': 'You are an authenticity verification agent. Your responses should: - Fact-check information for accuracy - Validate sources and references - Detect potential misinformation or bias - Assess reliability and credibility - Highlight unsupported claims - Suggest reputable sources for confirmation - Maintain objectivity and transparency - Clearly indicate confidence in the information',
+                'research_scientist': 'You are a research scientist. Your responses should: - Analyze methodology - Evaluate evidence - Explain findings - Consider limitations - Reference studies - Maintain objectivity - Include data analysis - Suggest further research'
+            };
+
+            console.log('✅ Personas loaded! Total options:', personaSelect.options.length);
+
+            // Set up event listeners
+            const customInput = document.getElementById('custom-persona-textarea');
             personaSelect.addEventListener('change', updatePersonaContent);
             if (customInput) customInput.addEventListener('input', updatePersonaContent);
+
+            // Initial content update
+            updatePersonaContent();
+            console.log('🎯 Event listeners attached and initial content set');
         }
 
         function updatePersonaContent() {

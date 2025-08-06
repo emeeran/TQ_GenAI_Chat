@@ -2,6 +2,7 @@
 File Manager Service
 Handles file operations, storage, and retrieval.
 """
+
 import json
 import logging
 import os
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     handler.setFormatter(formatter)
 
 
@@ -100,7 +103,9 @@ class FileManager:
 
     def allowed_file(self, filename: str) -> bool:
         """Check if a file has an allowed extension"""
-        return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+        return (
+            "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+        )
 
     def save_uploaded_file(self, file, custom_filename: str | None = None) -> str:
         """Save an uploaded file to the upload directory with secure naming"""
@@ -118,7 +123,9 @@ class FileManager:
 
         # Use custom filename if provided, otherwise use timestamp + original
         if custom_filename:
-            filename = f"{secure_filename(custom_filename)}_{int(datetime.now().timestamp())}"
+            filename = (
+                f"{secure_filename(custom_filename)}_{int(datetime.now().timestamp())}"
+            )
             # Preserve original extension
             if "." in original_filename:
                 filename += f".{original_filename.rsplit('.', 1)[1].lower()}"
@@ -240,7 +247,9 @@ class FileManager:
                         {
                             "filename": item.name,
                             "path": str(item),
-                            "created": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
+                            "created": datetime.fromtimestamp(
+                                item.stat().st_ctime
+                            ).isoformat(),
                             "title": chat_data.get("title", item.name),
                             "message_count": len(chat_data.get("messages", [])),
                         }

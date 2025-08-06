@@ -1,0 +1,72 @@
+
+==================================== ERRORS ====================================
+_____________________ ERROR collecting test_integration.py _____________________
+test_integration.py:8: in <module>
+    from app import create_app
+app/__init__.py:17: in <module>
+    from core.services import get_service
+core/services/__init__.py:3: in <module>
+    from .chat_service import ChatService
+core/services/chat_service.py:7: in <module>
+    from core.validation import ChatRequestValidator
+core/validation.py:16: in <module>
+    class ChatRequestModel(BaseModel):
+core/validation.py:27: in ChatRequestModel
+    @validator("history")
+     ^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/pydantic/deprecated/class_validators.py:140: in dec
+    raise PydanticUserError(
+E   pydantic.errors.PydanticUserError: `@validator` cannot be applied to instance methods
+E   
+E   For further information visit https://errors.pydantic.dev/2.9/u/validator-instance-method
+_______ ERROR collecting trash2review/test_files/test_audio_features.py ________
+import file mismatch:
+imported module 'test_audio_features' has this __file__ attribute:
+  /home/em/code/wip/TQ_GenAI_Chat/test_audio_features.py
+which is not the same as the test file we want to collect:
+  /home/em/code/wip/TQ_GenAI_Chat/trash2review/test_files/test_audio_features.py
+HINT: remove __pycache__ / .pyc files and/or use a unique basename for your test file modules
+_________ ERROR collecting trash2review/test_files/test_integration.py _________
+trash2review/test_files/test_integration.py:9: in <module>
+    from app import create_app
+app/__init__.py:17: in <module>
+    from core.services import get_service
+core/services/__init__.py:3: in <module>
+    from .chat_service import ChatService
+core/services/chat_service.py:7: in <module>
+    from core.validation import ChatRequestValidator
+core/validation.py:16: in <module>
+    class ChatRequestModel(BaseModel):
+core/validation.py:27: in ChatRequestModel
+    @validator("history")
+     ^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/pydantic/deprecated/class_validators.py:140: in dec
+    raise PydanticUserError(
+E   pydantic.errors.PydanticUserError: `@validator` cannot be applied to instance methods
+E   
+E   For further information visit https://errors.pydantic.dev/2.9/u/validator-instance-method
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/PyPDF2/__init__.py:21
+  /home/em/code/wip/TQ_GenAI_Chat/.venv/lib/python3.12/site-packages/PyPDF2/__init__.py:21: DeprecationWarning: PyPDF2 is deprecated. Please move to the pypdf library instead.
+    warnings.warn(
+
+.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:32
+  /home/em/code/wip/TQ_GenAI_Chat/.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:32: DeprecationWarning: 'pkgutil.find_loader' is deprecated and slated for removal in Python 3.14; use importlib.util.find_spec() instead
+    numpy_installed = find_loader("numpy") is not None
+
+.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:36
+  /home/em/code/wip/TQ_GenAI_Chat/.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:36: DeprecationWarning: 'pkgutil.find_loader' is deprecated and slated for removal in Python 3.14; use importlib.util.find_spec() instead
+    pandas_installed = find_loader("pandas") is not None
+
+core/validation.py:27
+core/validation.py:27
+  /home/em/code/wip/TQ_GenAI_Chat/core/validation.py:27: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.9/migration/
+    @validator("history")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR test_integration.py - pydantic.errors.PydanticUserError: `@validator` c...
+ERROR trash2review/test_files/test_audio_features.py
+ERROR trash2review/test_files/test_integration.py - pydantic.errors.PydanticU...
+!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!
+5 warnings, 3 errors in 11.11s

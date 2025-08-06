@@ -86,7 +86,12 @@ class AppConfig:
 
     def __post_init__(self):
         # Ensure directories exist
-        for directory in [self.upload_dir, self.export_dir, self.save_dir, self.temp_dir]:
+        for directory in [
+            self.upload_dir,
+            self.export_dir,
+            self.save_dir,
+            self.temp_dir,
+        ]:
             directory.mkdir(parents=True, exist_ok=True)
 
 
@@ -233,14 +238,21 @@ class ConfigManager:
 
     def get_available_providers(self) -> dict[str, AIProviderConfig]:
         """Get all available (configured) providers."""
-        return {name: config for name, config in self._providers.items() if config.is_available}
+        return {
+            name: config
+            for name, config in self._providers.items()
+            if config.is_available
+        }
 
     def validate_configuration(self) -> list[str]:
         """Validate configuration and return any errors."""
         errors = []
 
         # Check critical environment variables
-        if self.security.secret_key == "dev-key-change-in-production" and self.env == "production":
+        if (
+            self.security.secret_key == "dev-key-change-in-production"
+            and self.env == "production"
+        ):
             errors.append("SECRET_KEY must be set in production")
 
         # Check that at least one AI provider is configured

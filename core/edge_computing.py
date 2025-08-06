@@ -94,7 +94,9 @@ class EdgeNode:
             "public_ip": self.public_ip,
             "private_ip": self.private_ip,
             "status": self.status,
-            "last_heartbeat": self.last_heartbeat.isoformat() if self.last_heartbeat else None,
+            "last_heartbeat": (
+                self.last_heartbeat.isoformat() if self.last_heartbeat else None
+            ),
             "services": self.services,
             "metadata": self.metadata,
         }
@@ -206,7 +208,9 @@ class EdgeNodeManager:
 
         # Filter by location preference
         if preferred_location:
-            location_nodes = [n for n in candidate_nodes if n.location == preferred_location]
+            location_nodes = [
+                n for n in candidate_nodes if n.location == preferred_location
+            ]
             if location_nodes:
                 candidate_nodes = location_nodes
 
@@ -300,8 +304,9 @@ class EdgeNodeManager:
             node.status = "unhealthy"
 
             # Mark as offline if no heartbeat for 5 minutes
-            if node.last_heartbeat and datetime.utcnow() - node.last_heartbeat > timedelta(
-                minutes=5
+            if (
+                node.last_heartbeat
+                and datetime.utcnow() - node.last_heartbeat > timedelta(minutes=5)
             ):
                 node.status = "offline"
 
@@ -316,9 +321,13 @@ class EdgeOrchestrator:
         self.workload_distributions: dict[str, WorkloadDistribution] = {}
 
         # Initialize based on configuration
-        self.strategy = DeploymentStrategy(config.get("deployment_strategy", "regional_clusters"))
+        self.strategy = DeploymentStrategy(
+            config.get("deployment_strategy", "regional_clusters")
+        )
         self.auto_scaling_enabled = config.get("auto_scaling_enabled", True)
-        self.load_balancing_strategy = config.get("load_balancing_strategy", "round_robin")
+        self.load_balancing_strategy = config.get(
+            "load_balancing_strategy", "round_robin"
+        )
 
     async def start(self):
         """Start the edge orchestrator."""
@@ -376,7 +385,9 @@ class EdgeOrchestrator:
             node = self.node_manager.find_optimal_node(requirements, location)
 
             if not node:
-                logger.warning(f"No suitable node found for {service.name} in {location.value}")
+                logger.warning(
+                    f"No suitable node found for {service.name} in {location.value}"
+                )
                 return False
 
             # Deploy based on node type and deployment strategy
@@ -390,10 +401,14 @@ class EdgeOrchestrator:
                 return await self._deploy_to_container(service, node)
 
         except Exception as e:
-            logger.error(f"Deployment failed for {service.name} to {location.value}: {e}")
+            logger.error(
+                f"Deployment failed for {service.name} to {location.value}: {e}"
+            )
             return False
 
-    async def _deploy_to_kubernetes_cluster(self, service: EdgeService, node: EdgeNode) -> bool:
+    async def _deploy_to_kubernetes_cluster(
+        self, service: EdgeService, node: EdgeNode
+    ) -> bool:
         """Deploy service to Kubernetes cluster."""
         if not KUBERNETES_AVAILABLE:
             logger.error("Kubernetes client not available")
@@ -472,7 +487,9 @@ class EdgeOrchestrator:
             logger.error(f"CDN worker deployment failed: {e}")
             return False
 
-    async def _deploy_to_iot_gateway(self, service: EdgeService, node: EdgeNode) -> bool:
+    async def _deploy_to_iot_gateway(
+        self, service: EdgeService, node: EdgeNode
+    ) -> bool:
         """Deploy service to IoT gateway."""
         logger.info(f"Deploying {service.name} to IoT gateway {node.name}")
 
@@ -499,7 +516,9 @@ class EdgeOrchestrator:
             logger.error(f"IoT gateway deployment failed: {e}")
             return False
 
-    def _generate_k8s_manifest(self, service: EdgeService, node: EdgeNode) -> dict[str, Any]:
+    def _generate_k8s_manifest(
+        self, service: EdgeService, node: EdgeNode
+    ) -> dict[str, Any]:
         """Generate Kubernetes deployment manifest."""
         return {
             "apiVersion": "apps/v1",
@@ -515,9 +534,16 @@ class EdgeOrchestrator:
             },
             "spec": {
                 "replicas": service.replicas,
-                "selector": {"matchLabels": {"app": service.name, "location": node.location.value}},
+                "selector": {
+                    "matchLabels": {
+                        "app": service.name,
+                        "location": node.location.value,
+                    }
+                },
                 "template": {
-                    "metadata": {"labels": {"app": service.name, "location": node.location.value}},
+                    "metadata": {
+                        "labels": {"app": service.name, "location": node.location.value}
+                    },
                     "spec": {
                         "containers": [
                             {
@@ -525,7 +551,8 @@ class EdgeOrchestrator:
                                 "image": f"{service.image}:{service.version}",
                                 "ports": [{"containerPort": service.port}],
                                 "env": [
-                                    {"name": k, "value": v} for k, v in service.environment.items()
+                                    {"name": k, "value": v}
+                                    for k, v in service.environment.items()
                                 ],
                                 "resources": service.resource_requirements,
                             }
@@ -623,7 +650,9 @@ async function handleFileRequest(request) {{
             # Patch deployment
             body = {"spec": {"replicas": replicas}}
             v1.patch_namespaced_deployment_scale(
-                name=f"{service_name}-{location.value}", namespace="edge-services", body=body
+                name=f"{service_name}-{location.value}",
+                namespace="edge-services",
+                body=body,
             )
 
             return True
@@ -683,7 +712,9 @@ async function handleFileRequest(request) {{
             logger.error(f"Failed to create workload distribution: {e}")
             return False
 
-    def get_optimal_location_for_request(self, request_metadata: dict[str, Any]) -> EdgeLocation:
+    def get_optimal_location_for_request(
+        self, request_metadata: dict[str, Any]
+    ) -> EdgeLocation:
         """Determine optimal edge location for a request."""
         # client_ip = request_metadata.get('client_ip', '')  # pylint: disable=unused-variable
         user_location = request_metadata.get("user_location", "")
@@ -695,7 +726,9 @@ async function handleFileRequest(request) {{
                 return EdgeLocation.NORTH_AMERICA_WEST
             else:
                 return EdgeLocation.NORTH_AMERICA_EAST
-        elif any(country in user_location for country in ["GB", "FR", "DE", "ES", "IT"]):
+        elif any(
+            country in user_location for country in ["GB", "FR", "DE", "ES", "IT"]
+        ):
             return EdgeLocation.EUROPE_WEST
         elif any(country in user_location for country in ["PL", "CZ", "HU", "AT"]):
             return EdgeLocation.EUROPE_CENTRAL
@@ -728,18 +761,24 @@ async function handleFileRequest(request) {{
         service_distribution = {}
         for service_name in self.services.keys():
             service_distribution[service_name] = sum(
-                1 for node in self.node_manager.nodes.values() if service_name in node.services
+                1
+                for node in self.node_manager.nodes.values()
+                if service_name in node.services
             )
 
         # Resource utilization (placeholder - would come from monitoring)
         total_cpu = sum(node.cpu_cores for node in self.node_manager.nodes.values())
         total_memory = sum(node.memory_mb for node in self.node_manager.nodes.values())
-        total_storage = sum(node.storage_gb for node in self.node_manager.nodes.values())
+        total_storage = sum(
+            node.storage_gb for node in self.node_manager.nodes.values()
+        )
 
         return {
             "total_nodes": total_nodes,
             "healthy_nodes": healthy_nodes,
-            "node_health_percentage": (healthy_nodes / total_nodes * 100) if total_nodes > 0 else 0,
+            "node_health_percentage": (
+                (healthy_nodes / total_nodes * 100) if total_nodes > 0 else 0
+            ),
             "location_distribution": location_distribution,
             "service_distribution": service_distribution,
             "resource_summary": {
@@ -769,7 +808,11 @@ class EdgeOptimizedCache:
 
         # Store item
         expire_time = datetime.utcnow() + timedelta(seconds=ttl_seconds)
-        self.cache[key] = {"value": value, "size_mb": size_mb, "expire_time": expire_time}
+        self.cache[key] = {
+            "value": value,
+            "size_mb": size_mb,
+            "expire_time": expire_time,
+        }
         self.access_times[key] = datetime.utcnow()
         self.current_size_mb += size_mb
 
@@ -815,9 +858,11 @@ class EdgeOptimizedCache:
             "total_items": len(self.cache),
             "current_size_mb": self.current_size_mb,
             "max_size_mb": self.max_size_mb,
-            "utilization_percent": (self.current_size_mb / self.max_size_mb * 100)
-            if self.max_size_mb > 0
-            else 0,
+            "utilization_percent": (
+                (self.current_size_mb / self.max_size_mb * 100)
+                if self.max_size_mb > 0
+                else 0
+            ),
         }
 
 
@@ -827,7 +872,9 @@ class TQGenAIEdgeManager:
     def __init__(self, config: dict[str, Any]):
         self.config = config
         self.orchestrator = EdgeOrchestrator(config)
-        self.edge_cache = EdgeOptimizedCache(max_size_mb=config.get("cache_size_mb", 100))
+        self.edge_cache = EdgeOptimizedCache(
+            max_size_mb=config.get("cache_size_mb", 100)
+        )
 
         # Initialize edge services
         self._setup_edge_services()
@@ -845,9 +892,21 @@ class TQGenAIEdgeManager:
                 "requests": {"cpu": "200m", "memory": "256Mi"},
                 "limits": {"cpu": "500m", "memory": "512Mi"},
             },
-            environment={"EDGE_MODE": "true", "CACHE_ENABLED": "true", "LOG_LEVEL": "INFO"},
-            health_check={"path": "/health", "initial_delay_seconds": 30, "period_seconds": 10},
-            auto_scaling={"min_replicas": 1, "max_replicas": 5, "target_cpu_utilization": 70},
+            environment={
+                "EDGE_MODE": "true",
+                "CACHE_ENABLED": "true",
+                "LOG_LEVEL": "INFO",
+            },
+            health_check={
+                "path": "/health",
+                "initial_delay_seconds": 30,
+                "period_seconds": 10,
+            },
+            auto_scaling={
+                "min_replicas": 1,
+                "max_replicas": 5,
+                "target_cpu_utilization": 70,
+            },
         )
 
         # File processing service
@@ -914,7 +973,9 @@ class TQGenAIEdgeManager:
     async def route_request(self, request_metadata: dict[str, Any]) -> dict[str, Any]:
         """Route request to optimal edge location."""
         # Determine optimal location
-        optimal_location = self.orchestrator.get_optimal_location_for_request(request_metadata)
+        optimal_location = self.orchestrator.get_optimal_location_for_request(
+            request_metadata
+        )
 
         # Find healthy nodes at that location
         nodes = self.orchestrator.node_manager.get_nodes_by_location(optimal_location)
@@ -931,17 +992,25 @@ class TQGenAIEdgeManager:
             "target_location": optimal_location.value,
             "endpoint": f"https://{optimal_location.value}.tq-genai.edge.com",
             "cache_enabled": True,
-            "routing_metadata": {"latency_optimized": True, "edge_node_count": len(healthy_nodes)},
+            "routing_metadata": {
+                "latency_optimized": True,
+                "edge_node_count": len(healthy_nodes),
+            },
         }
 
-    async def cache_response(self, key: str, response: Any, cache_duration: int = 300) -> bool:
+    async def cache_response(
+        self, key: str, response: Any, cache_duration: int = 300
+    ) -> bool:
         """Cache response at edge."""
         try:
             # Estimate response size (simplified)
             response_size = len(str(response)) / (1024 * 1024)  # MB
 
             self.edge_cache.put(
-                key=key, value=response, size_mb=response_size, ttl_seconds=cache_duration
+                key=key,
+                value=response,
+                size_mb=response_size,
+                ttl_seconds=cache_duration,
             )
 
             return True
@@ -965,12 +1034,16 @@ class TQGenAIEdgeManager:
             "deployment_status": {
                 "services_deployed": len(self.orchestrator.services),
                 "total_deployments": sum(
-                    len(node.services) for node in self.orchestrator.node_manager.nodes.values()
+                    len(node.services)
+                    for node in self.orchestrator.node_manager.nodes.values()
                 ),
             },
             "global_coverage": {
                 "active_locations": len(
-                    {node.location for node in self.orchestrator.node_manager.get_healthy_nodes()}
+                    {
+                        node.location
+                        for node in self.orchestrator.node_manager.get_healthy_nodes()
+                    }
                 ),
                 "total_locations": len(EdgeLocation),
             },

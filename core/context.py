@@ -1,4 +1,5 @@
 """Enhanced context manager for document processing"""
+
 import json
 import sqlite3
 from typing import Any
@@ -26,7 +27,9 @@ class ContextManager:
             """
             )
 
-    def add_document(self, filename: str, content: str, metadata: dict[str, Any] = None):
+    def add_document(
+        self, filename: str, content: str, metadata: dict[str, Any] = None
+    ):
         """Add document to context"""
         doc_id = self._generate_id()
         metadata = metadata or {}

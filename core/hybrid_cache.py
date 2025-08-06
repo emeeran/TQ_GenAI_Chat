@@ -274,7 +274,11 @@ class HybridCache:
         self.memory_cache = LRUCache(maxsize=memory_maxsize, ttl=memory_ttl)
         self.redis_cache = RedisCache(redis_url=redis_url, ttl=redis_ttl)
         self.disk_cache = DiskCache(cache_dir=disk_cache_dir, ttl=disk_ttl)
-        self.stats = {"hits": {"memory": 0, "redis": 0, "disk": 0}, "misses": 0, "sets": 0}
+        self.stats = {
+            "hits": {"memory": 0, "redis": 0, "disk": 0},
+            "misses": 0,
+            "sets": 0,
+        }
 
     async def start(self):
         """Initialize cache layers."""

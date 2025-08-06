@@ -1,4 +1,5 @@
 """AI Provider module initialization"""
+
 from .anthropic_provider import AnthropicProvider
 from .base import AIProviderInterface, ChatMessage, ChatRequest, ChatResponse
 from .factory import ProviderFactory

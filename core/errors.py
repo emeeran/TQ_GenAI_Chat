@@ -1,4 +1,5 @@
 """Enhanced error handling system"""
+
 import logging
 import traceback
 from functools import wraps
@@ -10,7 +11,9 @@ from flask import jsonify
 class APIError(Exception):
     """Base API exception"""
 
-    def __init__(self, message: str, status_code: int = 500, details: dict | None = None):
+    def __init__(
+        self, message: str, status_code: int = 500, details: dict | None = None
+    ):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -66,7 +69,11 @@ class ErrorHandler:
             "status_code": 500,
             "details": {
                 "type": type(error).__name__,
-                "traceback": traceback.format_exc() if self.logger.level <= logging.DEBUG else None,
+                "traceback": (
+                    traceback.format_exc()
+                    if self.logger.level <= logging.DEBUG
+                    else None
+                ),
             },
         }
 

@@ -247,7 +247,10 @@ class EventStore(ABC):
 
     @abstractmethod
     async def get_event_count(
-        self, event_type: EventType = None, start_time: datetime = None, end_time: datetime = None
+        self,
+        event_type: EventType = None,
+        start_time: datetime = None,
+        end_time: datetime = None,
     ) -> int:
         """Get count of events matching criteria."""
         pass
@@ -296,11 +299,17 @@ class InMemoryEventStore(EventStore):
         return filtered_events[:limit]
 
     async def get_event_count(
-        self, event_type: EventType = None, start_time: datetime = None, end_time: datetime = None
+        self,
+        event_type: EventType = None,
+        start_time: datetime = None,
+        end_time: datetime = None,
     ) -> int:
         """Get count of events matching criteria."""
         events = await self.get_events(
-            event_type=event_type, start_time=start_time, end_time=end_time, limit=999999
+            event_type=event_type,
+            start_time=start_time,
+            end_time=end_time,
+            limit=999999,
         )
         return len(events)
 
@@ -444,7 +453,10 @@ class SQLiteEventStore(EventStore):
             return []
 
     async def get_event_count(
-        self, event_type: EventType = None, start_time: datetime = None, end_time: datetime = None
+        self,
+        event_type: EventType = None,
+        start_time: datetime = None,
+        end_time: datetime = None,
     ) -> int:
         """Get count of events matching criteria."""
         try:
@@ -487,13 +499,18 @@ class MetricsCollector:
         self.histograms: dict[str, list[float]] = {}
         self.timers: dict[str, list[float]] = {}
 
-    def increment_counter(self, name: str, value: float = 1.0, tags: dict[str, str] = None):
+    def increment_counter(
+        self, name: str, value: float = 1.0, tags: dict[str, str] = None
+    ):
         """Increment a counter metric."""
         key = self._get_metric_key(name, tags or {})
         self.counters[key] = self.counters.get(key, 0) + value
 
         metric = Metric(
-            name=name, value=self.counters[key], metric_type=MetricType.COUNTER, tags=tags or {}
+            name=name,
+            value=self.counters[key],
+            metric_type=MetricType.COUNTER,
+            tags=tags or {},
         )
         self.metrics.append(metric)
 
@@ -502,7 +519,9 @@ class MetricsCollector:
         key = self._get_metric_key(name, tags or {})
         self.gauges[key] = value
 
-        metric = Metric(name=name, value=value, metric_type=MetricType.GAUGE, tags=tags or {})
+        metric = Metric(
+            name=name, value=value, metric_type=MetricType.GAUGE, tags=tags or {}
+        )
         self.metrics.append(metric)
 
     def record_histogram(self, name: str, value: float, tags: dict[str, str] = None):
@@ -512,7 +531,9 @@ class MetricsCollector:
             self.histograms[key] = []
         self.histograms[key].append(value)
 
-        metric = Metric(name=name, value=value, metric_type=MetricType.HISTOGRAM, tags=tags or {})
+        metric = Metric(
+            name=name, value=value, metric_type=MetricType.HISTOGRAM, tags=tags or {}
+        )
         self.metrics.append(metric)
 
     def record_timer(self, name: str, duration: float, tags: dict[str, str] = None):
@@ -522,10 +543,14 @@ class MetricsCollector:
             self.timers[key] = []
         self.timers[key].append(duration)
 
-        metric = Metric(name=name, value=duration, metric_type=MetricType.TIMER, tags=tags or {})
+        metric = Metric(
+            name=name, value=duration, metric_type=MetricType.TIMER, tags=tags or {}
+        )
         self.metrics.append(metric)
 
-    def get_histogram_stats(self, name: str, tags: dict[str, str] = None) -> dict[str, float]:
+    def get_histogram_stats(
+        self, name: str, tags: dict[str, str] = None
+    ) -> dict[str, float]:
         """Get statistics for a histogram."""
         key = self._get_metric_key(name, tags or {})
         values = self.histograms.get(key, [])
@@ -544,7 +569,9 @@ class MetricsCollector:
             "p99": self._percentile(values, 0.99),
         }
 
-    def get_timer_stats(self, name: str, tags: dict[str, str] = None) -> dict[str, float]:
+    def get_timer_stats(
+        self, name: str, tags: dict[str, str] = None
+    ) -> dict[str, float]:
         """Get statistics for a timer."""
         return self.get_histogram_stats(name, tags)
 
@@ -573,7 +600,9 @@ class UserBehaviorAnalyzer:
     def __init__(self, event_store: EventStore):
         self.event_store = event_store
 
-    async def get_user_activity_summary(self, user_id: str, days: int = 30) -> dict[str, Any]:
+    async def get_user_activity_summary(
+        self, user_id: str, days: int = 30
+    ) -> dict[str, Any]:
         """Get user activity summary for the past N days."""
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(days=days)
@@ -619,13 +648,19 @@ class UserBehaviorAnalyzer:
         for day_events in daily_activity.values():
             if len(day_events) >= 2:
                 day_events.sort(key=lambda e: e.timestamp)
-                duration = (day_events[-1].timestamp - day_events[0].timestamp).total_seconds()
+                duration = (
+                    day_events[-1].timestamp - day_events[0].timestamp
+                ).total_seconds()
                 session_durations.append(duration)
 
-        avg_session_duration = statistics.mean(session_durations) if session_durations else 0
+        avg_session_duration = (
+            statistics.mean(session_durations) if session_durations else 0
+        )
 
         # Top features
-        top_features = sorted(feature_usage.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_features = sorted(feature_usage.items(), key=lambda x: x[1], reverse=True)[
+            :5
+        ]
 
         return {
             "user_id": user_id,
@@ -675,8 +710,12 @@ class UserBehaviorAnalyzer:
         for user_id, profile in user_profiles.items():
             profile["unique_event_types"] = len(profile["event_types"])
             profile["unique_features_used"] = len(profile["features_used"])
-            profile["days_active"] = (profile["last_seen"] - profile["first_seen"]).days + 1
-            profile["avg_events_per_day"] = profile["total_events"] / profile["days_active"]
+            profile["days_active"] = (
+                profile["last_seen"] - profile["first_seen"]
+            ).days + 1
+            profile["avg_events_per_day"] = (
+                profile["total_events"] / profile["days_active"]
+            )
 
             # Convert sets to lists for JSON serialization
             profile["event_types"] = list(profile["event_types"])
@@ -693,7 +732,9 @@ class UserBehaviorAnalyzer:
 
         return segments
 
-    async def calculate_retention_rates(self, cohort_period: str = "weekly") -> dict[str, Any]:
+    async def calculate_retention_rates(
+        self, cohort_period: str = "weekly"
+    ) -> dict[str, Any]:
         """Calculate user retention rates."""
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(days=90)  # Look at 90 days of data
@@ -714,7 +755,9 @@ class UserBehaviorAnalyzer:
                 user_first_activity[user_id] = activity_date
                 user_activity_dates[user_id] = set()
 
-            user_first_activity[user_id] = min(user_first_activity[user_id], activity_date)
+            user_first_activity[user_id] = min(
+                user_first_activity[user_id], activity_date
+            )
             user_activity_dates[user_id].add(activity_date)
 
         # Calculate retention by cohort
@@ -744,7 +787,9 @@ class UserBehaviorAnalyzer:
                     target_date = first_date + timedelta(days=period)
 
                     # Check if user was active around target date (±3 days)
-                    for check_date in [target_date + timedelta(days=d) for d in range(-3, 4)]:
+                    for check_date in [
+                        target_date + timedelta(days=d) for d in range(-3, 4)
+                    ]:
                         if check_date in user_activity_dates[user_id]:
                             retained_users += 1
                             break
@@ -775,7 +820,9 @@ class ABTestManager:
     def __init__(self, event_store: EventStore):
         self.event_store = event_store
         self.tests: dict[str, ABTest] = {}
-        self.user_assignments: dict[str, dict[str, str]] = {}  # user_id -> {test_id: variant_id}
+        self.user_assignments: dict[str, dict[str, str]] = (
+            {}
+        )  # user_id -> {test_id: variant_id}
 
     def create_test(self, test: ABTest) -> bool:
         """Create a new A/B test."""
@@ -804,7 +851,10 @@ class ABTestManager:
         test = self.tests[test_id]
 
         # Check if user already assigned
-        if user_id in self.user_assignments and test_id in self.user_assignments[user_id]:
+        if (
+            user_id in self.user_assignments
+            and test_id in self.user_assignments[user_id]
+        ):
             return self.user_assignments[user_id][test_id]
 
         # Check if test is running
@@ -828,7 +878,9 @@ class ABTestManager:
                     self.user_assignments[user_id] = {}
                 self.user_assignments[user_id][test_id] = variant.id
 
-                logger.debug(f"Assigned user {user_id} to variant {variant.id} in test {test_id}")
+                logger.debug(
+                    f"Assigned user {user_id} to variant {variant.id} in test {test_id}"
+                )
                 return variant.id
 
         # Fallback to first variant
@@ -883,7 +935,9 @@ class ABTestManager:
         variant_results = {}
 
         for variant in test.variants:
-            variant_users = [uid for uid, vid in variant_assignments.items() if vid == variant.id]
+            variant_users = [
+                uid for uid, vid in variant_assignments.items() if vid == variant.id
+            ]
 
             if not variant_users:
                 variant_results[variant.id] = {
@@ -899,12 +953,17 @@ class ABTestManager:
             variant_events = []
             for user_id in variant_users:
                 user_events = await self.event_store.get_events(
-                    user_id=user_id, start_time=test.start_date, end_time=test.end_date, limit=10000
+                    user_id=user_id,
+                    start_time=test.start_date,
+                    end_time=test.end_date,
+                    limit=10000,
                 )
                 variant_events.extend(user_events)
 
             # Calculate metrics
-            conversions = len([e for e in variant_events if e.event_type == EventType.CHAT_MESSAGE])
+            conversions = len(
+                [e for e in variant_events if e.event_type == EventType.CHAT_MESSAGE]
+            )
 
             # Calculate session durations
             user_sessions = {}
@@ -920,13 +979,17 @@ class ABTestManager:
                     duration = (timestamps[-1] - timestamps[0]).total_seconds()
                     session_durations.append(duration)
 
-            avg_session_duration = statistics.mean(session_durations) if session_durations else 0
+            avg_session_duration = (
+                statistics.mean(session_durations) if session_durations else 0
+            )
 
             variant_results[variant.id] = {
                 "name": variant.name,
                 "users": len(variant_users),
                 "conversions": conversions,
-                "conversion_rate": conversions / len(variant_users) if variant_users else 0,
+                "conversion_rate": (
+                    conversions / len(variant_users) if variant_users else 0
+                ),
                 "avg_session_duration": avg_session_duration,
             }
 
@@ -960,17 +1023,23 @@ class AnalyticsDashboard:
         events_last_day = await self.event_store.get_event_count(start_time=day_ago)
 
         # Active users
-        recent_events = await self.event_store.get_events(start_time=hour_ago, limit=10000)
+        recent_events = await self.event_store.get_events(
+            start_time=hour_ago, limit=10000
+        )
         active_users_hour = len({e.user_id for e in recent_events})
 
-        recent_events_day = await self.event_store.get_events(start_time=day_ago, limit=50000)
+        recent_events_day = await self.event_store.get_events(
+            start_time=day_ago, limit=50000
+        )
         active_users_day = len({e.user_id for e in recent_events_day})
 
         # Error rate
         error_events_hour = await self.event_store.get_event_count(
             event_type=EventType.ERROR_OCCURRED, start_time=hour_ago
         )
-        error_rate = (error_events_hour / events_last_hour * 100) if events_last_hour > 0 else 0
+        error_rate = (
+            (error_events_hour / events_last_hour * 100) if events_last_hour > 0 else 0
+        )
 
         return {
             "timestamp": now.isoformat(),
@@ -980,9 +1049,9 @@ class AnalyticsDashboard:
             "active_users_day": active_users_day,
             "error_rate_percent": error_rate,
             "system_metrics": {
-                "response_time_p95": self.metrics.get_histogram_stats("response_time").get(
-                    "p95", 0
-                ),
+                "response_time_p95": self.metrics.get_histogram_stats(
+                    "response_time"
+                ).get("p95", 0),
                 "request_rate": self.metrics.counters.get("http_requests", 0),
             },
         }
@@ -1035,8 +1104,12 @@ class AnalyticsDashboard:
             day_stats["unique_users"] = len(day_stats["unique_users"])
 
         # Top features and providers
-        top_features = sorted(feature_usage.items(), key=lambda x: x[1], reverse=True)[:10]
-        top_providers = sorted(provider_usage.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_features = sorted(feature_usage.items(), key=lambda x: x[1], reverse=True)[
+            :10
+        ]
+        top_providers = sorted(
+            provider_usage.items(), key=lambda x: x[1], reverse=True
+        )[:5]
 
         return {
             "period": {
@@ -1047,13 +1120,15 @@ class AnalyticsDashboard:
             "summary": {
                 "total_events": len(events),
                 "unique_users": len({e.user_id for e in events}),
-                "avg_events_per_user": len(events) / len({e.user_id for e in events})
-                if events
-                else 0,
+                "avg_events_per_user": (
+                    len(events) / len({e.user_id for e in events}) if events else 0
+                ),
             },
             "daily_breakdown": daily_stats,
             "top_features": [{"feature": f, "usage_count": c} for f, c in top_features],
-            "top_providers": [{"provider": p, "usage_count": c} for p, c in top_providers],
+            "top_providers": [
+                {"provider": p, "usage_count": c} for p, c in top_providers
+            ],
         }
 
 
@@ -1086,7 +1161,10 @@ class AdvancedAnalyticsManager:
                 id="power_users",
                 name="Power Users",
                 description="Users with high activity",
-                criteria={"total_events": {"gte": 100}, "unique_features_used": {"gte": 5}},
+                criteria={
+                    "total_events": {"gte": 100},
+                    "unique_features_used": {"gte": 5},
+                },
             ),
             UserSegment(
                 id="new_users",
@@ -1124,7 +1202,9 @@ class AdvancedAnalyticsManager:
 
         if success:
             # Update real-time metrics
-            self.metrics.increment_counter("events_total", tags={"type": event_type.value})
+            self.metrics.increment_counter(
+                "events_total", tags={"type": event_type.value}
+            )
             logger.debug(f"Tracked event: {event_type.value} for user {user_id}")
 
         return success
@@ -1135,7 +1215,9 @@ class AdvancedAnalyticsManager:
         activity = await self.behavior_analyzer.get_user_activity_summary(user_id)
 
         # Check which segments user belongs to
-        user_segments = await self.behavior_analyzer.get_user_segments(self.user_segments)
+        user_segments = await self.behavior_analyzer.get_user_segments(
+            self.user_segments
+        )
         user_segment_names = []
         for segment_name, user_list in user_segments.items():
             if user_id in user_list:
@@ -1145,7 +1227,9 @@ class AdvancedAnalyticsManager:
             "user_id": user_id,
             "activity_summary": activity,
             "segments": user_segment_names,
-            "recommendations": self._generate_user_recommendations(activity, user_segment_names),
+            "recommendations": self._generate_user_recommendations(
+                activity, user_segment_names
+            ),
         }
 
     def _generate_user_recommendations(
@@ -1155,11 +1239,17 @@ class AdvancedAnalyticsManager:
         recommendations = []
 
         if "new_users" in segments:
-            recommendations.append("Try uploading a document to enhance your chat experience")
-            recommendations.append("Explore different AI providers to find your preferred style")
+            recommendations.append(
+                "Try uploading a document to enhance your chat experience"
+            )
+            recommendations.append(
+                "Explore different AI providers to find your preferred style"
+            )
 
         if "at_risk" in segments:
-            recommendations.append("Check out our new features to re-engage with the platform")
+            recommendations.append(
+                "Check out our new features to re-engage with the platform"
+            )
             recommendations.append("Consider setting up automated workflows")
 
         if activity["avg_session_duration"] < 300:  # Less than 5 minutes
@@ -1226,7 +1316,11 @@ class AdvancedAnalyticsManager:
             "user_segments": segment_summary,
             "retention_analysis": retention,
             "active_ab_tests": len(
-                [t for t in self.ab_test_manager.tests.values() if t.status == ABTestStatus.RUNNING]
+                [
+                    t
+                    for t in self.ab_test_manager.tests.values()
+                    if t.status == ABTestStatus.RUNNING
+                ]
             ),
         }
 
@@ -1248,7 +1342,10 @@ if __name__ == "__main__":
 
         # Track various events
         await analytics.track_event(
-            EventType.USER_LOGIN, user_id, session_id, properties={"login_method": "email"}
+            EventType.USER_LOGIN,
+            user_id,
+            session_id,
+            properties={"login_method": "email"},
         )
 
         await analytics.track_event(
@@ -1274,7 +1371,11 @@ if __name__ == "__main__":
             description="Test different chat interfaces",
             variants=[
                 {"name": "Control", "description": "Current interface", "weight": 0.5},
-                {"name": "New Design", "description": "Updated interface", "weight": 0.5},
+                {
+                    "name": "New Design",
+                    "description": "Updated interface",
+                    "weight": 0.5,
+                },
             ],
         )
 

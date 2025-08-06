@@ -1,4 +1,5 @@
 """Service container for dependency injection"""
+
 from typing import Any, TypeVar
 
 from core.context import ContextManager

@@ -176,7 +176,9 @@ class CryptographyManager:
         self.fernet = Fernet(self.master_key.encode())
 
         # Generate RSA key pair for asymmetric encryption
-        self.private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self.private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=2048
+        )
         self.public_key = self.private_key.public_key()
 
     def _generate_master_key(self) -> str:
@@ -202,7 +204,9 @@ class CryptographyManager:
             logger.error(f"Decryption failed: {e}")
             raise
 
-    def encrypt_with_public_key(self, data: str, public_key_pem: str | None = None) -> str:
+    def encrypt_with_public_key(
+        self, data: str, public_key_pem: str | None = None
+    ) -> str:
         """Encrypt data with RSA public key."""
         try:
             if public_key_pem:
@@ -330,7 +334,9 @@ class LocalAuthenticationProvider(AuthenticationProvider):
         for user in self.users.values():
             if user.username == username:
                 if user.is_locked():
-                    logger.warning(f"Authentication attempt for locked user: {username}")
+                    logger.warning(
+                        f"Authentication attempt for locked user: {username}"
+                    )
                     return None
 
                 if user.id in self.password_data:
@@ -345,7 +351,9 @@ class LocalAuthenticationProvider(AuthenticationProvider):
 
                         # Lock account after 5 failed attempts
                         if user.failed_login_attempts >= 5:
-                            user.locked_until = datetime.utcnow() + timedelta(minutes=30)
+                            user.locked_until = datetime.utcnow() + timedelta(
+                                minutes=30
+                            )
 
                         return None
 
@@ -380,7 +388,11 @@ class LDAPAuthenticationProvider(AuthenticationProvider):
     """LDAP/Active Directory authentication provider."""
 
     def __init__(
-        self, ldap_server: str, base_dn: str, bind_dn: str = None, bind_password: str = None
+        self,
+        ldap_server: str,
+        base_dn: str,
+        bind_dn: str = None,
+        bind_password: str = None,
     ):
         if not LDAP_AVAILABLE:
             raise ImportError("ldap3 package required for LDAP authentication")
@@ -420,10 +432,14 @@ class LDAPAuthenticationProvider(AuthenticationProvider):
                 user = User(
                     id=str(user_entry.objectGUID),
                     username=username,
-                    email=str(user_entry.mail)
-                    if hasattr(user_entry, "mail")
-                    else f"{username}@company.com",
-                    roles={UserRole.USER},  # Default role, could be mapped from LDAP groups
+                    email=(
+                        str(user_entry.mail)
+                        if hasattr(user_entry, "mail")
+                        else f"{username}@company.com"
+                    ),
+                    roles={
+                        UserRole.USER
+                    },  # Default role, could be mapped from LDAP groups
                     last_login=datetime.utcnow(),
                 )
 
@@ -532,14 +548,18 @@ class SessionManager:
             "user_agent": user_agent,
             "created_at": datetime.utcnow().isoformat(),
             "last_activity": datetime.utcnow().isoformat(),
-            "expires_at": (datetime.utcnow() + timedelta(seconds=self.session_timeout)).isoformat(),
+            "expires_at": (
+                datetime.utcnow() + timedelta(seconds=self.session_timeout)
+            ).isoformat(),
         }
 
         # Store session
         if self.redis_client:
             try:
                 self.redis_client.setex(
-                    f"session:{session_id}", self.session_timeout, json.dumps(session_data)
+                    f"session:{session_id}",
+                    self.session_timeout,
+                    json.dumps(session_data),
                 )
             except Exception as e:
                 logger.error(f"Failed to store session in Redis: {e}")
@@ -574,7 +594,9 @@ class SessionManager:
         try:
             if self.redis_client:
                 self.redis_client.setex(
-                    f"session:{session_id}", self.session_timeout, json.dumps(session_data)
+                    f"session:{session_id}",
+                    self.session_timeout,
+                    json.dumps(session_data),
                 )
             else:
                 self.sessions[session_id] = session_data
@@ -621,7 +643,9 @@ class SecurityAuditLogger:
 
         if not self.logger.handlers:
             handler = logging.FileHandler(log_file)
-            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
 
@@ -643,7 +667,9 @@ class SecurityAuditLogger:
 
     def _handle_high_risk_event(self, event: SecurityEvent):
         """Handle high-risk security events."""
-        logger.critical(f"HIGH RISK SECURITY EVENT: {event.event_type} - {event.details}")
+        logger.critical(
+            f"HIGH RISK SECURITY EVENT: {event.event_type} - {event.details}"
+        )
 
         # Could integrate with alerting systems here
         # - Send email notification
@@ -699,10 +725,18 @@ class SecurityAuditLogger:
 
         # Security metrics
         failed_logins = len(
-            [e for e in events if e.event_type == "authentication" and e.result == "failure"]
+            [
+                e
+                for e in events
+                if e.event_type == "authentication" and e.result == "failure"
+            ]
         )
         successful_logins = len(
-            [e for e in events if e.event_type == "authentication" and e.result == "success"]
+            [
+                e
+                for e in events
+                if e.event_type == "authentication" and e.result == "success"
+            ]
         )
         high_risk_events = len([e for e in events if e.risk_score >= 80])
 
@@ -710,9 +744,11 @@ class SecurityAuditLogger:
             "failed_login_attempts": failed_logins,
             "successful_logins": successful_logins,
             "high_risk_events": high_risk_events,
-            "login_failure_rate": failed_logins / (failed_logins + successful_logins)
-            if (failed_logins + successful_logins) > 0
-            else 0,
+            "login_failure_rate": (
+                failed_logins / (failed_logins + successful_logins)
+                if (failed_logins + successful_logins) > 0
+                else 0
+            ),
         }
 
         # Compliance-specific recommendations
@@ -752,7 +788,9 @@ class SecurityAuditLogger:
             )
 
         failed_auth_events = [
-            e for e in events if e.event_type == "authentication" and e.result == "failure"
+            e
+            for e in events
+            if e.event_type == "authentication" and e.result == "failure"
         ]
         if len(failed_auth_events) > 100:
             recommendations.append(
@@ -832,7 +870,9 @@ class EnterpriseSecurityManager:
 
             if user:
                 # Successful authentication
-                session_id = self.session_manager.create_session(user, ip_address, user_agent)
+                session_id = self.session_manager.create_session(
+                    user, ip_address, user_agent
+                )
 
                 event.user_id = user.id
                 event.result = "success"
@@ -880,7 +920,9 @@ class EnterpriseSecurityManager:
 
         return user
 
-    def logout_user(self, session_id: str, user_id: str, ip_address: str, user_agent: str):
+    def logout_user(
+        self, session_id: str, user_id: str, ip_address: str, user_agent: str
+    ):
         """Logout user and invalidate session."""
         success = self.session_manager.invalidate_session(session_id)
 
@@ -899,7 +941,12 @@ class EnterpriseSecurityManager:
         self.audit_logger.log_event(event)
 
     def check_permission(
-        self, user: User, permission: Permission, resource: str, ip_address: str, user_agent: str
+        self,
+        user: User,
+        permission: Permission,
+        resource: str,
+        ip_address: str,
+        user_agent: str,
     ) -> bool:
         """Check if user has permission for action."""
         has_permission = user.has_permission(permission)
@@ -940,7 +987,9 @@ class EnterpriseSecurityManager:
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=days)
 
-        return self.audit_logger.generate_compliance_report(standard, start_date, end_date)
+        return self.audit_logger.generate_compliance_report(
+            standard, start_date, end_date
+        )
 
     def get_security_metrics(self) -> dict[str, Any]:
         """Get security metrics dashboard."""
@@ -1031,7 +1080,9 @@ if __name__ == "__main__":
             print("Security metrics:", json.dumps(metrics, indent=2))
 
             # Generate compliance report
-            report = security_manager.generate_compliance_report(ComplianceStandard.SOC2)
+            report = security_manager.generate_compliance_report(
+                ComplianceStandard.SOC2
+            )
             print("Compliance report:", json.dumps(report, indent=2, default=str))
 
         else:

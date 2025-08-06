@@ -1,4 +1,5 @@
 """Chat service with business logic"""
+
 from typing import Any
 
 from core.context import ContextManager

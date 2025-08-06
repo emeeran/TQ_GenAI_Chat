@@ -44,7 +44,11 @@ def get_personas():
     except Exception as e:
         return (
             jsonify(
-                {"success": False, "error": f"Failed to get personas: {str(e)}", "personas": []}
+                {
+                    "success": False,
+                    "error": f"Failed to get personas: {str(e)}",
+                    "personas": [],
+                }
             ),
             500,
         )

@@ -12,7 +12,13 @@ import tempfile
 import time
 from pathlib import Path
 
-import speech_recognition as sr
+try:
+    import speech_recognition as sr
+    SPEECH_RECOGNITION_AVAILABLE = True
+except ImportError:
+    sr = None
+    SPEECH_RECOGNITION_AVAILABLE = False
+
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
@@ -74,7 +80,17 @@ def index():
 @app.route("/get_personas")
 def get_personas():
     """Get available personas"""
-    return jsonify(list(PERSONAS.keys()))
+    personas_list = []
+    for persona_id, persona_content in PERSONAS.items():
+        # Convert snake_case to Title Case for display
+        display_name = persona_id.replace('_', ' ').title()
+        personas_list.append({
+            "id": persona_id,
+            "name": display_name,
+            "content": persona_content
+        })
+    
+    return jsonify({"personas": personas_list})
 
 
 @app.route("/get_persona_content/<persona_key>")
@@ -96,7 +112,9 @@ def get_models(provider):
 
         # Get the default model for this provider
         provider_instance = provider_manager.get_provider(provider)
-        default_model = provider_instance.config.default_model if provider_instance else None
+        default_model = (
+            provider_instance.config.default_model if provider_instance else None
+        )
 
         return jsonify({"models": models, "default": default_model})
     except Exception as e:
@@ -106,21 +124,76 @@ def get_models(provider):
 
 @app.route("/update_models/<provider>", methods=["POST"])
 def update_models(provider):
-    """Update models for a provider"""
+    """Update models for a provider by fetching from their API"""
     try:
-        data = request.get_json()
-        if not data or "models" not in data:
-            return jsonify({"error": "Models data required"}), 400
+        if not provider_manager.is_provider_available(provider):
+            return jsonify({"error": f"Provider {provider} not available"}), 404
 
-        models = data["models"]
-        if not isinstance(models, list):
-            return jsonify({"error": "Models must be a list"}), 400
+        # Import the update script functionality
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+        
+        from update_models_from_providers import fetch_provider_models
+        
+        # Fetch latest models from provider
+        new_models = fetch_provider_models(provider)
+        
+        if not new_models:
+            return jsonify({"error": f"Failed to fetch models for {provider}"}), 500
 
-        model_manager.update_models(provider, models)
-        return jsonify({"message": f"Models updated for {provider}", "count": len(models)})
+        # Update the model manager
+        model_manager.update_models(provider, new_models)
+        
+        # Get the default model for this provider
+        provider_instance = provider_manager.get_provider(provider)
+        default_model = (
+            provider_instance.config.default_model if provider_instance else None
+        )
+
+        return jsonify({
+            "success": True,
+            "message": f"Successfully updated {len(new_models)} models for {provider}",
+            "models": new_models,
+            "default": default_model,
+            "count": len(new_models)
+        })
+        
     except Exception as e:
         app.logger.error(f"Error updating models for {provider}: {str(e)}")
-        return jsonify({"error": "Failed to update models"}), 500
+        return jsonify({"error": f"Failed to update models: {str(e)}"}), 500
+
+
+@app.route("/set_default_model/<provider>", methods=["POST"])
+def set_default_model(provider):
+    """Set default model for a provider"""
+    try:
+        if not provider_manager.is_provider_available(provider):
+            return jsonify({"error": f"Provider {provider} not available"}), 404
+
+        data = request.get_json()
+        if not data or "model" not in data:
+            return jsonify({"error": "Model is required"}), 400
+
+        model = data["model"]
+        
+        # Verify model exists for provider
+        if not model_manager.is_model_available(provider, model):
+            return jsonify({"error": f"Model {model} not available for {provider}"}), 400
+
+        # Set as default
+        model_manager.set_default_model(provider, model)
+        
+        return jsonify({
+            "success": True,
+            "message": f"Set {model} as default for {provider}",
+            "provider": provider,
+            "model": model
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error setting default model for {provider}: {str(e)}")
+        return jsonify({"error": f"Failed to set default model: {str(e)}"}), 500
 
 
 # --- Chat Routes ---
@@ -137,7 +210,12 @@ def chat():
             return jsonify({"error": "Provider is required"}), 400
 
         if not provider_manager.is_provider_available(provider):
-            return jsonify({"error": f"Provider {provider} not available or not configured"}), 401
+            return (
+                jsonify(
+                    {"error": f"Provider {provider} not available or not configured"}
+                ),
+                401,
+            )
 
         response = chat_handler.process_chat_request(data)
         return jsonify(response)
@@ -165,7 +243,11 @@ def search_context():
         formatted_results = [
             {
                 "filename": r["filename"],
-                "excerpt": r["content"][:500] + "..." if len(r["content"]) > 500 else r["content"],
+                "excerpt": (
+                    r["content"][:500] + "..."
+                    if len(r["content"]) > 500
+                    else r["content"]
+                ),
                 "similarity": r["similarity"],
             }
             for r in results
@@ -279,7 +361,11 @@ def upload_files():
 
         if len(files) > app.config["MAX_FILES"]:
             return (
-                jsonify({"error": f'Too many files. Maximum {app.config["MAX_FILES"]} allowed'}),
+                jsonify(
+                    {
+                        "error": f'Too many files. Maximum {app.config["MAX_FILES"]} allowed'
+                    }
+                ),
                 400,
             )
 
@@ -330,6 +416,9 @@ def upload_status(filename):
 @app.route("/upload_audio", methods=["POST"])
 def upload_audio():
     """Upload and transcribe audio files"""
+    if not SPEECH_RECOGNITION_AVAILABLE:
+        return jsonify({"error": "Speech recognition not available - missing speech_recognition module"}), 503
+    
     try:
         if "audio" not in request.files:
             return jsonify({"error": "No audio file provided"}), 400
@@ -450,7 +539,9 @@ def load_chat(filename):
         # Convert backend format to frontend format
         history = []
         for msg in chat_data.get("messages", []):
-            history.append({"content": msg.get("content", ""), "isUser": msg.get("role") == "user"})
+            history.append(
+                {"content": msg.get("content", ""), "isUser": msg.get("role") == "user"}
+            )
 
         return jsonify(
             {
@@ -556,12 +647,14 @@ def health_check():
             "status": "healthy",
             "providers": provider_manager.list_providers(),
             "models_loaded": len(model_manager.get_all_models()),
-            "documents": file_manager.total_documents
-            if hasattr(file_manager, "total_documents")
-            else 0,
+            "documents": (
+                file_manager.total_documents
+                if hasattr(file_manager, "total_documents")
+                else 0
+            ),
         }
     )
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    app.run(debug=True, host="0.0.0.0", port=5005)

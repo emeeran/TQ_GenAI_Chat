@@ -15,7 +15,10 @@ def list_documents():
         return jsonify({"success": True, "documents": [], "total": 0})
 
     except Exception as e:
-        return jsonify({"success": False, "error": f"Failed to list documents: {str(e)}"}), 500
+        return (
+            jsonify({"success": False, "error": f"Failed to list documents: {str(e)}"}),
+            500,
+        )
 
 
 @api_bp.route("/documents/upload", methods=["POST"])
@@ -25,11 +28,20 @@ def upload_document():
     try:
         # For now, return success - this would integrate with file service
         return jsonify(
-            {"success": True, "message": "Document upload endpoint ready", "document_id": None}
+            {
+                "success": True,
+                "message": "Document upload endpoint ready",
+                "document_id": None,
+            }
         )
 
     except Exception as e:
-        return jsonify({"success": False, "error": f"Failed to upload document: {str(e)}"}), 500
+        return (
+            jsonify(
+                {"success": False, "error": f"Failed to upload document: {str(e)}"}
+            ),
+            500,
+        )
 
 
 @api_bp.route("/documents/<document_id>", methods=["DELETE"])
@@ -39,8 +51,16 @@ def delete_document(document_id):
     try:
         # For now, return success - this would integrate with file service
         return jsonify(
-            {"success": True, "message": f"Document {document_id} delete endpoint ready"}
+            {
+                "success": True,
+                "message": f"Document {document_id} delete endpoint ready",
+            }
         )
 
     except Exception as e:
-        return jsonify({"success": False, "error": f"Failed to delete document: {str(e)}"}), 500
+        return (
+            jsonify(
+                {"success": False, "error": f"Failed to delete document: {str(e)}"}
+            ),
+            500,
+        )

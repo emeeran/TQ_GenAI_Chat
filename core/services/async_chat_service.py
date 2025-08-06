@@ -1,4 +1,5 @@
 """Async chat service with performance optimizations"""
+
 from typing import Any
 
 from core.background_tasks import submit_background_task

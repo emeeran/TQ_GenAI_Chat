@@ -1,4 +1,5 @@
 """Performance monitoring and metrics collection"""
+
 import asyncio
 import time
 from collections import defaultdict, deque
@@ -52,7 +53,9 @@ class PerformanceMonitor:
 
         import threading
 
-        self.monitor_thread = threading.Thread(target=_start_background_monitoring, daemon=True)
+        self.monitor_thread = threading.Thread(
+            target=_start_background_monitoring, daemon=True
+        )
         self.monitor_thread.start()
 
         self.logger.info("Performance monitoring started in background thread")

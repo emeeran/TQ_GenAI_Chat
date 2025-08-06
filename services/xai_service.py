@@ -1,6 +1,7 @@
 """
 Service for interacting with XAI (Grok) API.
 """
+
 import os
 from typing import Any
 
@@ -20,7 +21,9 @@ class XAIService:
         """Initialize XAI service with API key validation"""
         self.api_key = os.environ.get("XAI_API_KEY", "")
         if not self.api_key:
-            raise ValueError("XAI API key not configured. Please set XAI_API_KEY in .env file.")
+            raise ValueError(
+                "XAI API key not configured. Please set XAI_API_KEY in .env file."
+            )
 
         # Use the correct base URL for XAI/Grok API
         self.base_url = "https://api.x.ai/v1"
@@ -30,7 +33,10 @@ class XAIService:
 
     def _create_headers(self) -> dict[str, str]:
         """Create request headers with API key"""
-        return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
     def generate_response(
         self,

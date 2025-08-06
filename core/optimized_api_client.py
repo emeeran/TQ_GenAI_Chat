@@ -42,7 +42,9 @@ class CircuitBreaker:
 
             if self.failure_count >= self.failure_threshold:
                 self.state = "OPEN"
-                logger.warning(f"Circuit breaker opened due to {self.failure_count} failures")
+                logger.warning(
+                    f"Circuit breaker opened due to {self.failure_count} failures"
+                )
 
             raise e
 
@@ -81,7 +83,9 @@ class OptimizedAPIClient:
     async def start(self):
         """Initialize the HTTP session."""
         if self.session is None:
-            self.session = aiohttp.ClientSession(connector=self.connector, timeout=self.timeout)
+            self.session = aiohttp.ClientSession(
+                connector=self.connector, timeout=self.timeout
+            )
         return self.session
 
     async def close(self):
@@ -103,7 +107,9 @@ class OptimizedAPIClient:
             self.rate_limits[endpoint] = []
 
         # Clean old requests
-        self.rate_limits[endpoint] = [t for t in self.rate_limits[endpoint] if t > now - 60]
+        self.rate_limits[endpoint] = [
+            t for t in self.rate_limits[endpoint] if t > now - 60
+        ]
 
         if len(self.rate_limits[endpoint]) >= 60:
             return False
@@ -154,12 +160,16 @@ class OptimizedAPIClient:
             except Exception as e:
                 retry_count += 1
                 if retry_count == max_retries:
-                    logger.error(f"Request failed after {max_retries} retries: {str(e)}")
+                    logger.error(
+                        f"Request failed after {max_retries} retries: {str(e)}"
+                    )
                     raise
 
                 # Exponential backoff
                 await asyncio.sleep(2**retry_count)
-                logger.warning(f"Retrying request {retry_count}/{max_retries}: {str(e)}")
+                logger.warning(
+                    f"Retrying request {retry_count}/{max_retries}: {str(e)}"
+                )
 
 
 # Global instance

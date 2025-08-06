@@ -761,6 +761,7 @@ function provideFeedback(isPositive) {
 
 async function updateModelsFromProvider() {
     const provider = document.getElementById('provider').value;
+    const modelSelect = document.getElementById('model');
 
     if (!provider) {
         alert('Please select a provider first');
@@ -775,6 +776,10 @@ async function updateModelsFromProvider() {
         updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
         updateBtn.disabled = true;
 
+        // Also show loading in dropdown
+        modelSelect.innerHTML = '<option value="">Updating models...</option>';
+        modelSelect.disabled = true;
+
         const response = await fetch(`/update_models/${provider}`, {
             method: 'POST',
             headers: {
@@ -785,15 +790,64 @@ async function updateModelsFromProvider() {
         const data = await response.json();
 
         if (data.success) {
-            // Refresh the model dropdown
-            await updateModels();
+            // Directly populate the dropdown with the updated models
+            const models = data.models;
+            const defaultModel = data.default;
 
-            alert(`✅ ${data.message}\n\nFound ${data.models.length} models:\n${data.models.slice(0, 5).join(', ')}${data.models.length > 5 ? '...' : ''}`);
+            modelSelect.innerHTML = '<option value="">Select Model</option>';
+
+            if (Array.isArray(models) && models.length > 0) {
+                models.sort().forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    if (model === defaultModel) {
+                        option.selected = true;
+                    }
+                    modelSelect.appendChild(option);
+                });
+                modelSelect.disabled = false;
+                
+                // Update the display
+                updateProviderModelDisplay();
+
+                // Enhanced success message with more details
+                let successMessage = `✅ ${data.message}\n\n` +
+                    `📊 Found ${data.count} total models`;
+                
+                if (data.has_preview_models) {
+                    successMessage += `\n🔬 Preview models: ${data.preview_count}` +
+                        `\n✅ Stable models: ${data.stable_count}`;
+                }
+                
+                successMessage += `\n📡 Source: ${data.data_source}`;
+                
+                if (data.preview_models && data.preview_models.length > 0) {
+                    successMessage += `\n\n🔬 Preview models include:\n${data.preview_models.slice(0, 3).join(', ')}${data.preview_models.length > 3 ? '...' : ''}`;
+                }
+
+                successMessage += `\n\n📋 First few models:\n${models.slice(0, 5).join(', ')}${models.length > 5 ? '...' : ''}`;
+
+                alert(successMessage);
+            } else {
+                modelSelect.innerHTML = '<option value="">No models available</option>';
+                modelSelect.disabled = true;
+                alert(`⚠️ No models found for ${provider}`);
+            }
         } else {
             throw new Error(data.error || 'Failed to update models');
         }
     } catch (error) {
         console.error('Model update error:', error);
+        
+        // Restore previous models if available
+        try {
+            await updateModels();
+        } catch (restoreError) {
+            modelSelect.innerHTML = '<option value="">Error loading models</option>';
+            modelSelect.disabled = true;
+        }
+        
         alert(`❌ Error updating models: ${error.message}`);
     } finally {
         // Restore button state

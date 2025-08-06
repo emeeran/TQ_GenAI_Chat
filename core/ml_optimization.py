@@ -306,7 +306,9 @@ class SmartRecommendationEngine:
             if perf.get("total_requests", 0) > 0:
                 avg_response_time = perf["total_response_time"] / perf["total_requests"]
                 avg_satisfaction = (
-                    np.mean(perf["satisfaction_scores"]) if perf["satisfaction_scores"] else 0.5
+                    np.mean(perf["satisfaction_scores"])
+                    if perf["satisfaction_scores"]
+                    else 0.5
                 )
 
                 # Score: high satisfaction, low response time
@@ -398,13 +400,16 @@ class SmartRecommendationEngine:
 
             # Recommend content that similar users found satisfying
             for similar_user_id, similarity_score in similar_users[:3]:
-                similar_user_interactions = self.user_interactions.get(similar_user_id, [])
+                similar_user_interactions = self.user_interactions.get(
+                    similar_user_id, []
+                )
 
                 # Find highly rated interactions
                 high_satisfaction = [
                     interaction
                     for interaction in similar_user_interactions
-                    if interaction.satisfaction_score and interaction.satisfaction_score > 0.8
+                    if interaction.satisfaction_score
+                    and interaction.satisfaction_score > 0.8
                 ]
 
                 if high_satisfaction:
@@ -506,9 +511,13 @@ class SmartRecommendationEngine:
 
             # Recent satisfaction
             recent_satisfaction = [
-                i.satisfaction_score for i in user_history[-10:] if i.satisfaction_score is not None
+                i.satisfaction_score
+                for i in user_history[-10:]
+                if i.satisfaction_score is not None
             ]
-            features.append(np.mean(recent_satisfaction) if recent_satisfaction else 0.5)
+            features.append(
+                np.mean(recent_satisfaction) if recent_satisfaction else 0.5
+            )
         else:
             features.extend([0.0, 0.5])
 
@@ -601,7 +610,9 @@ class SmartRecommendationEngine:
 
         # Satisfaction patterns
         satisfaction_scores = [
-            i.satisfaction_score for i in interactions if i.satisfaction_score is not None
+            i.satisfaction_score
+            for i in interactions
+            if i.satisfaction_score is not None
         ]
         if satisfaction_scores:
             features.extend([np.mean(satisfaction_scores), np.std(satisfaction_scores)])
@@ -644,7 +655,9 @@ class SmartRecommendationEngine:
             # Train satisfaction prediction model
             satisfaction_mask = [score is not None for score in y_satisfaction]
             if sum(satisfaction_mask) > 10:
-                X_sat = [x for x, mask in zip(X, satisfaction_mask, strict=False) if mask]
+                X_sat = [
+                    x for x, mask in zip(X, satisfaction_mask, strict=False) if mask
+                ]
                 y_sat = [score for score in y_satisfaction if score is not None]
                 self.satisfaction_predictor.fit(X_sat, y_sat)
 
@@ -656,7 +669,9 @@ class SmartRecommendationEngine:
         except Exception as e:
             logger.error(f"Model retraining failed: {e}")
 
-    def _prepare_training_data(self) -> Tuple[List[List[float]], List[str], List[Optional[float]]]:
+    def _prepare_training_data(
+        self,
+    ) -> Tuple[List[List[float]], List[str], List[Optional[float]]]:
         """Prepare training data from user interactions."""
         X = []
         y_provider = []
@@ -681,7 +696,9 @@ class SmartRecommendationEngine:
                 joblib.dump(self.provider_predictor, "models/provider_predictor.pkl")
 
             if hasattr(self.satisfaction_predictor, "feature_importances_"):
-                joblib.dump(self.satisfaction_predictor, "models/satisfaction_predictor.pkl")
+                joblib.dump(
+                    self.satisfaction_predictor, "models/satisfaction_predictor.pkl"
+                )
 
             logger.info("Models saved successfully")
 
@@ -701,7 +718,9 @@ class SmartRecommendationEngine:
                 logger.info("Provider predictor model loaded")
 
             if os.path.exists("models/satisfaction_predictor.pkl"):
-                self.satisfaction_predictor = joblib.load("models/satisfaction_predictor.pkl")
+                self.satisfaction_predictor = joblib.load(
+                    "models/satisfaction_predictor.pkl"
+                )
                 logger.info("Satisfaction predictor model loaded")
 
         except Exception as e:
@@ -719,12 +738,18 @@ class UsagePredictionEngine:
     async def initialize(self):
         """Initialize the prediction engine."""
         if SKLEARN_AVAILABLE:
-            self.prediction_model = RandomForestRegressor(n_estimators=100, random_state=42)
+            self.prediction_model = RandomForestRegressor(
+                n_estimators=100, random_state=42
+            )
 
         logger.info("Usage prediction engine initialized")
 
     def record_usage(
-        self, timestamp: datetime, concurrent_users: int, request_rate: float, provider: str
+        self,
+        timestamp: datetime,
+        concurrent_users: int,
+        request_rate: float,
+        provider: str,
     ):
         """Record usage data point."""
         self.usage_history.append(
@@ -905,12 +930,18 @@ class MLPoweredOptimizer:
         )
 
         # 3. Get content recommendations
-        recommendations = await self.recommendation_engine.recommend_content(user_id, message)
+        recommendations = await self.recommendation_engine.recommend_content(
+            user_id, message
+        )
 
         return {
             "recommended_provider": recommended_provider,
             "content_recommendations": [
-                {"content": rec.content, "confidence": rec.confidence, "reason": rec.reason}
+                {
+                    "content": rec.content,
+                    "confidence": rec.confidence,
+                    "reason": rec.reason,
+                }
                 for rec in recommendations
             ],
             "processing_time": time.time() - start_time,
@@ -962,7 +993,9 @@ class MLPoweredOptimizer:
             },
             "recommendations": {
                 "users_tracked": len(self.recommendation_engine.user_interactions),
-                "providers_tracked": len(self.recommendation_engine.provider_performance),
+                "providers_tracked": len(
+                    self.recommendation_engine.provider_performance
+                ),
                 "models_trained": self.recommendation_engine.models_initialized,
             },
             "usage_prediction": {

@@ -194,7 +194,12 @@ class RateLimiter:
             )
         else:
             return self._check_rate_limit_local(
-                identifier, limit, window_seconds, burst_limit, current_time, window_start
+                identifier,
+                limit,
+                window_seconds,
+                burst_limit,
+                current_time,
+                window_start,
             )
 
     def _check_rate_limit_redis(
@@ -280,7 +285,9 @@ class RateLimiter:
         data = self.local_cache[identifier]
 
         # Remove old requests
-        data["requests"] = [req_time for req_time in data["requests"] if req_time > window_start]
+        data["requests"] = [
+            req_time for req_time in data["requests"] if req_time > window_start
+        ]
 
         # Check burst limit
         if burst_limit and len(data["requests"]) >= burst_limit:
@@ -316,17 +323,24 @@ class InputValidator:
 
     def __init__(self):
         # Patterns for validation
-        self.email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+        self.email_pattern = re.compile(
+            r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        )
         self.filename_pattern = re.compile(r"^[a-zA-Z0-9._-]+$")
-        self.safe_text_pattern = re.compile(r'^[a-zA-Z0-9\s.,!?;:()\'"@#$%&*+=\-_/\\]+$')
+        self.safe_text_pattern = re.compile(
+            r'^[a-zA-Z0-9\s.,!?;:()\'"@#$%&*+=\-_/\\]+$'
+        )
 
         # SQL injection patterns
         self.sql_injection_patterns = [
             re.compile(
-                r"(\bUNION\b|\bSELECT\b|\bINSERT\b|\bDELETE\b|\bUPDATE\b|\bDROP\b)", re.IGNORECASE
+                r"(\bUNION\b|\bSELECT\b|\bINSERT\b|\bDELETE\b|\bUPDATE\b|\bDROP\b)",
+                re.IGNORECASE,
             ),
             re.compile(r"(--|#|/\*|\*/)", re.IGNORECASE),
-            re.compile(r"(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)", re.IGNORECASE),
+            re.compile(
+                r"(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)", re.IGNORECASE
+            ),
         ]
 
         # XSS patterns
@@ -486,15 +500,23 @@ class SecurityAuditor:
 
     def log_failed_login(self, user_id: str, ip_address: str, reason: str):
         """Log failed login attempt."""
-        self.log_event("FAILED_LOGIN", user_id, ip_address, {"reason": reason}, "WARNING")
+        self.log_event(
+            "FAILED_LOGIN", user_id, ip_address, {"reason": reason}, "WARNING"
+        )
 
     def log_rate_limit_exceeded(self, user_id: str, ip_address: str, endpoint: str):
         """Log rate limit exceeded."""
         self.log_event(
-            "RATE_LIMIT_EXCEEDED", user_id, ip_address, {"endpoint": endpoint}, "WARNING"
+            "RATE_LIMIT_EXCEEDED",
+            user_id,
+            ip_address,
+            {"endpoint": endpoint},
+            "WARNING",
         )
 
-    def log_suspicious_input(self, user_id: str, ip_address: str, input_type: str, content: str):
+    def log_suspicious_input(
+        self, user_id: str, ip_address: str, input_type: str, content: str
+    ):
         """Log suspicious input detected."""
         self.log_event(
             "SUSPICIOUS_INPUT",
@@ -504,20 +526,32 @@ class SecurityAuditor:
             "ERROR",
         )
 
-    def log_api_key_access(self, user_id: str, ip_address: str, provider: str, action: str):
+    def log_api_key_access(
+        self, user_id: str, ip_address: str, provider: str, action: str
+    ):
         """Log API key access."""
         self.log_event(
-            "API_KEY_ACCESS", user_id, ip_address, {"provider": provider, "action": action}, "INFO"
+            "API_KEY_ACCESS",
+            user_id,
+            ip_address,
+            {"provider": provider, "action": action},
+            "INFO",
         )
 
-    def get_recent_events(self, hours: int = 24, severity: str = None) -> list[SecurityEvent]:
+    def get_recent_events(
+        self, hours: int = 24, severity: str = None
+    ) -> list[SecurityEvent]:
         """Get recent security events."""
         cutoff_time = time.time() - (hours * 3600)
 
-        recent_events = [event for event in self.events if event.timestamp >= cutoff_time]
+        recent_events = [
+            event for event in self.events if event.timestamp >= cutoff_time
+        ]
 
         if severity:
-            recent_events = [event for event in recent_events if event.severity == severity]
+            recent_events = [
+                event for event in recent_events if event.severity == severity
+            ]
 
         return recent_events
 
@@ -594,7 +628,12 @@ class SecurityManager:
         return ""
 
     def validate_request(
-        self, user_id: str, ip_address: str, endpoint: str, data: dict, rate_limit: int = 60
+        self,
+        user_id: str,
+        ip_address: str,
+        endpoint: str,
+        data: dict,
+        rate_limit: int = 60,
     ) -> tuple[bool, str]:
         """Validate incoming request."""
 
@@ -607,12 +646,17 @@ class SecurityManager:
 
         if not allowed:
             self.auditor.log_rate_limit_exceeded(user_id, ip_address, endpoint)
-            return False, f"Rate limit exceeded. Try again in {rate_info['retry_after']} seconds."
+            return (
+                False,
+                f"Rate limit exceeded. Try again in {rate_info['retry_after']} seconds.",
+            )
 
         # Input validation
         valid, errors = self.input_validator.validate_api_input(data)
         if not valid:
-            self.auditor.log_suspicious_input(user_id, ip_address, "API_INPUT", str(errors))
+            self.auditor.log_suspicious_input(
+                user_id, ip_address, "API_INPUT", str(errors)
+            )
             return False, f"Invalid input: {'; '.join(errors)}"
 
         return True, "OK"
@@ -624,7 +668,9 @@ class SecurityManager:
 
         # Create HMAC signature
         secret_key = secrets.token_urlsafe(32)
-        signature = hmac.new(secret_key.encode(), data.encode(), hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            secret_key.encode(), data.encode(), hashlib.sha256
+        ).hexdigest()
 
         return f"{data}:{signature}:{secret_key}"
 

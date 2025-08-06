@@ -1,35 +1,11 @@
 # AI Models Configuration Utilities
 from typing import Any
 
-from ai_models import (
-    ALIBABA_MODELS,
-    ANTHROPIC_MODELS,
-    COHERE_MODELS,
-    DEEPSEEK_MODELS,
-    GEMINI_MODELS,
-    GROQ_MODELS,
-    HUGGINGFACE_MODELS,
-    MISTRAL_MODELS,
-    MOONSHOT_MODELS,
-    OPENAI_MODELS,
-    OPENROUTER_MODELS,
-    XAI_MODELS,
-)
+from .models import model_manager
 
-ALL_MODELS = {
-    "openai": OPENAI_MODELS,
-    "groq": GROQ_MODELS,
-    "anthropic": ANTHROPIC_MODELS,
-    "mistral": MISTRAL_MODELS,
-    "xai": XAI_MODELS,
-    "deepseek": DEEPSEEK_MODELS,
-    "cohere": COHERE_MODELS,
-    "gemini": GEMINI_MODELS,
-    "alibaba": ALIBABA_MODELS,
-    "openrouter": OPENROUTER_MODELS,
-    "huggingface": HUGGINGFACE_MODELS,
-    "moonshot": MOONSHOT_MODELS,
-}
+def get_all_models() -> dict[str, list[str]]:
+    """Get all models from the model manager"""
+    return model_manager.get_all_models()
 
 # Default models for each provider
 DEFAULT_MODELS = {
@@ -90,8 +66,8 @@ def get_models(provider: str) -> list[dict[str, Any]]:
     Returns:
         List of model configurations
     """
-    models_dict = ALL_MODELS.get(provider, {})
-    return [{"id": model_id, **model_info} for model_id, model_info in models_dict.items()]
+    models = model_manager.get_models(provider)
+    return [{"id": model_id, "provider": provider} for model_id in models]
 
 
 def get_default_model(provider: str) -> str:
@@ -131,9 +107,8 @@ def get_model_info(provider: str, model_id: str) -> dict[str, Any] | None:
     Returns:
         Model configuration or None if not found
     """
-    provider_models = ALL_MODELS.get(provider, {})
-    if model_id in provider_models:
-        return {"id": model_id, "provider": provider, **provider_models[model_id]}
+    if model_manager.is_model_available(provider, model_id):
+        return {"id": model_id, "provider": provider}
     return None
 
 
@@ -144,7 +119,7 @@ def get_available_providers() -> list[str]:
     Returns:
         List of provider names
     """
-    return list(ALL_MODELS.keys())
+    return list(model_manager.get_all_models().keys())
 
 
 def get_api_endpoint(provider: str) -> str:

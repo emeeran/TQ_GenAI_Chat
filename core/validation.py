@@ -1,8 +1,9 @@
 """Request validation using Pydantic"""
+
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChatMessageModel(BaseModel):
@@ -23,8 +24,9 @@ class ChatRequestModel(BaseModel):
     persona: str | None = Field(None, max_length=10000)
     history: list[ChatMessageModel] = Field(default_factory=list)
 
-    @validator("history")
-    def validate_history_length(self, v):
+    @field_validator("history")
+    @classmethod
+    def validate_history_length(cls, v):
         if len(v) > 100:  # Reasonable limit
             raise ValueError("Chat history too long")
         return v
@@ -54,7 +56,18 @@ class ChatRequestValidator:
 class FileUploadValidator:
     """Validator for file uploads"""
 
-    ALLOWED_EXTENSIONS = {"pdf", "docx", "xlsx", "csv", "txt", "md", "png", "jpg", "jpeg", "gif"}
+    ALLOWED_EXTENSIONS = {
+        "pdf",
+        "docx",
+        "xlsx",
+        "csv",
+        "txt",
+        "md",
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+    }
     MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
     def validate_file(self, filename: str, file_size: int) -> ValidationResult:
@@ -63,14 +76,21 @@ class FileUploadValidator:
 
         # Check extension
         if not self._allowed_file(filename):
-            errors.append(f"File type not allowed. Allowed: {', '.join(self.ALLOWED_EXTENSIONS)}")
+            errors.append(
+                f"File type not allowed. Allowed: {', '.join(self.ALLOWED_EXTENSIONS)}"
+            )
 
         # Check size
         if file_size > self.MAX_FILE_SIZE:
-            errors.append(f"File too large. Max size: {self.MAX_FILE_SIZE // (1024*1024)}MB")
+            errors.append(
+                f"File too large. Max size: {self.MAX_FILE_SIZE // (1024*1024)}MB"
+            )
 
         return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
     def _allowed_file(self, filename: str) -> bool:
         """Check if file extension is allowed"""
-        return "." in filename and filename.rsplit(".", 1)[1].lower() in self.ALLOWED_EXTENSIONS
+        return (
+            "." in filename
+            and filename.rsplit(".", 1)[1].lower() in self.ALLOWED_EXTENSIONS
+        )

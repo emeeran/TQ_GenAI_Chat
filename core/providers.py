@@ -39,8 +39,7 @@ class ProviderType(Enum):
 class Configurable(Protocol):
     """Protocol for configurable providers"""
 
-    def is_configured(self) -> bool:
-        ...
+    def is_configured(self) -> bool: ...
 
 
 class TQChatError(Exception):
@@ -153,7 +152,8 @@ class BaseProvider(ABC):
             "fallback_used": fallback_used,
             "request_count": self._request_count,
             "error_count": self._error_count,
-            "success_rate": (self._request_count - self._error_count) / max(self._request_count, 1),
+            "success_rate": (self._request_count - self._error_count)
+            / max(self._request_count, 1),
         }
 
     def _handle_http_error(self, error: requests.HTTPError) -> str:
@@ -168,7 +168,9 @@ class BaseProvider(ABC):
             case 429:
                 return "Rate limit exceeded - please try again later"
             case 500 | 502 | 503 | 504:
-                return f"Server error ({status_code}) - provider temporarily unavailable"
+                return (
+                    f"Server error ({status_code}) - provider temporarily unavailable"
+                )
             case _:
                 return f"HTTP {status_code}: {str(error)}"
 
@@ -180,7 +182,12 @@ class BaseProvider(ABC):
 
     @abstractmethod
     def _prepare_request(
-        self, model: str, message: str, persona: str, temperature: float, max_tokens: int
+        self,
+        model: str,
+        message: str,
+        persona: str,
+        temperature: float,
+        max_tokens: int,
     ) -> tuple[str, RequestHeaders, RequestPayload]:
         """Prepare request parameters with type hints"""
         pass
@@ -227,7 +234,9 @@ class BaseProvider(ABC):
                 response.raise_for_status()
                 result = response.json()
 
-                return self._extract_response(result, model_to_use, response_time, i > 0)
+                return self._extract_response(
+                    result, model_to_use, response_time, i > 0
+                )
 
             except requests.HTTPError as e:
                 self._error_count += 1
@@ -273,7 +282,12 @@ class OpenAICompatibleProvider(BaseProvider):
         return self._provider_name
 
     def _prepare_request(
-        self, model: str, message: str, persona: str, temperature: float, max_tokens: int
+        self,
+        model: str,
+        message: str,
+        persona: str,
+        temperature: float,
+        max_tokens: int,
     ) -> tuple[str, RequestHeaders, RequestPayload]:
         """Prepare OpenAI-compatible request with validation"""
         headers: RequestHeaders = {
@@ -342,7 +356,12 @@ class AnthropicProvider(BaseProvider):
         return "anthropic"
 
     def _prepare_request(
-        self, model: str, message: str, persona: str, temperature: float, max_tokens: int
+        self,
+        model: str,
+        message: str,
+        persona: str,
+        temperature: float,
+        max_tokens: int,
     ) -> tuple[str, dict, dict]:
         headers = {
             "x-api-key": self.config.key,
@@ -366,13 +385,17 @@ class AnthropicProvider(BaseProvider):
             if "content" in result and result["content"]:
                 text = result["content"][0]["text"]
                 return APIResponse(
-                    text=text, metadata=self._create_metadata(model, response_time, fallback_used)
+                    text=text,
+                    metadata=self._create_metadata(model, response_time, fallback_used),
                 )
         except (KeyError, IndexError, TypeError):
             pass
 
         return APIResponse(
-            text="", metadata={}, success=False, error="Invalid Anthropic response structure"
+            text="",
+            metadata={},
+            success=False,
+            error="Invalid Anthropic response structure",
         )
 
 
@@ -384,12 +407,21 @@ class GeminiProvider(BaseProvider):
         return "gemini"
 
     def _prepare_request(
-        self, model: str, message: str, persona: str, temperature: float, max_tokens: int
+        self,
+        model: str,
+        message: str,
+        persona: str,
+        temperature: float,
+        max_tokens: int,
     ) -> tuple[str, dict, dict]:
-        endpoint = f"{self.config.endpoint}{model}:generateContent?key={self.config.key}"
+        endpoint = (
+            f"{self.config.endpoint}{model}:generateContent?key={self.config.key}"
+        )
         headers = {"Content-Type": "application/json"}
 
-        payload = {"contents": [{"role": "user", "parts": [{"text": f"{persona}\n{message}"}]}]}
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": f"{persona}\n{message}"}]}]
+        }
 
         return endpoint, headers, payload
 
@@ -404,13 +436,18 @@ class GeminiProvider(BaseProvider):
                     text = parts[0]["text"]
                     return APIResponse(
                         text=text,
-                        metadata=self._create_metadata(model, response_time, fallback_used),
+                        metadata=self._create_metadata(
+                            model, response_time, fallback_used
+                        ),
                     )
         except (KeyError, IndexError, TypeError):
             pass
 
         return APIResponse(
-            text="", metadata={}, success=False, error="Invalid Gemini response structure"
+            text="",
+            metadata={},
+            success=False,
+            error="Invalid Gemini response structure",
         )
 
 
@@ -422,9 +459,17 @@ class CohereProvider(BaseProvider):
         return "cohere"
 
     def _prepare_request(
-        self, model: str, message: str, persona: str, temperature: float, max_tokens: int
+        self,
+        model: str,
+        message: str,
+        persona: str,
+        temperature: float,
+        max_tokens: int,
     ) -> tuple[str, dict, dict]:
-        headers = {"Authorization": f"Bearer {self.config.key}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {self.config.key}",
+            "Content-Type": "application/json",
+        }
 
         payload = {
             "model": model,
@@ -441,11 +486,15 @@ class CohereProvider(BaseProvider):
         try:
             text = result["message"]["content"][0]["text"]
             return APIResponse(
-                text=text, metadata=self._create_metadata(model, response_time, fallback_used)
+                text=text,
+                metadata=self._create_metadata(model, response_time, fallback_used),
             )
         except (KeyError, IndexError, TypeError):
             return APIResponse(
-                text="", metadata={}, success=False, error="Invalid Cohere response structure"
+                text="",
+                metadata={},
+                success=False,
+                error="Invalid Cohere response structure",
             )
 
 
@@ -457,11 +506,19 @@ class HuggingFaceProvider(BaseProvider):
         return "huggingface"
 
     def _prepare_request(
-        self, model: str, message: str, persona: str, temperature: float, max_tokens: int
+        self,
+        model: str,
+        message: str,
+        persona: str,
+        temperature: float,
+        max_tokens: int,
     ) -> tuple[str, dict, dict]:
         # Hugging Face uses model-specific endpoints
         endpoint = f"{self.config.endpoint}{model}"
-        headers = {"Authorization": f"Bearer {self.config.key}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {self.config.key}",
+            "Content-Type": "application/json",
+        }
 
         # Build the prompt with persona if provided
         prompt = f"{persona}\n{message}" if persona.strip() else message
@@ -500,7 +557,8 @@ class HuggingFaceProvider(BaseProvider):
                 text = str(result)
 
             return APIResponse(
-                text=text, metadata=self._create_metadata(model, response_time, fallback_used)
+                text=text,
+                metadata=self._create_metadata(model, response_time, fallback_used),
             )
         except (KeyError, IndexError, TypeError) as e:
             return APIResponse(

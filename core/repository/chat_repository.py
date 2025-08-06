@@ -1,4 +1,5 @@
 """Chat history repository implementation"""
+
 import json
 import sqlite3
 from datetime import datetime

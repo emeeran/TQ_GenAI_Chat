@@ -134,7 +134,10 @@ class KubernetesManifestGenerator:
             "metadata": {
                 "name": f"{name}-config",
                 "namespace": self.namespace,
-                "labels": {"app.kubernetes.io/name": name, "app.kubernetes.io/component": "config"},
+                "labels": {
+                    "app.kubernetes.io/name": name,
+                    "app.kubernetes.io/component": "config",
+                },
             },
             "data": data,
         }
@@ -171,7 +174,11 @@ class KubernetesManifestGenerator:
         # Build container spec
         container_spec = {
             "name": config.name,
-            "image": f"{self.registry}/{config.full_image}" if self.registry else config.full_image,
+            "image": (
+                f"{self.registry}/{config.full_image}"
+                if self.registry
+                else config.full_image
+            ),
             "ports": [{"containerPort": config.target_port, "protocol": "TCP"}],
             "resources": {
                 "requests": {
@@ -185,7 +192,10 @@ class KubernetesManifestGenerator:
                 },
             },
             "readinessProbe": {
-                "httpGet": {"path": config.health_check.readiness_path, "port": config.target_port},
+                "httpGet": {
+                    "path": config.health_check.readiness_path,
+                    "port": config.target_port,
+                },
                 "initialDelaySeconds": config.health_check.initial_delay,
                 "timeoutSeconds": config.health_check.timeout,
                 "periodSeconds": config.health_check.period,
@@ -193,14 +203,20 @@ class KubernetesManifestGenerator:
                 "successThreshold": config.health_check.success_threshold,
             },
             "livenessProbe": {
-                "httpGet": {"path": config.health_check.liveness_path, "port": config.target_port},
+                "httpGet": {
+                    "path": config.health_check.liveness_path,
+                    "port": config.target_port,
+                },
                 "initialDelaySeconds": config.health_check.initial_delay * 2,
                 "timeoutSeconds": config.health_check.timeout,
                 "periodSeconds": config.health_check.period,
                 "failureThreshold": config.health_check.failure_threshold,
             },
             "startupProbe": {
-                "httpGet": {"path": config.health_check.startup_path, "port": config.target_port},
+                "httpGet": {
+                    "path": config.health_check.startup_path,
+                    "port": config.target_port,
+                },
                 "initialDelaySeconds": 10,
                 "timeoutSeconds": config.health_check.timeout,
                 "periodSeconds": 5,
@@ -218,7 +234,9 @@ class KubernetesManifestGenerator:
             env_vars.append(
                 {
                     "name": key,
-                    "valueFrom": {"secretKeyRef": {"name": f"{config.name}-secrets", "key": key}},
+                    "valueFrom": {
+                        "secretKeyRef": {"name": f"{config.name}-secrets", "key": key}
+                    },
                 }
             )
 
@@ -227,7 +245,9 @@ class KubernetesManifestGenerator:
             env_vars.append(
                 {
                     "name": key,
-                    "valueFrom": {"configMapKeyRef": {"name": f"{config.name}-config", "key": key}},
+                    "valueFrom": {
+                        "configMapKeyRef": {"name": f"{config.name}-config", "key": key}
+                    },
                 }
             )
 
@@ -238,7 +258,9 @@ class KubernetesManifestGenerator:
         if config.volumes:
             volume_mounts = []
             for volume in config.volumes:
-                volume_mounts.append({"name": volume["name"], "mountPath": volume["mountPath"]})
+                volume_mounts.append(
+                    {"name": volume["name"], "mountPath": volume["mountPath"]}
+                )
             container_spec["volumeMounts"] = volume_mounts
 
         # Build deployment spec
@@ -280,13 +302,18 @@ class KubernetesManifestGenerator:
                     )
                 elif volume["type"] == "configMap":
                     volumes.append(
-                        {"name": volume["name"], "configMap": {"name": volume["configMapName"]}}
+                        {
+                            "name": volume["name"],
+                            "configMap": {"name": volume["configMapName"]},
+                        }
                     )
             deployment_spec["template"]["spec"]["volumes"] = volumes
 
         # Add service mesh annotations if enabled
         if config.service_mesh:
-            annotations = deployment_spec["template"]["metadata"].setdefault("annotations", {})
+            annotations = deployment_spec["template"]["metadata"].setdefault(
+                "annotations", {}
+            )
             annotations.update(
                 {
                     "sidecar.istio.io/inject": "true",
@@ -394,7 +421,9 @@ class KubernetesManifestGenerator:
             },
         }
 
-    def generate_ingress(self, config: ServiceConfig, tls_enabled: bool = True) -> dict[str, Any]:
+    def generate_ingress(
+        self, config: ServiceConfig, tls_enabled: bool = True
+    ) -> dict[str, Any]:
         """Generate Ingress manifest."""
         ingress_spec = {
             "rules": [
@@ -443,7 +472,9 @@ class KubernetesManifestGenerator:
             "spec": ingress_spec,
         }
 
-    def generate_pv(self, name: str, size: str, storage_class: str = "fast-ssd") -> dict[str, Any]:
+    def generate_pv(
+        self, name: str, size: str, storage_class: str = "fast-ssd"
+    ) -> dict[str, Any]:
         """Generate PersistentVolume manifest."""
         return {
             "apiVersion": "v1",
@@ -463,7 +494,9 @@ class KubernetesManifestGenerator:
             },
         }
 
-    def generate_pvc(self, name: str, size: str, storage_class: str = "fast-ssd") -> dict[str, Any]:
+    def generate_pvc(
+        self, name: str, size: str, storage_class: str = "fast-ssd"
+    ) -> dict[str, Any]:
         """Generate PersistentVolumeClaim manifest."""
         return {
             "apiVersion": "v1",
@@ -501,7 +534,9 @@ class KubernetesDeployer:
     def apply_manifest(self, manifest: dict[str, Any]) -> bool:
         """Apply a single manifest."""
         try:
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 yaml.dump(manifest, f, default_flow_style=False)
                 f.flush()
 
@@ -509,7 +544,9 @@ class KubernetesDeployer:
                 result = subprocess.run(cmd, capture_output=True, text=True)
 
                 if result.returncode == 0:
-                    logger.info(f"Applied {manifest['kind']}/{manifest['metadata']['name']}")
+                    logger.info(
+                        f"Applied {manifest['kind']}/{manifest['metadata']['name']}"
+                    )
                     return True
                 else:
                     logger.error(f"Failed to apply manifest: {result.stderr}")
@@ -525,7 +562,9 @@ class KubernetesDeployer:
     def apply_manifests(self, manifests: list[dict[str, Any]]) -> bool:
         """Apply multiple manifests."""
         try:
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 for i, manifest in enumerate(manifests):
                     if i > 0:
                         f.write("---\n")
@@ -569,7 +608,9 @@ class KubernetesDeployer:
             logger.error(f"Error deleting resource: {e}")
             return False
 
-    def get_resource_status(self, kind: str, name: str, namespace: str = None) -> dict[str, Any]:
+    def get_resource_status(
+        self, kind: str, name: str, namespace: str = None
+    ) -> dict[str, Any]:
         """Get status of a Kubernetes resource."""
         try:
             cmd = self.kubectl_cmd + ["get", kind, name, "-o", "json"]
@@ -590,7 +631,12 @@ class KubernetesDeployer:
     def scale_deployment(self, name: str, replicas: int, namespace: str = None) -> bool:
         """Scale a deployment."""
         try:
-            cmd = self.kubectl_cmd + ["scale", "deployment", name, f"--replicas={replicas}"]
+            cmd = self.kubectl_cmd + [
+                "scale",
+                "deployment",
+                name,
+                f"--replicas={replicas}",
+            ]
             if namespace:
                 cmd.extend(["-n", namespace])
 
@@ -752,7 +798,9 @@ class TQGenAIKubernetesOrchestrator:
         for service_name, config in self.services.items():
             # Secrets
             if config.secrets:
-                manifests.append(self.generator.generate_secret(service_name, config.secrets))
+                manifests.append(
+                    self.generator.generate_secret(service_name, config.secrets)
+                )
 
             # ConfigMaps
             if config.config_maps:
@@ -882,14 +930,22 @@ class TQGenAIKubernetesOrchestrator:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="TQ GenAI Chat Kubernetes Orchestrator")
-    parser.add_argument("--namespace", default="tq-genai-chat", help="Kubernetes namespace")
+    parser = argparse.ArgumentParser(
+        description="TQ GenAI Chat Kubernetes Orchestrator"
+    )
+    parser.add_argument(
+        "--namespace", default="tq-genai-chat", help="Kubernetes namespace"
+    )
     parser.add_argument("--registry", default="", help="Container registry")
     parser.add_argument("--deploy", action="store_true", help="Deploy to cluster")
-    parser.add_argument("--generate-only", action="store_true", help="Generate manifests only")
+    parser.add_argument(
+        "--generate-only", action="store_true", help="Generate manifests only"
+    )
     parser.add_argument("--status", action="store_true", help="Get cluster status")
     parser.add_argument("--cleanup", action="store_true", help="Clean up resources")
-    parser.add_argument("--scale", nargs=2, metavar=("SERVICE", "REPLICAS"), help="Scale service")
+    parser.add_argument(
+        "--scale", nargs=2, metavar=("SERVICE", "REPLICAS"), help="Scale service"
+    )
 
     args = parser.parse_args()
 

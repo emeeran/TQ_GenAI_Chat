@@ -11,9 +11,9 @@ from flask import Flask
 from flask_cors import CORS
 
 # Import new architectural components
-from core.background_tasks import task_manager
+# from core.background_tasks import task_manager  # Temporarily disabled
 from core.errors import setup_logging
-from core.performance import perf_monitor
+# from core.performance import perf_monitor  # Temporarily disabled
 from core.services import get_service
 
 
@@ -49,24 +49,25 @@ def create_app(config_name: str = "development") -> Flask:
     setup_logging(app)
 
     # Start performance monitoring
-    perf_monitor.start_monitoring()
+    # perf_monitor.start_monitoring()  # Temporarily disabled
 
     # Start background services in a separate thread
-    def start_background_services():
-        """Start background services in a separate thread"""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(task_manager.start())
-        except Exception as e:
-            app.logger.error(f"Error starting background services: {e}")
-        finally:
-            pass  # Keep loop for background tasks
+    # Temporarily disabled background services
+    # def start_background_services():
+    #     """Start background services in a separate thread"""
+    #     loop = asyncio.new_event_loop()
+    #     asyncio.set_event_loop(loop)
+    #     try:
+    #         loop.run_until_complete(task_manager.start())
+    #     except Exception as e:
+    #         app.logger.error(f"Error starting background services: {e}")
+    #     finally:
+    #         pass  # Keep loop for background tasks
 
-    import threading
+    # import threading
 
-    bg_thread = threading.Thread(target=start_background_services, daemon=True)
-    bg_thread.start()
+    # bg_thread = threading.Thread(target=start_background_services, daemon=True)
+    # bg_thread.start()
 
     # Initialize services (dependency injection)
     with app.app_context():

@@ -1,0 +1,74 @@
+STDOUT:
+============================= test session starts ==============================
+platform linux -- Python 3.12.0, pytest-8.4.1, pluggy-1.6.0
+rootdir: /home/em/code/wip/TQ_GenAI_Chat
+configfile: pyproject.toml
+plugins: cov-6.2.1, asyncio-1.1.0, anyio-4.9.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 8 items / 3 errors
+
+==================================== ERRORS ====================================
+_____________________ ERROR collecting test_integration.py _____________________
+ImportError while importing test module '/home/em/code/wip/TQ_GenAI_Chat/test_integration.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/em/.local/share/uv/python/cpython-3.12.0-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+test_integration.py:8: in <module>
+    from app import create_app
+app/__init__.py:14: in <module>
+    from core.background_tasks import task_manager
+core/__init__.py:13: in <module>
+    from .model_utils import (
+core/model_utils.py:4: in <module>
+    from ai_models import (
+E   ModuleNotFoundError: No module named 'ai_models'
+_______ ERROR collecting trash2review/test_files/test_audio_features.py ________
+import file mismatch:
+imported module 'test_audio_features' has this __file__ attribute:
+  /home/em/code/wip/TQ_GenAI_Chat/test_audio_features.py
+which is not the same as the test file we want to collect:
+  /home/em/code/wip/TQ_GenAI_Chat/trash2review/test_files/test_audio_features.py
+HINT: remove __pycache__ / .pyc files and/or use a unique basename for your test file modules
+_________ ERROR collecting trash2review/test_files/test_integration.py _________
+ImportError while importing test module '/home/em/code/wip/TQ_GenAI_Chat/trash2review/test_files/test_integration.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/em/.local/share/uv/python/cpython-3.12.0-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+trash2review/test_files/test_integration.py:9: in <module>
+    from app import create_app
+app/__init__.py:14: in <module>
+    from core.background_tasks import task_manager
+core/__init__.py:13: in <module>
+    from .model_utils import (
+core/model_utils.py:4: in <module>
+    from ai_models import (
+E   ModuleNotFoundError: No module named 'ai_models'
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/PyPDF2/__init__.py:21
+  /home/em/code/wip/TQ_GenAI_Chat/.venv/lib/python3.12/site-packages/PyPDF2/__init__.py:21: DeprecationWarning: PyPDF2 is deprecated. Please move to the pypdf library instead.
+    warnings.warn(
+
+.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:32
+  /home/em/code/wip/TQ_GenAI_Chat/.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:32: DeprecationWarning: 'pkgutil.find_loader' is deprecated and slated for removal in Python 3.14; use importlib.util.find_spec() instead
+    numpy_installed = find_loader("numpy") is not None
+
+.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:36
+  /home/em/code/wip/TQ_GenAI_Chat/.venv/lib/python3.12/site-packages/pytesseract/pytesseract.py:36: DeprecationWarning: 'pkgutil.find_loader' is deprecated and slated for removal in Python 3.14; use importlib.util.find_spec() instead
+    pandas_installed = find_loader("pandas") is not None
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR test_integration.py
+ERROR trash2review/test_files/test_audio_features.py
+ERROR trash2review/test_files/test_integration.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!
+======================== 3 warnings, 3 errors in 4.27s =========================
+
+
+STDERR:
+Cannot read termcap database;
+using dumb terminal settings.

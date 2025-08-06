@@ -2,6 +2,7 @@
 Document Store Module
 Handles document storage, retrieval, and management with SQLite backend.
 """
+
 import hashlib
 import json
 import sqlite3
@@ -84,8 +85,12 @@ class DocumentStore:
         )
 
         # Create indices for faster lookup
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_type ON documents (type)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_documents_type ON documents (type)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id)"
+        )
 
         conn.commit()
         conn.close()
@@ -140,7 +145,16 @@ class DocumentStore:
                 (id, title, content, metadata, file_path, timestamp, type, user_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (doc_id, title, content, metadata_json, file_path, timestamp, doc_type, user_id),
+                (
+                    doc_id,
+                    title,
+                    content,
+                    metadata_json,
+                    file_path,
+                    timestamp,
+                    doc_type,
+                    user_id,
+                ),
             )
             conn.commit()
 
@@ -204,7 +218,12 @@ class DocumentStore:
             conn.close()
 
     def _add_chunk(
-        self, chunk_id: str, doc_id: str, content: str, chunk_index: int, metadata: dict[str, Any]
+        self,
+        chunk_id: str,
+        doc_id: str,
+        content: str,
+        chunk_index: int,
+        metadata: dict[str, Any],
     ) -> None:
         """Add a document chunk to the database"""
         metadata_json = json.dumps(metadata)
@@ -413,12 +432,16 @@ class DocumentStore:
             return results
 
         except sqlite3.Error as e:
-            current_app.logger.error(f"Database error retrieving recent documents: {str(e)}")
+            current_app.logger.error(
+                f"Database error retrieving recent documents: {str(e)}"
+            )
             return []
         finally:
             conn.close()
 
-    def get_all_documents(self, limit: int = None, offset: int = 0) -> list[dict[str, Any]]:
+    def get_all_documents(
+        self, limit: int = None, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Get all documents with optional pagination"""
         conn = self._get_connection()
         try:
@@ -443,9 +466,9 @@ class DocumentStore:
                     doc["metadata"] = {}
 
                 # Add formatted timestamp
-                doc["formatted_timestamp"] = datetime.fromtimestamp(doc["timestamp"]).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
+                doc["formatted_timestamp"] = datetime.fromtimestamp(
+                    doc["timestamp"]
+                ).strftime("%Y-%m-%d %H:%M:%S")
 
                 # Add file size from metadata if available
                 if "file_size" in doc["metadata"]:
@@ -484,7 +507,9 @@ class DocumentStore:
                     total_size += len(row["content"]) if row["content"] else 0
 
             # Get document types
-            cursor.execute("SELECT type, COUNT(*) as count FROM documents GROUP BY type")
+            cursor.execute(
+                "SELECT type, COUNT(*) as count FROM documents GROUP BY type"
+            )
             types = {row["type"]: row["count"] for row in cursor.fetchall()}
 
             # Get recent activity (last 24 hours)

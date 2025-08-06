@@ -1,4 +1,5 @@
 """Async base provider interface for high-performance operations"""
+
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass

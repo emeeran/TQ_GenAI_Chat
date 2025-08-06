@@ -53,7 +53,10 @@ class ChatWebSocketHandler:
             self._cleanup_task = None
 
     async def handle_connection(
-        self, websocket: WebSocketServerProtocol, user_id: str, chat_room: str = "default"
+        self,
+        websocket: WebSocketServerProtocol,
+        user_id: str,
+        chat_room: str = "default",
     ):
         """
         Handle new WebSocket connection.
@@ -107,7 +110,9 @@ class ChatWebSocketHandler:
             elif message_type == "typing_stop":
                 await self.handle_typing_stop(user_id, chat_room)
             elif message_type == "ping":
-                await self.send_to_user(user_id, {"type": "pong", "timestamp": time.time()})
+                await self.send_to_user(
+                    user_id, {"type": "pong", "timestamp": time.time()}
+                )
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
@@ -116,7 +121,9 @@ class ChatWebSocketHandler:
         except Exception as e:
             logger.error(f"Error handling message from {user_id}: {e}")
 
-    async def handle_chat_message(self, user_id: str, chat_room: str, data: dict[str, Any]):
+    async def handle_chat_message(
+        self, user_id: str, chat_room: str, data: dict[str, Any]
+    ):
         """
         Handle chat message and broadcast to room.
         """
@@ -231,11 +238,17 @@ class ChatWebSocketHandler:
 
         # Notify other users
         await self.broadcast_user_event(
-            chat_room, {"type": "user_left", "user_id": user_id, "timestamp": time.time()}
+            chat_room,
+            {"type": "user_left", "user_id": user_id, "timestamp": time.time()},
         )
 
     async def notify_file_processing(
-        self, user_id: str, filename: str, status: str, progress: int = None, error: str = None
+        self,
+        user_id: str,
+        filename: str,
+        status: str,
+        progress: int = None,
+        error: str = None,
     ):
         """
         Notify user about file processing status.

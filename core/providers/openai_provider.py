@@ -1,4 +1,5 @@
 """OpenAI provider implementation"""
+
 import os
 
 import openai

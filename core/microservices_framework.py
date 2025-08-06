@@ -152,7 +152,9 @@ class InMemoryServiceDiscovery(ServiceDiscovery):
             if instance.service_id not in self.service_names[instance.service_name]:
                 self.service_names[instance.service_name].append(instance.service_id)
 
-            logger.info(f"Registered service: {instance.service_name} ({instance.service_id})")
+            logger.info(
+                f"Registered service: {instance.service_name} ({instance.service_id})"
+            )
             return True
 
         except Exception as e:
@@ -204,7 +206,8 @@ class InMemoryServiceDiscovery(ServiceDiscovery):
             if instance.health_check_url:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        instance.health_check_url, timeout=aiohttp.ClientTimeout(total=5)
+                        instance.health_check_url,
+                        timeout=aiohttp.ClientTimeout(total=5),
                     ) as response:
                         if response.status == 200:
                             instance.state = ServiceState.HEALTHY
@@ -239,7 +242,9 @@ class ConsulServiceDiscovery(ServiceDiscovery):
 
     def __init__(self, consul_host: str = "localhost", consul_port: int = 8500):
         if not CONSUL_AVAILABLE:
-            raise ImportError("python-consul package required for Consul service discovery")
+            raise ImportError(
+                "python-consul package required for Consul service discovery"
+            )
 
         self.consul = consul.Consul(host=consul_host, port=consul_port)
 
@@ -248,7 +253,9 @@ class ConsulServiceDiscovery(ServiceDiscovery):
         try:
             check = None
             if instance.health_check_url:
-                check = consul.Check.http(instance.health_check_url, interval="10s", timeout="5s")
+                check = consul.Check.http(
+                    instance.health_check_url, interval="10s", timeout="5s"
+                )
 
             self.consul.agent.service.register(
                 name=instance.service_name,
@@ -335,7 +342,9 @@ class MessageBroker(ABC):
         pass
 
     @abstractmethod
-    async def subscribe(self, channel: str, callback: Callable[[Message], None]) -> bool:
+    async def subscribe(
+        self, channel: str, callback: Callable[[Message], None]
+    ) -> bool:
         """Subscribe to a channel with callback."""
         pass
 
@@ -400,7 +409,9 @@ class RedisMessageBroker(MessageBroker):
             logger.error(f"Failed to publish message to {channel}: {e}")
             return False
 
-    async def subscribe(self, channel: str, callback: Callable[[Message], None]) -> bool:
+    async def subscribe(
+        self, channel: str, callback: Callable[[Message], None]
+    ) -> bool:
         """Subscribe to a channel with callback."""
         try:
             if not self.redis_client:
@@ -523,7 +534,9 @@ class ServiceBase(ABC):
             self.running = True
             self.health_status = ServiceState.HEALTHY
 
-            logger.info(f"Service {self.service_name} started on {self.host}:{self.port}")
+            logger.info(
+                f"Service {self.service_name} started on {self.host}:{self.port}"
+            )
 
         except Exception as e:
             logger.error(f"Failed to start service {self.service_name}: {e}")
@@ -575,7 +588,9 @@ class ServiceBase(ABC):
         channel = f"service.{target_service}"
         return await self.message_broker.publish(channel, message)
 
-    async def broadcast_message(self, message_type: str, payload: dict[str, Any]) -> bool:
+    async def broadcast_message(
+        self, message_type: str, payload: dict[str, Any]
+    ) -> bool:
         """Broadcast a message to all services."""
         if not self.message_broker:
             return False
@@ -591,7 +606,11 @@ class ServiceBase(ABC):
         return await self.message_broker.publish("service.broadcast", message)
 
     async def call_service(
-        self, service_name: str, endpoint: str, data: dict[str, Any] = None, timeout: int = 30
+        self,
+        service_name: str,
+        endpoint: str,
+        data: dict[str, Any] = None,
+        timeout: int = 30,
     ) -> dict[str, Any]:
         """Make a direct HTTP call to another service."""
         instances = await self.discovery.discover_services(service_name)
@@ -634,10 +653,14 @@ class ServiceBase(ABC):
             return
 
         # Subscribe to service-specific messages
-        await self.message_broker.subscribe(f"service.{self.service_name}", self._handle_message)
+        await self.message_broker.subscribe(
+            f"service.{self.service_name}", self._handle_message
+        )
 
         # Subscribe to broadcast messages
-        await self.message_broker.subscribe("service.broadcast", self._handle_broadcast_message)
+        await self.message_broker.subscribe(
+            "service.broadcast", self._handle_broadcast_message
+        )
 
     async def _handle_message(self, message: Message):
         """Handle incoming service-specific messages."""
@@ -790,7 +813,9 @@ class FileService(ServiceBase):
         """Background file processing loop."""
         while self.running:
             try:
-                message = await asyncio.wait_for(self.processing_queue.get(), timeout=1.0)
+                message = await asyncio.wait_for(
+                    self.processing_queue.get(), timeout=1.0
+                )
                 await self._handle_file_upload(message)
             except TimeoutError:
                 continue
@@ -915,7 +940,9 @@ if __name__ == "__main__":
             await asyncio.sleep(1)
 
             await chat_service.send_message(
-                "file-service", "file_upload", {"filename": "test.pdf", "user_id": "user123"}
+                "file-service",
+                "file_upload",
+                {"filename": "test.pdf", "user_id": "user123"},
             )
 
             # Wait a bit for processing

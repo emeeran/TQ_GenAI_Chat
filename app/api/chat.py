@@ -69,4 +69,7 @@ def get_models(provider: str):
     if models:
         return jsonify({"success": True, "models": models, "provider": provider})
     else:
-        return jsonify({"success": False, "error": f"Provider {provider} not available"}), 404
+        return (
+            jsonify({"success": False, "error": f"Provider {provider} not available"}),
+            404,
+        )
