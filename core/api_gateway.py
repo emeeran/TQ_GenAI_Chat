@@ -132,9 +132,7 @@ class RateLimiter:
         self.token_buckets: dict[str, TokenBucket] = {}
         self.sliding_windows: dict[str, list[float]] = {}
 
-    async def check_rate_limit(
-        self, key: str, rule: RateLimitRule
-    ) -> tuple[bool, dict]:
+    async def check_rate_limit(self, key: str, rule: RateLimitRule) -> tuple[bool, dict]:
         """Check if request is within rate limit."""
         now = time.time()
 
@@ -322,13 +320,9 @@ class RequestRouter:
 
         raise Exception("Max retries exceeded")
 
-    async def _make_request(
-        self, target: str, request_data: dict, timeout: int
-    ) -> dict:
+    async def _make_request(self, target: str, request_data: dict, timeout: int) -> dict:
         """Make HTTP request to target service."""
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=timeout)
-        ) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
             async with session.post(target, json=request_data) as response:
                 response.raise_for_status()
                 return await response.json()
@@ -336,9 +330,7 @@ class RequestRouter:
     def _generate_cache_key(self, route: Route, request_data: dict) -> str:
         """Generate cache key for request."""
         key_data = f"{route.path}:{json.dumps(request_data, sort_keys=True)}"
-        return hashlib.md5(
-            key_data.encode(), usedforsecurity=False
-        ).hexdigest()  # nosec B324
+        return hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()  # nosec B324
 
     def _get_cached_response(self, cache_key: str, ttl: int) -> dict | None:
         """Get cached response if still valid."""
@@ -381,9 +373,7 @@ class MetricsCollector:
         # Status codes
         if route not in self.status_codes:
             self.status_codes[route] = {}
-        self.status_codes[route][status_code] = (
-            self.status_codes[route].get(status_code, 0) + 1
-        )
+        self.status_codes[route][status_code] = self.status_codes[route].get(status_code, 0) + 1
 
         # Error count
         if status_code >= 400:
@@ -412,9 +402,7 @@ class MetricsCollector:
                     "min": min(times),
                     "max": max(times),
                     "p95": (
-                        sorted(times)[int(len(times) * 0.95)]
-                        if len(times) > 20
-                        else max(times)
+                        sorted(times)[int(len(times) * 0.95)] if len(times) > 20 else max(times)
                     ),
                 }
 
@@ -537,9 +525,7 @@ class ApiGateway:
             """Record metrics after request."""
             if hasattr(g, "route") and hasattr(g, "start_time"):
                 response_time = time.time() - g.start_time
-                self.metrics.record_request(
-                    g.route.path, response_time, response.status_code
-                )
+                self.metrics.record_request(g.route.path, response_time, response.status_code)
 
             # Add response headers
             if hasattr(g, "response_headers"):

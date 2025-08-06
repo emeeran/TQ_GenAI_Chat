@@ -34,9 +34,7 @@ class StreamingFileProcessor:
     def __init__(self, chunk_size: int = 1024 * 1024):  # 1MB chunks
         self.chunk_size = chunk_size
 
-    async def read_chunks(
-        self, file_stream: io.BytesIO, chunk_size: int
-    ) -> AsyncIterator[bytes]:
+    async def read_chunks(self, file_stream: io.BytesIO, chunk_size: int) -> AsyncIterator[bytes]:
         """
         Read file in chunks asynchronously.
         """
@@ -62,24 +60,16 @@ class StreamingFileProcessor:
         file_stream.seek(0)  # Reset to beginning
 
         if file_extension == ".pdf":
-            return await self._process_large_pdf(
-                file_stream, progress_callback, total_size
-            )
+            return await self._process_large_pdf(file_stream, progress_callback, total_size)
         elif file_extension == ".csv":
-            return await self._process_large_csv(
-                file_stream, progress_callback, total_size
-            )
+            return await self._process_large_csv(file_stream, progress_callback, total_size)
         elif file_extension in [".xlsx", ".xls"]:
-            return await self._process_large_excel(
-                file_stream, progress_callback, total_size
-            )
+            return await self._process_large_excel(file_stream, progress_callback, total_size)
         else:
             # For other file types, use regular processing
             file_stream.seek(0)
             content = file_stream.read()
-            return await self._process_regular_file(
-                content, filename, progress_callback
-            )
+            return await self._process_regular_file(content, filename, progress_callback)
 
     async def _process_large_pdf(
         self,

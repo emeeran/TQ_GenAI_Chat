@@ -6,7 +6,6 @@ from flask import jsonify
 
 from app.api import api_bp
 from core.errors import handle_errors
-from core.services import get_service
 
 
 def run_async(coro):
@@ -16,7 +15,7 @@ def run_async(coro):
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     return loop.run_until_complete(coro)
 
 
@@ -25,13 +24,13 @@ def run_async(coro):
 def get_all_models():
     """Get all available models grouped by provider."""
     from core.model_utils import ALL_MODELS, DEFAULT_MODELS
-    
+
     # Convert the model configuration to the expected format
     models_response = {}
     for provider, provider_models in ALL_MODELS.items():
         models_response[provider] = {
             "models": list(provider_models.keys()) if provider_models else [],
-            "default": DEFAULT_MODELS.get(provider)
+            "default": DEFAULT_MODELS.get(provider),
         }
 
     return jsonify({"success": True, "models": models_response})
@@ -47,11 +46,20 @@ def get_models_for_provider(provider):
 
         # Check if provider is supported
         supported_providers = [
-            "openai", "anthropic", "gemini", "deepseek", "mistral",
-            "cohere", "openrouter", "huggingface", "xai", "groq",
-            "alibaba", "moonshot"
+            "openai",
+            "anthropic",
+            "gemini",
+            "deepseek",
+            "mistral",
+            "cohere",
+            "openrouter",
+            "huggingface",
+            "xai",
+            "groq",
+            "alibaba",
+            "moonshot",
         ]
-        
+
         if provider.lower() not in supported_providers:
             return (
                 jsonify({"error": f"Provider {provider} not available", "models": []}),
@@ -60,14 +68,16 @@ def get_models_for_provider(provider):
 
         # Dynamically fetch models from the provider's API
         models, is_dynamic = run_async(model_fetcher.fetch_models_for_provider(provider))
-        
+
         if not models:
             return (
-                jsonify({
-                    "error": f"No models available for {provider}",
-                    "models": [],
-                    "is_dynamic": is_dynamic
-                }),
+                jsonify(
+                    {
+                        "error": f"No models available for {provider}",
+                        "models": [],
+                        "is_dynamic": is_dynamic,
+                    }
+                ),
                 500,
             )
 
@@ -108,11 +118,20 @@ def get_models_by_provider(provider):
 
         # Check if provider is supported
         supported_providers = [
-            "openai", "anthropic", "gemini", "deepseek", "mistral",
-            "cohere", "openrouter", "huggingface", "xai", "groq",
-            "alibaba", "moonshot"
+            "openai",
+            "anthropic",
+            "gemini",
+            "deepseek",
+            "mistral",
+            "cohere",
+            "openrouter",
+            "huggingface",
+            "xai",
+            "groq",
+            "alibaba",
+            "moonshot",
         ]
-        
+
         if provider.lower() not in supported_providers:
             return (
                 jsonify({"error": f"Provider {provider} not available", "models": []}),
@@ -121,14 +140,16 @@ def get_models_by_provider(provider):
 
         # Dynamically fetch models from the provider's API
         models, is_dynamic = run_async(model_fetcher.fetch_models_for_provider(provider))
-        
+
         if not models:
             return (
-                jsonify({
-                    "error": f"No models available for {provider}",
-                    "models": [],
-                    "is_dynamic": is_dynamic
-                }),
+                jsonify(
+                    {
+                        "error": f"No models available for {provider}",
+                        "models": [],
+                        "is_dynamic": is_dynamic,
+                    }
+                ),
                 500,
             )
 
@@ -168,11 +189,20 @@ def update_models_by_provider(provider):
 
         # Check if provider is supported
         supported_providers = [
-            "openai", "anthropic", "gemini", "deepseek", "mistral",
-            "cohere", "openrouter", "huggingface", "xai", "groq",
-            "alibaba", "moonshot"
+            "openai",
+            "anthropic",
+            "gemini",
+            "deepseek",
+            "mistral",
+            "cohere",
+            "openrouter",
+            "huggingface",
+            "xai",
+            "groq",
+            "alibaba",
+            "moonshot",
         ]
-        
+
         if provider.lower() not in supported_providers:
             return (
                 jsonify({"success": False, "error": f"Provider {provider} not supported"}),
@@ -181,20 +211,22 @@ def update_models_by_provider(provider):
 
         # Dynamically fetch models from the provider's API
         models, is_dynamic = run_async(model_fetcher.fetch_models_for_provider(provider))
-        
+
         if not models:
             return (
-                jsonify({
-                    "success": False, 
-                    "error": f"No models available for {provider} or API request failed",
-                    "is_dynamic": is_dynamic
-                }),
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"No models available for {provider} or API request failed",
+                        "is_dynamic": is_dynamic,
+                    }
+                ),
                 500,
             )
 
         # Categorize models to provide better information to frontend
-        preview_models = [model for model in models if 'preview' in model.lower()]
-        stable_models = [model for model in models if 'preview' not in model.lower()]
+        preview_models = [model for model in models if "preview" in model.lower()]
+        stable_models = [model for model in models if "preview" not in model.lower()]
 
         # Get default model
         default_model = DEFAULT_MODELS.get(provider.lower())
@@ -239,13 +271,13 @@ def update_all_models():
 
         # Fetch models for all providers
         results = run_async(model_fetcher.fetch_all_models())
-        
+
         # Count totals
         total_models = sum(result["count"] for result in results.values())
         total_preview = sum(result["preview_count"] for result in results.values())
         total_stable = sum(result["stable_count"] for result in results.values())
         providers_with_errors = [p for p, r in results.items() if "error" in r]
-        
+
         return jsonify(
             {
                 "success": True,
@@ -258,7 +290,7 @@ def update_all_models():
                     "total_stable_models": total_stable,
                     "providers_with_errors": providers_with_errors,
                     "error_count": len(providers_with_errors),
-                }
+                },
             }
         )
 
@@ -280,39 +312,41 @@ def test_dynamic_fetch(provider):
     """Test endpoint to demonstrate dynamic vs static model fetching"""
     try:
         from core.dynamic_model_fetcher import model_fetcher
-        from core.model_utils import ALL_MODELS, DEFAULT_MODELS
+        from core.model_utils import ALL_MODELS
 
         # Get static models
         static_models = list(ALL_MODELS.get(provider, {}).keys())
-        
+
         # Try dynamic fetch
         dynamic_models, is_dynamic = run_async(model_fetcher.fetch_models_for_provider(provider))
-        
+
         # Check API key status
         api_key_status = bool(model_fetcher.api_keys.get(provider.lower()))
-        
-        return jsonify({
-            "success": True,
-            "provider": provider,
-            "api_key_configured": api_key_status,
-            "static_models": {
-                "models": static_models,
-                "count": len(static_models),
-                "source": "ai_models.py configuration"
-            },
-            "dynamic_models": {
-                "models": dynamic_models,
-                "count": len(dynamic_models),
-                "source": "Live API" if is_dynamic else "Fallback configuration",
-                "is_dynamic": is_dynamic
-            },
-            "comparison": {
-                "models_match": set(static_models) == set(dynamic_models),
-                "static_only": list(set(static_models) - set(dynamic_models)),
-                "dynamic_only": list(set(dynamic_models) - set(static_models))
+
+        return jsonify(
+            {
+                "success": True,
+                "provider": provider,
+                "api_key_configured": api_key_status,
+                "static_models": {
+                    "models": static_models,
+                    "count": len(static_models),
+                    "source": "ai_models.py configuration",
+                },
+                "dynamic_models": {
+                    "models": dynamic_models,
+                    "count": len(dynamic_models),
+                    "source": "Live API" if is_dynamic else "Fallback configuration",
+                    "is_dynamic": is_dynamic,
+                },
+                "comparison": {
+                    "models_match": set(static_models) == set(dynamic_models),
+                    "static_only": list(set(static_models) - set(dynamic_models)),
+                    "dynamic_only": list(set(dynamic_models) - set(static_models)),
+                },
             }
-        })
-    
+        )
+
     except Exception as e:
         return (
             jsonify(

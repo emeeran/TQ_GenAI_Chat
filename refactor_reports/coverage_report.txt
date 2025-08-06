@@ -17,7 +17,7 @@ core/validation.py:27: in ChatRequestModel
 .venv/lib/python3.12/site-packages/pydantic/deprecated/class_validators.py:140: in dec
     raise PydanticUserError(
 E   pydantic.errors.PydanticUserError: `@validator` cannot be applied to instance methods
-E   
+E
 E   For further information visit https://errors.pydantic.dev/2.9/u/validator-instance-method
 _______ ERROR collecting trash2review/test_files/test_audio_features.py ________
 import file mismatch:
@@ -43,7 +43,7 @@ core/validation.py:27: in ChatRequestModel
 .venv/lib/python3.12/site-packages/pydantic/deprecated/class_validators.py:140: in dec
     raise PydanticUserError(
 E   pydantic.errors.PydanticUserError: `@validator` cannot be applied to instance methods
-E   
+E
 E   For further information visit https://errors.pydantic.dev/2.9/u/validator-instance-method
 =============================== warnings summary ===============================
 .venv/lib/python3.12/site-packages/PyPDF2/__init__.py:21

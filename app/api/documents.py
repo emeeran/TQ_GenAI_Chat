@@ -37,9 +37,7 @@ def upload_document():
 
     except Exception as e:
         return (
-            jsonify(
-                {"success": False, "error": f"Failed to upload document: {str(e)}"}
-            ),
+            jsonify({"success": False, "error": f"Failed to upload document: {str(e)}"}),
             500,
         )
 
@@ -59,8 +57,6 @@ def delete_document(document_id):
 
     except Exception as e:
         return (
-            jsonify(
-                {"success": False, "error": f"Failed to delete document: {str(e)}"}
-            ),
+            jsonify({"success": False, "error": f"Failed to delete document: {str(e)}"}),
             500,
         )

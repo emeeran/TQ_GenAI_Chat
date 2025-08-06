@@ -19,6 +19,7 @@ from config.settings import CONNECT_TIMEOUT, MAX_RETRIES, RATE_LIMIT, READ_TIMEO
 # Lazy import for anthropic to avoid import errors
 try:
     import anthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
@@ -103,14 +104,10 @@ class APIServices:
             self.request_times[provider].append(current_time)
 
     @lru_cache(maxsize=100)
-    def _get_request_hash(
-        self, provider: str, model: str, messages: str, **kwargs
-    ) -> str:
+    def _get_request_hash(self, provider: str, model: str, messages: str, **kwargs) -> str:
         """Generate a hash for request caching"""
         key_str = f"{provider}|{model}|{messages}|{json.dumps(kwargs, sort_keys=True)}"
-        return hashlib.md5(
-            key_str.encode(), usedforsecurity=False
-        ).hexdigest()  # nosec B324
+        return hashlib.md5(key_str.encode(), usedforsecurity=False).hexdigest()  # nosec B324
 
     async def generate_completion(
         self,
@@ -147,21 +144,15 @@ class APIServices:
 
         # Generate based on provider
         if provider == "openai":
-            return await self._generate_openai(
-                model, messages, max_tokens, temperature, **kwargs
-            )
+            return await self._generate_openai(model, messages, max_tokens, temperature, **kwargs)
         elif provider == "groq":
-            return await self._generate_groq(
-                model, messages, max_tokens, temperature, **kwargs
-            )
+            return await self._generate_groq(model, messages, max_tokens, temperature, **kwargs)
         elif provider == "anthropic":
             return await self._generate_anthropic(
                 model, messages, max_tokens, temperature, **kwargs
             )
         elif provider == "mistral":
-            return await self._generate_mistral(
-                model, messages, max_tokens, temperature, **kwargs
-            )
+            return await self._generate_mistral(model, messages, max_tokens, temperature, **kwargs)
         else:
             raise ValueError(f"Provider {provider} implementation not available")
 
@@ -284,8 +275,10 @@ class APIServices:
         """Generate a completion using Anthropic's API"""
         # Check if Anthropic is available
         if not ANTHROPIC_AVAILABLE or anthropic is None:
-            raise ImportError("Anthropic package is not installed. Install it with: pip install anthropic")
-            
+            raise ImportError(
+                "Anthropic package is not installed. Install it with: pip install anthropic"
+            )
+
         # Create Anthropic client
         client = anthropic.Anthropic(api_key=self.api_keys["anthropic"])
 
@@ -394,9 +387,7 @@ class APIServices:
                 current_app.logger.error(f"Response: {e.response.text}")
             raise ValueError(f"Mistral API request failed: {str(e)}")
 
-    def get_available_models(
-        self, provider: str | None = None
-    ) -> dict[str, list[dict[str, Any]]]:
+    def get_available_models(self, provider: str | None = None) -> dict[str, list[dict[str, Any]]]:
         """
         Get available models for the specified provider or all providers
 

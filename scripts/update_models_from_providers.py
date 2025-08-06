@@ -6,7 +6,6 @@ Fetches the latest models from each provider's API/website and updates the model
 Removes deprecated models and adds new ones including preview models.
 """
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -16,6 +15,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
+
 from core.models import model_manager
 from core.providers import provider_manager
 
@@ -26,15 +26,16 @@ def fetch_openai_models():
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             return []
-        
+
         headers = {"Authorization": f"Bearer {api_key}"}
         response = requests.get("https://api.openai.com/v1/models", headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             models_data = response.json()
             # Filter for chat models
             chat_models = [
-                model["id"] for model in models_data["data"]
+                model["id"]
+                for model in models_data["data"]
                 if "gpt" in model["id"] and model["id"] not in ["gpt-3.5-turbo-instruct"]
             ]
             return sorted(chat_models)
@@ -47,7 +48,7 @@ def fetch_anthropic_models():
     """Fetch models from Anthropic (using known model list as API doesn't provide public endpoint)"""
     return [
         "claude-3-5-sonnet-latest",
-        "claude-3-5-haiku-latest", 
+        "claude-3-5-haiku-latest",
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
         "claude-3-haiku-20240307",
@@ -60,10 +61,10 @@ def fetch_gemini_models():
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return []
-            
+
         url = f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
         response = requests.get(url, timeout=10)
-        
+
         if response.status_code == 200:
             models_data = response.json()
             models = []
@@ -83,10 +84,12 @@ def fetch_groq_models():
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             return []
-            
+
         headers = {"Authorization": f"Bearer {api_key}"}
-        response = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=10)
-        
+        response = requests.get(
+            "https://api.groq.com/openai/v1/models", headers=headers, timeout=10
+        )
+
         if response.status_code == 200:
             models_data = response.json()
             models = [model["id"] for model in models_data["data"]]
@@ -99,7 +102,7 @@ def fetch_groq_models():
 def fetch_provider_models(provider_name):
     """Fetch models for a specific provider"""
     print(f"Fetching models for {provider_name}...")
-    
+
     if provider_name == "openai":
         return fetch_openai_models()
     elif provider_name == "anthropic":
@@ -116,27 +119,27 @@ def fetch_provider_models(provider_name):
 def update_all_models():
     """Update models for all configured providers"""
     updated_providers = []
-    
+
     for provider_name in provider_manager.list_providers():
         try:
             new_models = fetch_provider_models(provider_name)
             if new_models:
                 current_models = model_manager.get_models(provider_name)
-                
+
                 # Update models
                 model_manager.update_models(provider_name, new_models)
-                
+
                 print(f"✅ Updated {provider_name}: {len(new_models)} models")
                 print(f"   Added: {len(set(new_models) - set(current_models))} new models")
                 print(f"   Removed: {len(set(current_models) - set(new_models))} deprecated models")
-                
+
                 updated_providers.append(provider_name)
             else:
                 print(f"⚠️  No models fetched for {provider_name}")
-                
+
         except Exception as e:
             print(f"❌ Failed to update {provider_name}: {e}")
-    
+
     return updated_providers
 
 
@@ -157,7 +160,7 @@ def set_default_models():
         "moonshot": "moonshot-v1-auto",  # Auto-selection
         "perplexity": "pplx-70b-chat",  # Latest
     }
-    
+
     for provider_name, default_model in defaults.items():
         if provider_manager.is_provider_available(provider_name):
             try:
@@ -171,16 +174,16 @@ def main():
     """Main execution"""
     print("🔄 Updating models from providers...")
     print("=" * 50)
-    
+
     # Update all models
     updated_providers = update_all_models()
-    
+
     print("\n" + "=" * 50)
     print("🎯 Setting default models...")
-    
+
     # Set default models
     set_default_models()
-    
+
     print("\n" + "=" * 50)
     print("✅ Model update complete!")
     print(f"📊 Updated providers: {', '.join(updated_providers)}")

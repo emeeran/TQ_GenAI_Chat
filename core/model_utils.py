@@ -3,9 +3,11 @@ from typing import Any
 
 from .models import model_manager
 
+
 def get_all_models() -> dict[str, list[str]]:
     """Get all models from the model manager"""
     return model_manager.get_all_models()
+
 
 # Default models for each provider
 DEFAULT_MODELS = {

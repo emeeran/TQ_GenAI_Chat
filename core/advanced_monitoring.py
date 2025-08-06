@@ -79,9 +79,7 @@ class TimeSeriesBuffer:
             self.data.append(point)
             self._cleanup_old_data()
 
-    def get_points(
-        self, start_time: float = None, end_time: float = None
-    ) -> list[MetricPoint]:
+    def get_points(self, start_time: float = None, end_time: float = None) -> list[MetricPoint]:
         """Get points within time range."""
         with self._lock:
             if not start_time and not end_time:
@@ -102,9 +100,7 @@ class TimeSeriesBuffer:
         with self._lock:
             return list(self.data)[-count:] if self.data else []
 
-    def aggregate(
-        self, start_time: float, end_time: float, function: str = "avg"
-    ) -> float | None:
+    def aggregate(self, start_time: float, end_time: float, function: str = "avg") -> float | None:
         """Aggregate points within time range."""
         points = self.get_points(start_time, end_time)
         if not points:
@@ -123,17 +119,9 @@ class TimeSeriesBuffer:
         elif function == "count":
             return len(values)
         elif function == "p95":
-            return (
-                statistics.quantiles(values, n=20)[18]
-                if len(values) >= 20
-                else max(values)
-            )
+            return statistics.quantiles(values, n=20)[18] if len(values) >= 20 else max(values)
         elif function == "p99":
-            return (
-                statistics.quantiles(values, n=100)[98]
-                if len(values) >= 100
-                else max(values)
-            )
+            return statistics.quantiles(values, n=100)[98] if len(values) >= 100 else max(values)
         else:
             return statistics.mean(values)
 
@@ -218,9 +206,7 @@ class SystemMonitor:
             "cpu": {
                 "percent": psutil.cpu_percent(),
                 "count": psutil.cpu_count(),
-                "load_avg": (
-                    psutil.getloadavg() if hasattr(psutil, "getloadavg") else None
-                ),
+                "load_avg": (psutil.getloadavg() if hasattr(psutil, "getloadavg") else None),
             },
             "memory": psutil.virtual_memory()._asdict(),
             "disk": psutil.disk_usage("/")._asdict(),
@@ -277,9 +263,7 @@ class ApplicationMonitor:
 
         # Error tracking
         if status_code >= 400:
-            self.error_buffer.add_point(
-                now, 1, {"path": path, "status": str(status_code)}
-            )
+            self.error_buffer.add_point(now, 1, {"path": path, "status": str(status_code)})
 
         # Provider-specific metrics
         if provider:
@@ -293,9 +277,7 @@ class ApplicationMonitor:
     def record_user_activity(self, user_id: str, action: str):
         """Record user activity."""
         now = time.time()
-        self.user_activity_buffer.add_point(
-            now, 1, {"user_id": user_id, "action": action}
-        )
+        self.user_activity_buffer.add_point(now, 1, {"user_id": user_id, "action": action})
 
     def record_file_processing(
         self, filename: str, size_bytes: int, processing_time: float, success: bool
@@ -308,9 +290,7 @@ class ApplicationMonitor:
             {"filename": filename, "size": str(size_bytes), "success": str(success)},
         )
 
-    def increment_counter(
-        self, name: str, value: int = 1, labels: dict[str, str] = None
-    ):
+    def increment_counter(self, name: str, value: int = 1, labels: dict[str, str] = None):
         """Increment a counter metric."""
         key = f"{name}:{json.dumps(labels or {}, sort_keys=True)}"
         self.counters[key] += value
@@ -328,10 +308,7 @@ class ApplicationMonitor:
         stats = {
             "requests": {
                 "total": len(self.request_buffer.get_points(start_time, now)),
-                "rate_per_minute": self.request_buffer.aggregate(
-                    start_time, now, "count"
-                )
-                or 0,
+                "rate_per_minute": self.request_buffer.aggregate(start_time, now, "count") or 0,
             },
             "response_time": {
                 "avg": self.response_time_buffer.aggregate(start_time, now, "avg"),
@@ -348,11 +325,8 @@ class ApplicationMonitor:
         # Provider statistics
         for provider, metrics in self.provider_metrics.items():
             stats["providers"][provider] = {
-                "requests": metrics["requests"].aggregate(start_time, now, "count")
-                or 0,
-                "avg_response_time": metrics["response_times"].aggregate(
-                    start_time, now, "avg"
-                ),
+                "requests": metrics["requests"].aggregate(start_time, now, "count") or 0,
+                "avg_response_time": metrics["response_times"].aggregate(start_time, now, "avg"),
                 "errors": metrics["errors"].aggregate(start_time, now, "count") or 0,
             }
 
@@ -536,9 +510,7 @@ class DashboardGenerator:
             interval = int(point.timestamp // 300) * 300
             interval_requests[interval] += 1
 
-        request_times = [
-            datetime.fromtimestamp(t) for t in sorted(interval_requests.keys())
-        ]
+        request_times = [datetime.fromtimestamp(t) for t in sorted(interval_requests.keys())]
         request_rates = [interval_requests[t] for t in sorted(interval_requests.keys())]
 
         request_chart = {
@@ -559,9 +531,7 @@ class DashboardGenerator:
         }
 
         # Response time chart
-        response_points = self.app_monitor.response_time_buffer.get_points(
-            last_hour, now
-        )
+        response_points = self.app_monitor.response_time_buffer.get_points(last_hour, now)
         response_times = [datetime.fromtimestamp(p.timestamp) for p in response_points]
         response_values = [p.value * 1000 for p in response_points]  # Convert to ms
 

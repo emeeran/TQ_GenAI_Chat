@@ -14,12 +14,10 @@ This script executes all the TODO.md requirements:
 9. Version Control
 """
 
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 import black
 import isort
@@ -245,9 +243,7 @@ class ComprehensiveRefactor:
                 original_content = py_file.read_text(encoding="utf-8")
 
                 # Format with black
-                formatted_content = black.format_str(
-                    original_content, mode=black.FileMode()
-                )
+                formatted_content = black.format_str(original_content, mode=black.FileMode())
 
                 # Write back if changed
                 if original_content != formatted_content:
@@ -271,9 +267,7 @@ class ComprehensiveRefactor:
                     # Sort imports
                     isort.file(py_file)
                     self.refactored_files.add(py_file)
-                    print(
-                        f"  ✓ Sorted imports in {py_file.relative_to(self.project_root)}"
-                    )
+                    print(f"  ✓ Sorted imports in {py_file.relative_to(self.project_root)}")
 
             except Exception as e:
                 print(f"  ⚠️  Failed to sort imports in {py_file}: {e}")
@@ -325,12 +319,8 @@ class ComprehensiveRefactor:
             report = self.reports_dir / "large_files_report.txt"
             with open(report, "w") as f:
                 f.write("Files exceeding 500 lines (should be split):\n\n")
-                for file_path, line_count in sorted(
-                    large_files, key=lambda x: x[1], reverse=True
-                ):
-                    f.write(
-                        f"{file_path.relative_to(self.project_root)}: {line_count} lines\n"
-                    )
+                for file_path, line_count in sorted(large_files, key=lambda x: x[1], reverse=True):
+                    f.write(f"{file_path.relative_to(self.project_root)}: {line_count} lines\n")
             print(f"  ⚠️  Found {len(large_files)} large files. See {report}")
 
     def _extract_common_patterns(self):
@@ -391,14 +381,14 @@ def validate_json_request(required_fields: Optional[list] = None) -> Callable:
             data = request.get_json()
             if not data:
                 return jsonify({"error": "No JSON data provided"}), 400
-            
+
             if required_fields:
                 missing_fields = [field for field in required_fields if field not in data]
                 if missing_fields:
                     return jsonify({
                         "error": f"Missing required fields: {', '.join(missing_fields)}"
                     }), 400
-            
+
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -407,32 +397,32 @@ def validate_json_request(required_fields: Optional[list] = None) -> Callable:
 def rate_limit(requests_per_minute: int = 60) -> Callable:
     """Simple in-memory rate limiting decorator."""
     request_counts: Dict[str, Dict[str, int]] = {}
-    
+
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
             import time
-            
+
             client_ip = request.remote_addr or 'unknown'
             current_minute = int(time.time() // 60)
-            
+
             if client_ip not in request_counts:
                 request_counts[client_ip] = {}
-            
+
             # Clean old entries
             request_counts[client_ip] = {
                 minute: count for minute, count in request_counts[client_ip].items()
                 if minute >= current_minute - 1
             }
-            
+
             # Check current minute
             current_count = request_counts[client_ip].get(current_minute, 0)
             if current_count >= requests_per_minute:
                 return jsonify({"error": "Rate limit exceeded"}), 429
-            
+
             # Increment counter
             request_counts[client_ip][current_minute] = current_count + 1
-            
+
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -800,7 +790,7 @@ Send a message to an AI provider.
 ```json
 {
   "response": "AI response text",
-  "provider": "openai", 
+  "provider": "openai",
   "model": "gpt-4o-mini",
   "cached": false
 }
@@ -1036,7 +1026,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Refactored Files
 {chr(10).join(f'- {f.relative_to(self.project_root)}' for f in sorted(self.refactored_files))}
 
-## Archived Files  
+## Archived Files
 {chr(10).join(f'- {f.relative_to(self.project_root)}' for f in sorted(self.archived_files))}
 
 ## Generated Reports
@@ -1093,31 +1083,19 @@ The refactor is complete and the codebase is now optimized for maintainability, 
 def main():
     """Main entry point with command-line interface."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Comprehensive Codebase Refactor")
+    parser.add_argument("--phase", type=int, choices=range(1, 10), help="Run specific phase (1-9)")
+    parser.add_argument("--all", action="store_true", help="Run all phases")
     parser.add_argument(
-        "--phase", 
-        type=int, 
-        choices=range(1, 10),
-        help="Run specific phase (1-9)"
+        "--project-root", type=Path, default=Path(__file__).parent, help="Project root directory"
     )
-    parser.add_argument(
-        "--all", 
-        action="store_true",
-        help="Run all phases"
-    )
-    parser.add_argument(
-        "--project-root",
-        type=Path,
-        default=Path(__file__).parent,
-        help="Project root directory"
-    )
-    
+
     args = parser.parse_args()
-    
+
     try:
         refactor = ComprehensiveRefactor(args.project_root)
-        
+
         if args.all:
             refactor.execute_full_refactor()
         elif args.phase:
@@ -1132,14 +1110,14 @@ def main():
                 8: refactor._phase8_cleanup_archival,
                 9: refactor._phase9_final_validation,
             }
-            
+
             print(f"🚀 Running Phase {args.phase}...")
             phase_methods[args.phase]()
             print(f"✅ Phase {args.phase} completed!")
         else:
             # Default: run all phases
             refactor.execute_full_refactor()
-            
+
     except KeyboardInterrupt:
         print("\n⚠️  Refactor interrupted by user")
         sys.exit(1)

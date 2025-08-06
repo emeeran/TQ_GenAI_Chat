@@ -163,12 +163,8 @@ class OptimizedDocumentStore:
             )
 
             # Optimized indexes
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents(filename)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(content_hash)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents(filename)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(content_hash)")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_documents_upload_date ON documents(upload_date)"
             )
@@ -236,15 +232,9 @@ class OptimizedDocumentStore:
             )
 
             # Chat history indexes
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_chat_timestamp ON chat_history(timestamp)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_chat_provider ON chat_history(provider)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_timestamp ON chat_history(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_provider ON chat_history(provider)")
 
             logger.info("Database schema initialized with optimizations")
 
@@ -278,9 +268,7 @@ class OptimizedDocumentStore:
                 if self.redis_client:
                     self.redis_client.setex(f"doc_hash:{content_hash}", 3600, doc_id)
 
-                logger.info(
-                    f"Document with hash {content_hash} already exists with ID {doc_id}"
-                )
+                logger.info(f"Document with hash {content_hash} already exists with ID {doc_id}")
                 return doc_id
 
             # Insert new document
@@ -363,9 +351,7 @@ class OptimizedDocumentStore:
 
             # Cache results
             if self.redis_client:
-                self.redis_client.setex(
-                    cache_key, 300, json.dumps(documents)
-                )  # 5 min cache
+                self.redis_client.setex(cache_key, 300, json.dumps(documents))  # 5 min cache
 
             return documents
 
@@ -398,9 +384,7 @@ class OptimizedDocumentStore:
                 "filename": result["filename"],
                 "content": result["content"],
                 "upload_date": result["upload_date"],
-                "metadata": (
-                    json.loads(result["metadata"]) if result["metadata"] else {}
-                ),
+                "metadata": (json.loads(result["metadata"]) if result["metadata"] else {}),
                 "file_size": result["file_size"],
             }
 
@@ -450,9 +434,7 @@ class OptimizedDocumentStore:
 
             return cursor.lastrowid
 
-    def get_chat_history(
-        self, session_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    def get_chat_history(self, session_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Get chat history for a session with caching."""
         cache_key = f"chat_history:{session_id}:{limit}"
 
@@ -493,9 +475,7 @@ class OptimizedDocumentStore:
 
             # Cache results
             if self.redis_client:
-                self.redis_client.setex(
-                    cache_key, 600, json.dumps(history)
-                )  # 10 min cache
+                self.redis_client.setex(cache_key, 600, json.dumps(history))  # 10 min cache
 
             return history
 
@@ -600,9 +580,7 @@ class OptimizedDocumentStore:
 
             # Database size
             db_size = (
-                Path(self.database_path).stat().st_size
-                if Path(self.database_path).exists()
-                else 0
+                Path(self.database_path).stat().st_size if Path(self.database_path).exists() else 0
             )
             stats["database_size_bytes"] = db_size
 

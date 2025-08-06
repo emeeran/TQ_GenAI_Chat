@@ -51,8 +51,7 @@ class BackgroundTaskManager:
 
         self.running = True
         self.workers = [
-            asyncio.create_task(self._worker(f"worker-{i}"))
-            for i in range(self.max_workers)
+            asyncio.create_task(self._worker(f"worker-{i}")) for i in range(self.max_workers)
         ]
         self.logger.info(f"Started {self.max_workers} background workers")
 
@@ -74,9 +73,7 @@ class BackgroundTaskManager:
         return {
             "running": self.running,
             "workers": len(self.workers),
-            "queue_size": (
-                self.task_queue.qsize() if hasattr(self.task_queue, "qsize") else 0
-            ),
+            "queue_size": (self.task_queue.qsize() if hasattr(self.task_queue, "qsize") else 0),
             "total_tasks": len(self.tasks),
         }
 
@@ -126,9 +123,7 @@ class BackgroundTaskManager:
         task.status = TaskStatus.RUNNING
         task.started_at = datetime.now()
 
-        self.logger.info(
-            f"Worker {worker_name} executing task: {task.name} ({task.id})"
-        )
+        self.logger.info(f"Worker {worker_name} executing task: {task.name} ({task.id})")
 
         try:
             if asyncio.iscoroutinefunction(task.func):

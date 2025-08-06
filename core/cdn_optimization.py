@@ -39,9 +39,7 @@ class AssetOptimizer:
     Optimizes static assets (CSS, JS, images) for better performance.
     """
 
-    def __init__(
-        self, source_dir: str = "static", output_dir: str = "static/optimized"
-    ):
+    def __init__(self, source_dir: str = "static", output_dir: str = "static/optimized"):
         self.source_dir = Path(source_dir)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
@@ -135,9 +133,7 @@ class AssetOptimizer:
                 relative_path = str(css_file.relative_to(self.source_dir))
                 self.asset_manifest[relative_path] = f"optimized/{output_name}"
 
-                logger.info(
-                    f"Optimized {css_file.name}: {original_size} → {optimized_size} bytes"
-                )
+                logger.info(f"Optimized {css_file.name}: {original_size} → {optimized_size} bytes")
 
             except Exception as e:
                 logger.error(f"Failed to optimize CSS {css_file}: {e}")
@@ -189,9 +185,7 @@ class AssetOptimizer:
                 relative_path = str(js_file.relative_to(self.source_dir))
                 self.asset_manifest[relative_path] = f"optimized/{output_name}"
 
-                logger.info(
-                    f"Optimized {js_file.name}: {original_size} → {optimized_size} bytes"
-                )
+                logger.info(f"Optimized {js_file.name}: {original_size} → {optimized_size} bytes")
 
             except Exception as e:
                 logger.error(f"Failed to optimize JS {js_file}: {e}")
@@ -225,9 +219,7 @@ class AssetOptimizer:
                         background = Image.new("RGB", img.size, (255, 255, 255))
                         if img.mode == "P":
                             img = img.convert("RGBA")
-                        background.paste(
-                            img, mask=img.split()[-1] if "A" in img.mode else None
-                        )
+                        background.paste(img, mask=img.split()[-1] if "A" in img.mode else None)
                         img = background
 
                     # Generate file hash
@@ -405,9 +397,7 @@ class CDNManager:
         # (AWS CloudFront, Cloudflare, etc.) would have their own APIs
 
         file_size = file_path.stat().st_size
-        content_type = (
-            mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
-        )
+        content_type = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
 
         # Determine cache control based on file type
         file_ext = file_path.suffix.lower()
@@ -418,9 +408,7 @@ class CDNManager:
             file_content = await f.read()
 
         # Upload to CDN (this would be CDN-specific)
-        await self._cdn_upload_request(
-            file_path, file_content, content_type, cache_control
-        )
+        await self._cdn_upload_request(file_path, file_content, content_type, cache_control)
 
         results["uploaded_files"] += 1
         results["total_size"] += file_size
@@ -444,9 +432,7 @@ class CDNManager:
         # - Use Azure SDK to upload to blob storage
         # - Configure CDN endpoint
 
-        logger.debug(
-            f"CDN upload: {file_path.name} with cache-control: {cache_control}"
-        )
+        logger.debug(f"CDN upload: {file_path.name} with cache-control: {cache_control}")
 
         # Simulate upload delay
         await asyncio.sleep(0.1)
@@ -533,9 +519,7 @@ class AssetManager:
             # Step 2: Upload to CDN
             if self.cdn_manager.base_url:
                 logger.info("Uploading assets to CDN...")
-                upload_results = await self.cdn_manager.upload_assets(
-                    self.optimizer.output_dir
-                )
+                upload_results = await self.cdn_manager.upload_assets(self.optimizer.output_dir)
                 results["upload"] = upload_results
             else:
                 logger.info("No CDN configured, skipping upload")
@@ -547,9 +531,7 @@ class AssetManager:
             results["success"] = True
             results["total_time"] = time.time() - start_time
 
-            logger.info(
-                f"Asset build and deploy completed in {results['total_time']:.2f}s"
-            )
+            logger.info(f"Asset build and deploy completed in {results['total_time']:.2f}s")
 
         except Exception as e:
             logger.error(f"Asset build and deploy failed: {e}")
@@ -568,9 +550,7 @@ class AssetManager:
                     content = await f.read()
                     self.manifest = json.loads(content)
                     self.manifest_loaded = True
-                    logger.info(
-                        f"Loaded asset manifest with {len(self.manifest)} entries"
-                    )
+                    logger.info(f"Loaded asset manifest with {len(self.manifest)} entries")
             except Exception as e:
                 logger.error(f"Failed to load asset manifest: {e}")
                 self.manifest = {}

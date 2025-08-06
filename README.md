@@ -5,6 +5,7 @@ A comprehensive multi-provider GenAI chat application with advanced file process
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.8+
 - Redis (optional, for caching)
 - uv or pip for dependency management
@@ -12,12 +13,14 @@ A comprehensive multi-provider GenAI chat application with advanced file process
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd TQ_GenAI_Chat
 ```
 
 2. Install dependencies:
+
 ```bash
 # Using uv (recommended)
 uv sync
@@ -27,12 +30,14 @@ pip install -r requirements.txt
 ```
 
 3. Set up environment variables:
+
 ```bash
 cp .env.example .env
 # Edit .env with your API keys
 ```
 
 4. Run the application:
+
 ```bash
 # Using uv
 uv run python -m app
@@ -44,6 +49,7 @@ python -m app
 ## 🏗️ Architecture
 
 ### Project Structure
+
 ```
 TQ_GenAI_Chat/
 ├── app/                    # Application factory and blueprints
@@ -93,6 +99,7 @@ MAX_RETRIES=3
 ### Provider Configuration
 
 Each AI provider is configured in `core/providers/` with:
+
 - Authentication handling
 - Model selection
 - Rate limiting
@@ -103,9 +110,11 @@ Each AI provider is configured in `core/providers/` with:
 ### Chat Endpoints
 
 #### POST /api/v1/chat
+
 Send a message to an AI provider.
 
 **Request:**
+
 ```json
 {
   "message": "Hello, world!",
@@ -116,10 +125,11 @@ Send a message to an AI provider.
 ```
 
 **Response:**
+
 ```json
 {
   "response": "AI response text",
-  "provider": "openai", 
+  "provider": "openai",
   "model": "gpt-4o-mini",
   "cached": false
 }
@@ -128,10 +138,12 @@ Send a message to an AI provider.
 ### File Processing
 
 #### POST /api/v1/files/upload
+
 Upload and process files for chat context.
 
 **Request:** Multipart form with files
 **Response:**
+
 ```json
 {
   "results": [
@@ -147,9 +159,11 @@ Upload and process files for chat context.
 ### Provider Management
 
 #### GET /api/v1/providers
+
 List available AI providers and their status.
 
 #### GET /api/v1/providers/{provider}/models
+
 Get available models for a specific provider.
 
 ## 🧪 Testing

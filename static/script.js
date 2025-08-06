@@ -807,21 +807,21 @@ async function updateModelsFromProvider() {
                     modelSelect.appendChild(option);
                 });
                 modelSelect.disabled = false;
-                
+
                 // Update the display
                 updateProviderModelDisplay();
 
                 // Enhanced success message with more details
                 let successMessage = `✅ ${data.message}\n\n` +
                     `📊 Found ${data.count} total models`;
-                
+
                 if (data.has_preview_models) {
                     successMessage += `\n🔬 Preview models: ${data.preview_count}` +
                         `\n✅ Stable models: ${data.stable_count}`;
                 }
-                
+
                 successMessage += `\n📡 Source: ${data.data_source}`;
-                
+
                 if (data.preview_models && data.preview_models.length > 0) {
                     successMessage += `\n\n🔬 Preview models include:\n${data.preview_models.slice(0, 3).join(', ')}${data.preview_models.length > 3 ? '...' : ''}`;
                 }
@@ -839,7 +839,7 @@ async function updateModelsFromProvider() {
         }
     } catch (error) {
         console.error('Model update error:', error);
-        
+
         // Restore previous models if available
         try {
             await updateModels();
@@ -847,7 +847,7 @@ async function updateModelsFromProvider() {
             modelSelect.innerHTML = '<option value="">Error loading models</option>';
             modelSelect.disabled = true;
         }
-        
+
         alert(`❌ Error updating models: ${error.message}`);
     } finally {
         // Restore button state

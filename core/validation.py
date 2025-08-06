@@ -76,21 +76,14 @@ class FileUploadValidator:
 
         # Check extension
         if not self._allowed_file(filename):
-            errors.append(
-                f"File type not allowed. Allowed: {', '.join(self.ALLOWED_EXTENSIONS)}"
-            )
+            errors.append(f"File type not allowed. Allowed: {', '.join(self.ALLOWED_EXTENSIONS)}")
 
         # Check size
         if file_size > self.MAX_FILE_SIZE:
-            errors.append(
-                f"File too large. Max size: {self.MAX_FILE_SIZE // (1024*1024)}MB"
-            )
+            errors.append(f"File too large. Max size: {self.MAX_FILE_SIZE // (1024*1024)}MB")
 
         return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
     def _allowed_file(self, filename: str) -> bool:
         """Check if file extension is allowed"""
-        return (
-            "." in filename
-            and filename.rsplit(".", 1)[1].lower() in self.ALLOWED_EXTENSIONS
-        )
+        return "." in filename and filename.rsplit(".", 1)[1].lower() in self.ALLOWED_EXTENSIONS

@@ -28,9 +28,7 @@ except ImportError:
 class ProcessingError(Exception):
     """Custom exception for file processing errors."""
 
-    def __init__(
-        self, message: str, file_type: str | None = None, recoverable: bool = True
-    ):
+    def __init__(self, message: str, file_type: str | None = None, recoverable: bool = True):
         super().__init__(message)
         self.file_type = file_type
         self.recoverable = recoverable
@@ -76,9 +74,7 @@ class ProcessingStatus:
                 "recoverable": getattr(error, "recoverable", False),
             }
             if filename in self._statuses:
-                self._statuses[filename].update(
-                    {"status": "error", "error": str(error)}
-                )
+                self._statuses[filename].update({"status": "error", "error": str(error)})
 
     def get_status(self, filename: str) -> dict[str, Any]:
         """Get current status for a file."""
@@ -137,9 +133,7 @@ class FileProcessor:
             ProcessingError: If file processing fails
         """
         processor = cls()
-        return await processor._process_file_internal(
-            content, filename, progress_callback
-        )
+        return await processor._process_file_internal(content, filename, progress_callback)
 
     async def _process_file_internal(
         self,
@@ -175,9 +169,7 @@ class FileProcessor:
 
             # Process file
             method = getattr(self, processor_method)
-            result = await asyncio.get_event_loop().run_in_executor(
-                None, method, content, filename
-            )
+            result = await asyncio.get_event_loop().run_in_executor(None, method, content, filename)
 
             # Update progress
             if progress_callback:
@@ -218,9 +210,7 @@ class FileProcessor:
                 ocr_text.append(pytesseract.image_to_string(img))
             ocr_result = "\n\n".join(ocr_text)
             if not ocr_result.strip():
-                raise ProcessingError(
-                    "PDF contains no extractable text (even with OCR)"
-                )
+                raise ProcessingError("PDF contains no extractable text (even with OCR)")
             return ocr_result
         except Exception as e:
             raise ProcessingError(f"PDF processing error: {str(e)}") from e
@@ -231,9 +221,7 @@ class FileProcessor:
             docx_file = io.BytesIO(content)
             doc = docx.Document(docx_file)
 
-            paragraphs = [
-                paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()
-            ]
+            paragraphs = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
             result = "\n\n".join(paragraphs)
 
             if not result.strip():

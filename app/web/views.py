@@ -6,7 +6,6 @@ from flask import jsonify, render_template
 
 from app.web import web_bp
 from core.errors import handle_errors
-from core.services import get_service
 
 
 @web_bp.route("/")
@@ -26,11 +25,20 @@ def get_models_legacy(provider):
 
         # Check if provider is supported
         supported_providers = [
-            "openai", "anthropic", "gemini", "deepseek", "mistral",
-            "cohere", "openrouter", "huggingface", "xai", "groq",
-            "alibaba", "moonshot"
+            "openai",
+            "anthropic",
+            "gemini",
+            "deepseek",
+            "mistral",
+            "cohere",
+            "openrouter",
+            "huggingface",
+            "xai",
+            "groq",
+            "alibaba",
+            "moonshot",
         ]
-        
+
         if provider.lower() not in supported_providers:
             return (
                 jsonify({"error": f"Provider {provider} not available", "models": []}),
@@ -39,14 +47,16 @@ def get_models_legacy(provider):
 
         # Dynamically fetch models from the provider's API
         models, is_dynamic = run_async(model_fetcher.fetch_models_for_provider(provider))
-        
+
         if not models:
             return (
-                jsonify({
-                    "error": f"No models available for {provider}",
-                    "models": [],
-                    "is_dynamic": is_dynamic
-                }),
+                jsonify(
+                    {
+                        "error": f"No models available for {provider}",
+                        "models": [],
+                        "is_dynamic": is_dynamic,
+                    }
+                ),
                 500,
             )
 
@@ -138,7 +148,7 @@ def run_async(coro):
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     return loop.run_until_complete(coro)
 
 
@@ -152,11 +162,20 @@ def update_models_legacy(provider):
 
         # Check if provider is supported
         supported_providers = [
-            "openai", "anthropic", "gemini", "deepseek", "mistral",
-            "cohere", "openrouter", "huggingface", "xai", "groq",
-            "alibaba", "moonshot"
+            "openai",
+            "anthropic",
+            "gemini",
+            "deepseek",
+            "mistral",
+            "cohere",
+            "openrouter",
+            "huggingface",
+            "xai",
+            "groq",
+            "alibaba",
+            "moonshot",
         ]
-        
+
         if provider.lower() not in supported_providers:
             return (
                 jsonify({"success": False, "error": f"Provider {provider} not supported"}),
@@ -165,20 +184,22 @@ def update_models_legacy(provider):
 
         # Dynamically fetch models from the provider's API
         models, is_dynamic = run_async(model_fetcher.fetch_models_for_provider(provider))
-        
+
         if not models:
             return (
-                jsonify({
-                    "success": False, 
-                    "error": f"No models available for {provider} or API request failed",
-                    "is_dynamic": is_dynamic
-                }),
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"No models available for {provider} or API request failed",
+                        "is_dynamic": is_dynamic,
+                    }
+                ),
                 500,
             )
 
         # Categorize models to provide better information to frontend
-        preview_models = [model for model in models if 'preview' in model.lower()]
-        stable_models = [model for model in models if 'preview' not in model.lower()]
+        preview_models = [model for model in models if "preview" in model.lower()]
+        stable_models = [model for model in models if "preview" not in model.lower()]
 
         # Get default model
         default_model = DEFAULT_MODELS.get(provider.lower())

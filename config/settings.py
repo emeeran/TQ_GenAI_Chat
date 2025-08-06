@@ -351,25 +351,19 @@ class ConfigManager:
                 name="deepseek-r1-distill-llama-70b",
                 display_name="DeepSeek R1 Distill Llama 70B",
                 provider="groq",
-                capabilities=ModelCapabilities(
-                    context_window=128000, max_output_tokens=32768
-                ),
+                capabilities=ModelCapabilities(context_window=128000, max_output_tokens=32768),
             ),
             "mixtral-8x7b-32768": ModelConfig(
                 name="mixtral-8x7b-32768",
                 display_name="Mixtral 8x7B",
                 provider="groq",
-                capabilities=ModelCapabilities(
-                    context_window=32768, max_output_tokens=32768
-                ),
+                capabilities=ModelCapabilities(context_window=32768, max_output_tokens=32768),
             ),
             "llama-3-70b": ModelConfig(
                 name="llama-3-70b",
                 display_name="Llama 3 70B",
                 provider="groq",
-                capabilities=ModelCapabilities(
-                    context_window=128000, max_output_tokens=32768
-                ),
+                capabilities=ModelCapabilities(context_window=128000, max_output_tokens=32768),
             ),
         }
 
@@ -379,18 +373,14 @@ class ConfigManager:
                 name="codestral-latest",
                 display_name="Codestral Latest",
                 provider="mistral",
-                capabilities=ModelCapabilities(
-                    context_window=256000, max_output_tokens=8192
-                ),
+                capabilities=ModelCapabilities(context_window=256000, max_output_tokens=8192),
                 specialization="coding",
             ),
             "mistral-small-latest": ModelConfig(
                 name="mistral-small-latest",
                 display_name="Mistral Small Latest",
                 provider="mistral",
-                capabilities=ModelCapabilities(
-                    context_window=128000, max_output_tokens=8192
-                ),
+                capabilities=ModelCapabilities(context_window=128000, max_output_tokens=8192),
             ),
         }
 
@@ -405,9 +395,7 @@ class ConfigManager:
         self._app_config = AppConfig(
             debug=os.getenv("FLASK_DEBUG", "False").lower() == "true",
             secret_key=os.getenv("SECRET_KEY", "dev-key-change-in-production"),
-            max_content_length=int(
-                os.getenv("MAX_CONTENT_LENGTH", str(64 * 1024 * 1024))
-            ),
+            max_content_length=int(os.getenv("MAX_CONTENT_LENGTH", str(64 * 1024 * 1024))),
             upload_folder=os.getenv("UPLOAD_FOLDER", "uploads"),
             max_files=int(os.getenv("MAX_FILES", "10")),
             json_sort_keys=os.getenv("JSON_SORT_KEYS", "False").lower() == "true",
@@ -428,9 +416,7 @@ class ConfigManager:
         """Load logging configuration."""
         self._logging_config = LoggingConfig(
             level=os.getenv("LOG_LEVEL", "INFO"),
-            format=os.getenv(
-                "LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            ),
+            format=os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
             file_path=os.getenv("LOG_FILE_PATH"),
             max_bytes=int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024))),
             backup_count=int(os.getenv("LOG_BACKUP_COUNT", "5")),
@@ -465,11 +451,7 @@ class ConfigManager:
     def get_available_models(self) -> list[ModelConfig]:
         """Get models for providers with valid API keys."""
         available_providers = self.get_available_providers()
-        return [
-            model
-            for model in self._models.values()
-            if model.provider in available_providers
-        ]
+        return [model for model in self._models.values() if model.provider in available_providers]
 
     # Configuration properties
     @property
@@ -508,9 +490,7 @@ class ConfigManager:
         # Validate models
         for name, config in self._models.items():
             if config.provider not in self._providers:
-                errors.append(
-                    f"Model {name} references unknown provider: {config.provider}"
-                )
+                errors.append(f"Model {name} references unknown provider: {config.provider}")
             if config.capabilities.context_window <= 0:
                 errors.append(f"Invalid context window for model: {name}")
             if config.capabilities.max_output_tokens <= 0:

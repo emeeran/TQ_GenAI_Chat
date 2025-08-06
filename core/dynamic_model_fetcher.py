@@ -136,14 +136,15 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["openai"],
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
                         models = [model["id"] for model in data.get("data", [])]
                         # Filter for chat completion models
                         chat_models = [
-                            m for m in models
+                            m
+                            for m in models
                             if any(x in m for x in ["gpt", "o1", "chatgpt"])
                             and "embed" not in m
                             and "tts" not in m
@@ -170,7 +171,7 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["gemini"],
                     params=params,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -204,7 +205,7 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["deepseek"],
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -233,7 +234,7 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["mistral"],
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -262,7 +263,7 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["openrouter"],
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -291,7 +292,7 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["xai"],
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -320,7 +321,7 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["groq"],
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -349,7 +350,7 @@ class DynamicModelFetcher:
                 async with session.get(
                     self.model_endpoints["moonshot"],
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -415,9 +416,18 @@ class DynamicModelFetcher:
         Returns a dictionary with provider names as keys and model info as values.
         """
         providers = [
-            "openai", "anthropic", "gemini", "deepseek", "mistral",
-            "cohere", "openrouter", "huggingface", "xai", "groq",
-            "alibaba", "moonshot"
+            "openai",
+            "anthropic",
+            "gemini",
+            "deepseek",
+            "mistral",
+            "cohere",
+            "openrouter",
+            "huggingface",
+            "xai",
+            "groq",
+            "alibaba",
+            "moonshot",
         ]
 
         results = {}
@@ -427,8 +437,8 @@ class DynamicModelFetcher:
                 models, is_dynamic = await self.fetch_models_for_provider(provider)
 
                 # Categorize models
-                preview_models = [m for m in models if 'preview' in m.lower()]
-                stable_models = [m for m in models if 'preview' not in m.lower()]
+                preview_models = [m for m in models if "preview" in m.lower()]
+                stable_models = [m for m in models if "preview" not in m.lower()]
 
                 results[provider] = {
                     "models": models,
@@ -442,7 +452,9 @@ class DynamicModelFetcher:
                     "last_updated": int(time.time()),
                 }
 
-                current_app.logger.info(f"Fetched {len(models)} models for {provider} (dynamic: {is_dynamic})")
+                current_app.logger.info(
+                    f"Fetched {len(models)} models for {provider} (dynamic: {is_dynamic})"
+                )
 
             except Exception as e:
                 current_app.logger.error(f"Failed to fetch models for {provider}: {str(e)}")

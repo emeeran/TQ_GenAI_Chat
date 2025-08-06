@@ -64,9 +64,7 @@ class TTSEngine:
 
         # Add gTTS voice if available
         if gTTS:
-            voices.append(
-                TTSVoice(voice_id="gtts", name="Google TTS", lang="en", gender="")
-            )
+            voices.append(TTSVoice(voice_id="gtts", name="Google TTS", lang="en", gender=""))
 
         return voices
 

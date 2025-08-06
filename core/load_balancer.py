@@ -112,9 +112,7 @@ class HealthChecker:
                         health_score *= max(0.1, 1.0 - (instance.error_count / 50))
 
                     instance.health_score = health_score
-                    instance.error_count = max(
-                        0, instance.error_count - 1
-                    )  # Decay errors
+                    instance.error_count = max(0, instance.error_count - 1)  # Decay errors
 
                     return health_score
                 else:
@@ -182,9 +180,7 @@ class WeightedRoundRobinStrategy(LoadBalancingStrategy):
             self.current_weights[instance.id] += instance.weight
 
         # Select instance with highest current weight
-        selected = max(
-            healthy_instances, key=lambda inst: self.current_weights[inst.id]
-        )
+        selected = max(healthy_instances, key=lambda inst: self.current_weights[inst.id])
 
         # Reduce selected instance's current weight
         total_weight = sum(inst.weight for inst in healthy_instances)
@@ -264,9 +260,7 @@ class ConsistentHashStrategy(LoadBalancingStrategy):
 
         # Use user_id or session_id for consistent routing
         routing_key = (
-            request_context.get("user_id")
-            or request_context.get("session_id")
-            or "default"
+            request_context.get("user_id") or request_context.get("session_id") or "default"
         )
         hash_value = self._hash(routing_key)
 
@@ -324,9 +318,7 @@ class LoadBalancer:
         # Start health check loop for instances
         asyncio.create_task(self._health_check_instances())
 
-        logger.info(
-            f"Load balancer started with {type(self.strategy).__name__} strategy"
-        )
+        logger.info(f"Load balancer started with {type(self.strategy).__name__} strategy")
 
     async def stop(self):
         """Stop the load balancer."""
@@ -357,9 +349,7 @@ class LoadBalancer:
             del self.instances[instance_id]
             logger.info(f"Removed instance {instance_id}")
 
-    async def route_request(
-        self, request_context: dict = None
-    ) -> ServiceInstance | None:
+    async def route_request(self, request_context: dict = None) -> ServiceInstance | None:
         """Route a request to an appropriate instance."""
         instances = list(self.instances.values())
 
@@ -369,10 +359,7 @@ class LoadBalancer:
 
         for instance in instances:
             if instance.id in self.failed_instances:
-                if (
-                    current_time - self.failed_instances[instance.id]
-                    > self.circuit_breaker_timeout
-                ):
+                if current_time - self.failed_instances[instance.id] > self.circuit_breaker_timeout:
                     # Try to recover the instance
                     del self.failed_instances[instance.id]
                     available_instances.append(instance)
@@ -385,9 +372,7 @@ class LoadBalancer:
             return None
 
         # Use strategy to select instance
-        selected_instance = self.strategy.select_instance(
-            available_instances, request_context
-        )
+        selected_instance = self.strategy.select_instance(available_instances, request_context)
 
         if selected_instance:
             selected_instance.active_connections += 1
@@ -437,11 +422,8 @@ class LoadBalancer:
             metrics = {
                 "request_count": self.request_count,
                 "error_count": self.error_count,
-                "average_response_time": self.total_response_time
-                / max(1, self.request_count),
-                "active_instances": len(
-                    [i for i in self.instances.values() if i.is_healthy]
-                ),
+                "average_response_time": self.total_response_time / max(1, self.request_count),
+                "active_instances": len([i for i in self.instances.values() if i.is_healthy]),
                 "total_instances": len(self.instances),
                 "timestamp": time.time(),
             }
@@ -467,11 +449,8 @@ class LoadBalancer:
             "total_requests": self.request_count,
             "total_errors": self.error_count,
             "error_rate": self.error_count / max(1, self.request_count),
-            "average_response_time": self.total_response_time
-            / max(1, self.request_count),
-            "active_connections": sum(
-                i.active_connections for i in self.instances.values()
-            ),
+            "average_response_time": self.total_response_time / max(1, self.request_count),
+            "active_connections": sum(i.active_connections for i in self.instances.values()),
             "instance_details": [
                 {
                     "id": instance.id,
@@ -604,9 +583,7 @@ class AutoScaler:
         """Remove an instance."""
         try:
             # Find the least busy healthy instance to remove
-            instances = [
-                i for i in self.load_balancer.instances.values() if i.is_healthy
-            ]
+            instances = [i for i in self.load_balancer.instances.values() if i.is_healthy]
 
             if len(instances) <= self.min_instances:
                 return
@@ -666,9 +643,7 @@ _load_balancer = None
 _auto_scaler = None
 
 
-def get_load_balancer(
-    strategy: str = "response_time", redis_client=None
-) -> LoadBalancer:
+def get_load_balancer(strategy: str = "response_time", redis_client=None) -> LoadBalancer:
     """Get or create the global load balancer instance."""
     global _load_balancer
     if _load_balancer is None:

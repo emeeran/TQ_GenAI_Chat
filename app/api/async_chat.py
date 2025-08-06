@@ -138,12 +138,8 @@ def get_background_tasks():
                     "name": task.name,
                     "status": task.status.value,
                     "progress": task.progress,
-                    "created_at": (
-                        task.created_at.isoformat() if task.created_at else None
-                    ),
-                    "completed_at": (
-                        task.completed_at.isoformat() if task.completed_at else None
-                    ),
+                    "created_at": (task.created_at.isoformat() if task.created_at else None),
+                    "completed_at": (task.completed_at.isoformat() if task.completed_at else None),
                     "error": task.error,
                 }
                 for task in tasks

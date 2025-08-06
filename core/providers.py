@@ -39,7 +39,8 @@ class ProviderType(Enum):
 class Configurable(Protocol):
     """Protocol for configurable providers"""
 
-    def is_configured(self) -> bool: ...
+    def is_configured(self) -> bool:
+        ...
 
 
 class TQChatError(Exception):
@@ -152,8 +153,7 @@ class BaseProvider(ABC):
             "fallback_used": fallback_used,
             "request_count": self._request_count,
             "error_count": self._error_count,
-            "success_rate": (self._request_count - self._error_count)
-            / max(self._request_count, 1),
+            "success_rate": (self._request_count - self._error_count) / max(self._request_count, 1),
         }
 
     def _handle_http_error(self, error: requests.HTTPError) -> str:
@@ -168,9 +168,7 @@ class BaseProvider(ABC):
             case 429:
                 return "Rate limit exceeded - please try again later"
             case 500 | 502 | 503 | 504:
-                return (
-                    f"Server error ({status_code}) - provider temporarily unavailable"
-                )
+                return f"Server error ({status_code}) - provider temporarily unavailable"
             case _:
                 return f"HTTP {status_code}: {str(error)}"
 
@@ -234,9 +232,7 @@ class BaseProvider(ABC):
                 response.raise_for_status()
                 result = response.json()
 
-                return self._extract_response(
-                    result, model_to_use, response_time, i > 0
-                )
+                return self._extract_response(result, model_to_use, response_time, i > 0)
 
             except requests.HTTPError as e:
                 self._error_count += 1
@@ -414,14 +410,10 @@ class GeminiProvider(BaseProvider):
         temperature: float,
         max_tokens: int,
     ) -> tuple[str, dict, dict]:
-        endpoint = (
-            f"{self.config.endpoint}{model}:generateContent?key={self.config.key}"
-        )
+        endpoint = f"{self.config.endpoint}{model}:generateContent?key={self.config.key}"
         headers = {"Content-Type": "application/json"}
 
-        payload = {
-            "contents": [{"role": "user", "parts": [{"text": f"{persona}\n{message}"}]}]
-        }
+        payload = {"contents": [{"role": "user", "parts": [{"text": f"{persona}\n{message}"}]}]}
 
         return endpoint, headers, payload
 
@@ -436,9 +428,7 @@ class GeminiProvider(BaseProvider):
                     text = parts[0]["text"]
                     return APIResponse(
                         text=text,
-                        metadata=self._create_metadata(
-                            model, response_time, fallback_used
-                        ),
+                        metadata=self._create_metadata(model, response_time, fallback_used),
                     )
         except (KeyError, IndexError, TypeError):
             pass

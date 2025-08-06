@@ -110,9 +110,7 @@ class ChatWebSocketHandler:
             elif message_type == "typing_stop":
                 await self.handle_typing_stop(user_id, chat_room)
             elif message_type == "ping":
-                await self.send_to_user(
-                    user_id, {"type": "pong", "timestamp": time.time()}
-                )
+                await self.send_to_user(user_id, {"type": "pong", "timestamp": time.time()})
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
@@ -121,9 +119,7 @@ class ChatWebSocketHandler:
         except Exception as e:
             logger.error(f"Error handling message from {user_id}: {e}")
 
-    async def handle_chat_message(
-        self, user_id: str, chat_room: str, data: dict[str, Any]
-    ):
+    async def handle_chat_message(self, user_id: str, chat_room: str, data: dict[str, Any]):
         """
         Handle chat message and broadcast to room.
         """

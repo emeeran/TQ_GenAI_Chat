@@ -4,7 +4,6 @@ TQ GenAI Chat Application Factory
 Modern Flask application with dependency injection and modular architecture.
 """
 
-import asyncio
 from pathlib import Path
 
 from flask import Flask
@@ -13,6 +12,7 @@ from flask_cors import CORS
 # Import new architectural components
 # from core.background_tasks import task_manager  # Temporarily disabled
 from core.errors import setup_logging
+
 # from core.performance import perf_monitor  # Temporarily disabled
 from core.services import get_service
 

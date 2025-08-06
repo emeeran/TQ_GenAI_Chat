@@ -11,9 +11,7 @@ from flask import jsonify
 class APIError(Exception):
     """Base API exception"""
 
-    def __init__(
-        self, message: str, status_code: int = 500, details: dict | None = None
-    ):
+    def __init__(self, message: str, status_code: int = 500, details: dict | None = None):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -70,9 +68,7 @@ class ErrorHandler:
             "details": {
                 "type": type(error).__name__,
                 "traceback": (
-                    traceback.format_exc()
-                    if self.logger.level <= logging.DEBUG
-                    else None
+                    traceback.format_exc() if self.logger.level <= logging.DEBUG else None
                 ),
             },
         }

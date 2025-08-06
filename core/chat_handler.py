@@ -104,9 +104,7 @@ Please synthesize a clear, well-organized answer using this context where releva
         """Generate the initial AI response"""
         provider = provider_manager.get_provider(params["provider"])
         if not provider:
-            raise ValueError(
-                f"Provider '{params['provider']}' not available or not configured"
-            )
+            raise ValueError(f"Provider '{params['provider']}' not available or not configured")
 
         persona = self._prepare_persona(params["persona"])
         enhanced_message = self._inject_context(params["message"])
@@ -124,9 +122,7 @@ Please synthesize a clear, well-organized answer using this context where releva
 
         return {"response": {"text": response.text, "metadata": response.metadata}}
 
-    def _verify_response(
-        self, response_text: str, original_params: dict
-    ) -> dict | None:
+    def _verify_response(self, response_text: str, original_params: dict) -> dict | None:
         """Verify response authenticity using a different model"""
         if original_params["persona"] == "authenticity_verifier":
             return None  # Avoid infinite recursion
@@ -233,9 +229,7 @@ Original Response:
             )
 
             # Integrate verification results
-            final_response = self._integrate_verification(
-                initial_response, verification_response
-            )
+            final_response = self._integrate_verification(initial_response, verification_response)
 
             return final_response
 
