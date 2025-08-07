@@ -18,10 +18,7 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import BadRequest, RequestEntityTooLarge
 
-from core.streaming_processor import (
-    StreamingConfig,
-    streaming_file_manager,
-)
+from core.streaming_processor import StreamingConfig, streaming_file_manager
 
 logger = logging.getLogger(__name__)
 
