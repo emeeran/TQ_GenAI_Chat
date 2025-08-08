@@ -570,6 +570,13 @@ class ProviderManager:
     def _get_default_configs(self) -> dict[str, ProviderConfig]:
         """Get default provider configurations from environment"""
         return {
+            "cerebras": ProviderConfig(
+                endpoint="https://api.cerebras.ai/v1/chat/completions",
+                key=os.getenv("CEREBRAS_API_KEY", ""),
+                default_model="llama-3.3-70b",
+                fallback_model="deepseek-r1-distill-llama-70b",
+                provider_type=ProviderType.OPENAI_COMPATIBLE,
+            ),
             "openai": ProviderConfig(
                 endpoint="https://api.openai.com/v1/chat/completions",
                 key=os.getenv("OPENAI_API_KEY", ""),

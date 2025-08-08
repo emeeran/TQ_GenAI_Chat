@@ -99,11 +99,35 @@ def fetch_groq_models():
     return []
 
 
+def fetch_cerebras_models():
+    """Fetch available models from Cerebras API"""
+    try:
+        api_key = os.getenv("CEREBRAS_API_KEY")
+        if not api_key:
+            print("CEREBRAS_API_KEY not found")
+            return []
+
+        headers = {"Authorization": f"Bearer {api_key}"}
+        response = requests.get(
+            "https://api.cerebras.ai/v1/models", headers=headers, timeout=10
+        )
+
+        if response.status_code == 200:
+            models_data = response.json()
+            models = [model["id"] for model in models_data["data"]]
+            return sorted(models)
+    except Exception as e:
+        print(f"Failed to fetch Cerebras models: {e}")
+    return []
+
+
 def fetch_provider_models(provider_name):
     """Fetch models for a specific provider"""
     print(f"Fetching models for {provider_name}...")
 
-    if provider_name == "openai":
+    if provider_name == "cerebras":
+        return fetch_cerebras_models()
+    elif provider_name == "openai":
         return fetch_openai_models()
     elif provider_name == "anthropic":
         return fetch_anthropic_models()
@@ -146,6 +170,7 @@ def update_all_models():
 def set_default_models():
     """Set latest and economic models as default for each provider"""
     defaults = {
+        "cerebras": "llama-3.3-70b",  # Latest and economic
         "openai": "gpt-4o-mini",  # Economic choice
         "anthropic": "claude-3-5-sonnet-latest",  # Latest
         "gemini": "gemini-2.0-flash",  # Latest and economic

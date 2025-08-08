@@ -1084,9 +1084,9 @@ document.getElementById('user-input').addEventListener('keypress', function (eve
 
 // Initialize by triggering model load for default provider
 document.addEventListener('DOMContentLoaded', function () {
-    // Set Groq as default provider
+    // Set CEREBRAS as default provider
     const providerSelect = document.getElementById('provider');
-    providerSelect.value = 'groq';
+    providerSelect.value = 'cerebras';
 
     // Initialize audio and trigger model load
     initializeAudio();

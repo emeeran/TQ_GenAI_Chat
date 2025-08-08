@@ -11,6 +11,7 @@ def get_all_models() -> dict[str, list[str]]:
 
 # Default models for each provider
 DEFAULT_MODELS = {
+    "cerebras": "llama-3.3-70b",
     "openai": "gpt-4o-mini",
     "groq": "deepseek-r1-distill-llama-70b",
     "anthropic": "claude-3-5-haiku-latest",
@@ -27,6 +28,7 @@ DEFAULT_MODELS = {
 
 # Fallback models in case default is not available
 FALLBACK_MODELS = {
+    "cerebras": "deepseek-r1-distill-llama-70b",
     "openai": "gpt-3.5-turbo",
     "groq": "mixtral-8x7b-32768",
     "anthropic": "claude-3-haiku-20240307",
@@ -43,6 +45,7 @@ FALLBACK_MODELS = {
 
 # API endpoints for providers
 API_ENDPOINTS = {
+    "cerebras": "https://api.cerebras.ai/v1/chat/completions",
     "openai": "https://api.openai.com/v1/chat/completions",
     "groq": "https://api.groq.com/openai/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
