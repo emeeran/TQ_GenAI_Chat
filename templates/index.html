@@ -64,7 +64,7 @@
                                 <i class="fas fa-star"></i>
                             </button>
                             <button class="btn btn-outline-primary btn-sm ms-2" onclick="setDefaultProvider()"
-                                id="set-provider-btn" title="Set Default Provider">
+                                id="set-provider-btn" title="Set Global Default">
                                 <i class="fas fa-cog"></i>
                             </button>
                             <button class="btn btn-light btn-sm ms-2" onclick="toggleTheme()"
@@ -286,12 +286,12 @@
             const providerSelect = document.getElementById('provider');
             const selectedProvider = providerSelect.value;
             if (!selectedProvider) {
-                alert('Please select a provider to set as default.');
+                alert('Please select a provider to set as global default.');
                 return;
             }
-            // Save to localStorage or send to backend as needed
+            // Save to localStorage - this will persist until reset
             localStorage.setItem('defaultProvider', selectedProvider);
-            alert('Default provider set to: ' + selectedProvider);
+            alert('Global default provider set to: ' + selectedProvider);
         }
 
         function toggleTheme() {

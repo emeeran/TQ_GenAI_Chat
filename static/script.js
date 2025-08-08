@@ -84,6 +84,36 @@ if (elements.model) {
     });
 }
 
+// Function to truncate text to a specified length
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
+}
+
+// Function to reset all global defaults
+function resetGlobalDefaults() {
+    if (confirm('Reset all global defaults? This will clear your saved provider and model preferences.')) {
+        localStorage.removeItem('defaultProvider');
+        localStorage.removeItem('defaultModel');
+        localStorage.removeItem('defaultPersona');
+
+        // Reset to first options
+        const providerSelect = document.getElementById('provider');
+        const modelSelect = document.getElementById('model');
+        const personaSelect = document.getElementById('persona');
+
+        if (providerSelect) providerSelect.selectedIndex = 0;
+        if (modelSelect) {
+            modelSelect.innerHTML = '<option value="">Select Model</option>';
+            modelSelect.disabled = true;
+        }
+        if (personaSelect) personaSelect.selectedIndex = 0;
+
+        updateProviderModelDisplay();
+        alert('Global defaults have been reset!');
+    }
+}
+
 // Function to update provider/model display at bottom of sidebar
 function updateProviderModelDisplay() {
     const provider = document.getElementById('provider')?.value || 'N/A';
@@ -103,7 +133,12 @@ function updateProviderModelDisplay() {
         }
     }
 
-    displayElement.innerHTML = `<strong>${provider} | ${model}</strong>`;
+    // Truncate provider and model names to prevent overflow
+    const displayProvider = truncateText(provider, 12);
+    const displayModel = truncateText(model, 20);
+
+    displayElement.innerHTML = `<strong>${displayProvider} | ${displayModel}</strong>`;
+    displayElement.title = `${provider} | ${model}`; // Full text on hover
 }
 
 // Persona selector logic

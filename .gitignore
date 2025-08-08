@@ -108,3 +108,18 @@ models_cache.json
 defaults_cache.json
 uv.lock
 trash2review/
+
+# Performance optimization
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+*.log
+*.tmp
+documents.db
+models_cache.json
+defaults_cache.json
+uv.lock
+trash2review/
