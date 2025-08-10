@@ -10,6 +10,8 @@ import json
 import os
 import tempfile
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 try:
@@ -21,10 +23,11 @@ except ImportError:
     SPEECH_RECOGNITION_AVAILABLE = False
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, redirect, url_for
 from flask_cors import CORS
 from pydub import AudioSegment
 from werkzeug.utils import secure_filename
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
 from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
 from core.chat_handler import create_chat_handler
@@ -45,6 +48,7 @@ app = Flask(
     template_folder=str(Path(__file__).parent / "templates"),
     static_folder=str(Path(__file__).parent / "static"),
 )
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'supersecretkey123')
 
 # Configure Flask
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -62,6 +66,32 @@ with app.app_context():
     file_manager = FileManager()
     chat_handler = create_chat_handler(file_manager)
 
+# Flask-Login config
+BASIC_AUTH_USERNAME = os.getenv("BASIC_AUTH_USERNAME", "admin")
+BASIC_AUTH_PASSWORD = os.getenv("BASIC_AUTH_PASSWORD", "changeme")
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+class User(UserMixin):
+    def __init__(self, id):
+        self.id = id
+        self.name = id
+        self.password = BASIC_AUTH_PASSWORD
+
+    def get_id(self):
+        return self.id
+
+@login_manager.user_loader
+def load_user(user_id):
+    if user_id == BASIC_AUTH_USERNAME:
+        return User(user_id)
+    return None
+
+# Thread pool for async file processing
+thread_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="FileProcessor")
+
 # Ensure directories exist
 for directory in [SAVE_DIR, EXPORT_DIR, UPLOAD_DIR]:
     directory.mkdir(mode=0o755, parents=True, exist_ok=True)
@@ -71,7 +101,30 @@ PROCESSING_STATUS = status_tracker._statuses
 PROCESSING_ERRORS = {}
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        if username == BASIC_AUTH_USERNAME and password == BASIC_AUTH_PASSWORD:
+            user = User(username)
+            login_user(user)
+            return redirect(url_for("index"))
+        else:
+            error = "Invalid credentials."
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+
 @app.route("/")
+@login_required
 def index():
     """Main chat interface"""
     return render_template("index.html")
@@ -83,10 +136,19 @@ def get_personas():
     """Get available personas"""
     personas_list = []
     for persona_id, persona_content in PERSONAS.items():
-        # Convert snake_case to Title Case for display
         display_name = persona_id.replace("_", " ").title()
-        personas_list.append({"id": persona_id, "name": display_name, "content": persona_content})
-
+        if isinstance(persona_content, dict):
+            personas_list.append({
+                "id": persona_id,
+                "name": persona_content.get("name", display_name),
+                "content": persona_content.get("system_prompt", "")
+            })
+        else:
+            personas_list.append({
+                "id": persona_id,
+                "name": display_name,
+                "content": persona_content
+            })
     return jsonify({"personas": personas_list})
 
 
@@ -196,6 +258,7 @@ def set_default_model(provider):
 
 # --- Chat Routes ---
 @app.route("/chat", methods=["POST"])
+@login_required
 def chat():
     """Main chat endpoint"""
     try:
@@ -224,6 +287,7 @@ def chat():
 
 
 @app.route("/search_context", methods=["POST"])
+@login_required
 def search_context():
     """Search uploaded documents for relevant content"""
     try:
@@ -256,6 +320,7 @@ def search_context():
 
 # --- Document Management Routes ---
 @app.route("/documents/list", methods=["GET"])
+@login_required
 def list_documents():
     """Get list of all uploaded documents with statistics"""
     try:
@@ -289,6 +354,7 @@ def list_documents():
 
 
 @app.route("/documents/delete/<doc_id>", methods=["DELETE"])
+@login_required
 def delete_document(doc_id):
     """Delete a document by ID"""
     try:
@@ -343,17 +409,26 @@ def tts():
 
 # --- File Upload Routes ---
 @app.route("/upload", methods=["POST"])
+@login_required
 def upload_files():
     """Upload and process files"""
     try:
-        if "files" not in request.files:
+        app.logger.info(f"Upload request received from {request.remote_addr}")
+        app.logger.debug(f"Request files keys: {list(request.files.keys())}")
+        app.logger.debug(f"Request form keys: {list(request.form.keys())}")
+        
+        if "files" not in request.files and "files[]" not in request.files:
+            app.logger.warning("No files provided in upload request")
             return jsonify({"error": "No files provided"}), 400
 
-        files = request.files.getlist("files")
+        # Support both 'files' and 'files[]' naming conventions
+        files = request.files.getlist("files") or request.files.getlist("files[]")
         if not files:
+            app.logger.warning("No files selected in upload request")
             return jsonify({"error": "No files selected"}), 400
 
         if len(files) > app.config["MAX_FILES"]:
+            app.logger.warning(f"Too many files: {len(files)} > {app.config['MAX_FILES']}")
             return (
                 jsonify({"error": f'Too many files. Maximum {app.config["MAX_FILES"]} allowed'}),
                 400,
@@ -365,15 +440,32 @@ def upload_files():
             if file.filename == "":
                 continue
 
+            app.logger.info(f"Processing file: {file.filename}")
+            
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 file_path = Path(app.config["UPLOAD_FOLDER"]) / filename
-                file.save(file_path)
-
-                # Start async processing
-                asyncio.create_task(process_file_async(filename, str(file_path)))
-                results.append({"filename": filename, "status": "processing"})
+                
+                try:
+                    # Ensure upload directory exists
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    file.save(file_path)
+                    app.logger.info(f"File saved: {file_path}")
+                    
+                    # Start async processing using thread pool
+                    thread_pool.submit(process_file_sync, filename, str(file_path))
+                    results.append({"filename": filename, "status": "success"})
+                    app.logger.info(f"File processing started: {filename}")
+                    
+                except Exception as save_error:
+                    app.logger.error(f"Error saving file {filename}: {str(save_error)}")
+                    results.append({
+                        "filename": file.filename,
+                        "status": "error",
+                        "message": f"Failed to save file: {str(save_error)}"
+                    })
             else:
+                app.logger.warning(f"File type not allowed: {file.filename}")
                 results.append(
                     {
                         "filename": file.filename,
@@ -382,14 +474,16 @@ def upload_files():
                     }
                 )
 
+        app.logger.info(f"Upload request completed with {len(results)} results")
         return jsonify({"results": results})
 
     except Exception as e:
-        app.logger.error(f"Upload error: {str(e)}")
-        return jsonify({"error": "Upload failed"}), 500
+        app.logger.error(f"Upload error: {str(e)}", exc_info=True)
+        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
 
 
 @app.route("/upload/status/<filename>")
+@login_required
 def upload_status(filename):
     """Get file processing status"""
     try:
@@ -602,30 +696,83 @@ def export_chat():
 # --- Utility Functions ---
 def allowed_file(filename):
     """Check if file extension is allowed"""
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename or "." not in filename:
+        app.logger.warning(f"Invalid filename format: {filename}")
+        return False
+    
+    extension = filename.rsplit(".", 1)[1].lower()
+    is_allowed = extension in ALLOWED_EXTENSIONS
+    
+    if not is_allowed:
+        app.logger.warning(f"File extension '{extension}' not in allowed extensions: {ALLOWED_EXTENSIONS}")
+    
+    return is_allowed
 
 
 async def process_file_async(filename, file_path):
     """Process uploaded file asynchronously"""
     try:
         processor = FileProcessor()
-        content = await processor.process_file(file_path, filename)
+        
+        # Read file content as bytes
+        with open(file_path, 'rb') as f:
+            content = f.read()
+            
+        # Process the file content
+        extracted_content = await processor.process_file(content, filename)
+        app.logger.info(f"Successfully extracted {len(extracted_content)} characters from {filename}")
 
         # Add to document store
-        file_manager.add_document(filename, content)
+        try:
+            doc_id = file_manager.add_document(filename, extracted_content)
+            app.logger.info(f"Successfully added document to store with ID: {doc_id}")
+        except Exception as doc_error:
+            app.logger.error(f"Failed to add document to store: {str(doc_error)}")
+            raise doc_error
 
         # Update status
         PROCESSING_STATUS[filename] = {
-            "status": "completed",
+            "status": "Complete",
             "timestamp": time.time(),
-            "size": len(content),
+            "size": len(extracted_content),
         }
 
     except Exception as e:
         app.logger.error(f"File processing error for {filename}: {str(e)}")
         PROCESSING_ERRORS[filename] = str(e)
         PROCESSING_STATUS[filename] = {
-            "status": "failed",
+            "status": "Failed",
+            "timestamp": time.time(),
+            "error": str(e),
+        }
+
+
+def process_file_sync(filename, file_path):
+    """Synchronous wrapper for file processing that can run in thread pool"""
+    try:
+        app.logger.info(f"Starting file processing for: {filename}")
+        
+        # Initialize processing status
+        PROCESSING_STATUS[filename] = {
+            "status": "Processing",
+            "timestamp": time.time(),
+            "progress": 0,
+        }
+        
+        # Run the async function in a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(process_file_async(filename, file_path))
+            app.logger.info(f"File processing completed successfully: {filename}")
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        app.logger.error(f"File processing wrapper error for {filename}: {str(e)}", exc_info=True)
+        PROCESSING_ERRORS[filename] = str(e)
+        PROCESSING_STATUS[filename] = {
+            "status": "Failed",
             "timestamp": time.time(),
             "error": str(e),
         }
@@ -648,4 +795,8 @@ def health_check():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5005)
+    try:
+        app.run(debug=True, host="0.0.0.0", port=5005)
+    finally:
+        # Clean up thread pool on shutdown
+        thread_pool.shutdown(wait=True)

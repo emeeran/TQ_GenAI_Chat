@@ -517,7 +517,7 @@ class ConfigManager:
 
 
 # --- App-wide constants for file management ---
-ALLOWED_EXTENSIONS = {"pdf", "epub", "docx", "xlsx", "csv", "md", "jpg", "jpeg", "png"}
+ALLOWED_EXTENSIONS = {"pdf", "docx", "xlsx", "csv", "md", "txt", "jpg", "jpeg", "png"}
 
 BASE_DIR = Path(__file__).parent.parent
 SAVE_DIR = BASE_DIR / "saved_chats"
