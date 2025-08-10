@@ -94,6 +94,7 @@ test_enhanced_app.py
 target/
 out/
 
+.crush/
 # Performance optimization
 __pycache__/
 *.pyc
@@ -109,6 +110,7 @@ defaults_cache.json
 uv.lock
 trash2review/
 
+.crush/
 # Performance optimization
 __pycache__/
 *.pyc

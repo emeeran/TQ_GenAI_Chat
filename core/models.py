@@ -120,7 +120,7 @@ DEFAULT_MODELS = {
         "moonshot-v1-8k-vision-preview",
         "moonshot-v1-auto",
     ],
-    "perplexity": ["pplx-70b-chat", "pplx-7b-chat"],
+    "perplexity": ["sonar-small", "sonar-medium", "sonar-large", "sonar-pro"],
 }
 
 

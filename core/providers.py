@@ -311,7 +311,23 @@ class OpenAICompatibleProvider(BaseProvider):
     ) -> APIResponse:
         """Extract response with enhanced error checking"""
         try:
-            # Validate response structure
+            # Alibaba (Qwen) response format fix
+            if self.provider_name == "alibaba":
+                # Qwen sometimes returns 'output' or 'result' keys
+                if "output" in result and isinstance(result["output"], dict):
+                    text = result["output"].get("text", "")
+                    return APIResponse(
+                        text=text,
+                        metadata=self._create_metadata(model, response_time, fallback_used),
+                    )
+                elif "result" in result and isinstance(result["result"], dict):
+                    text = result["result"].get("text", "")
+                    return APIResponse(
+                        text=text,
+                        metadata=self._create_metadata(model, response_time, fallback_used),
+                    )
+
+            # Standard OpenAI-compatible response
             if not isinstance(result, dict):
                 raise TypeError("Response is not a dictionary")
 
@@ -343,6 +359,30 @@ class OpenAICompatibleProvider(BaseProvider):
                 error=f"Invalid {self.provider_name} response structure: {str(e)}",
             )
 
+
+
+
+class OpenRouterProvider(OpenAICompatibleProvider):
+    """Provider for OpenRouter, which is OpenAI-compatible but with special headers."""
+
+    def _prepare_request(
+        self,
+        model: str,
+        message: str,
+        persona: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> tuple[str, RequestHeaders, RequestPayload]:
+        """Prepare OpenRouter-compatible request with additional headers."""
+        endpoint, headers, payload = super()._prepare_request(
+            model, message, persona, temperature, max_tokens
+        )
+        
+        # Add OpenRouter-specific headers for analytics and routing
+        headers["HTTP-Referer"] = "https://tqgenaichat.com"  # Replace with your app's URL
+        headers["X-Title"] = "TQ GenAI Chat"  # Replace with your app's name
+        
+        return endpoint, headers, payload
 
 class AnthropicProvider(BaseProvider):
     """Anthropic Claude provider"""
@@ -672,6 +712,9 @@ class ProviderManager:
 
     def _create_provider(self, name: str, config: ProviderConfig) -> BaseProvider:
         """Factory method to create providers based on type"""
+        if name == "openrouter":
+            return OpenRouterProvider(config, name)
+        
         match config.provider_type:
             case ProviderType.ANTHROPIC:
                 return AnthropicProvider(config)

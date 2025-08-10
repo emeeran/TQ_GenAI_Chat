@@ -1,289 +1,83 @@
-"""
-TQ GenAI Chat - Refactored Main Application
-
-Multi-provider GenAI chat application with modular architecture.
-Supports 10+ AI providers with advanced file processing capabilities.
-"""
-
-import asyncio
-import json
+from core.providers import provider_manager
+from core.models import model_manager
 import os
-import tempfile
-import time
-import threading
-from concurrent.futures import ThreadPoolExecutor
+from flask import Flask, request, jsonify
+from flask_login import login_required, LoginManager, UserMixin
+from werkzeug.utils import secure_filename
 from pathlib import Path
-
+import time
+import json
+import asyncio
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+try:
+    from pydub import AudioSegment
+except ImportError:
+    AudioSegment = None
 try:
     import speech_recognition as sr
-
     SPEECH_RECOGNITION_AVAILABLE = True
 except ImportError:
     sr = None
     SPEECH_RECOGNITION_AVAILABLE = False
 
-from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request, redirect, url_for
-from flask_cors import CORS
-from pydub import AudioSegment
-from werkzeug.utils import secure_filename
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+# --- File Manager, TTS Engine, and Document Store ---
+from core.file_processor import FileProcessor
+from services import file_manager
+try:
+    from services import tts_engine
+except ImportError:
+    tts_engine = None
 
-from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
-from core.chat_handler import create_chat_handler
-from core.file_processor import FileProcessor, status_tracker
-from core.models import model_manager
-from core.providers import provider_manager
-from core.tts import tts_engine
-from persona import PERSONAS
-from services.file_manager import FileManager
-
-# Load environment variables
-env_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=env_path, verbose=True)
-
-# Initialize Flask app
-app = Flask(
-    __name__,
-    template_folder=str(Path(__file__).parent / "templates"),
-    static_folder=str(Path(__file__).parent / "static"),
-)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'supersecretkey123')
-
-# Configure Flask
-CORS(app, resources={r"/api/*": {"origins": "*"}})
-app.config.update(
-    {
-        "JSON_SORT_KEYS": False,
-        "MAX_CONTENT_LENGTH": 64 * 1024 * 1024,  # 64MB
-        "UPLOAD_FOLDER": str(Path(app.root_path) / "uploads"),
-        "MAX_FILES": 10,
-    }
-)
-
-# Initialize services
-with app.app_context():
-    file_manager = FileManager()
-    chat_handler = create_chat_handler(file_manager)
-
-# Flask-Login config
-BASIC_AUTH_USERNAME = os.getenv("BASIC_AUTH_USERNAME", "admin")
-BASIC_AUTH_PASSWORD = os.getenv("BASIC_AUTH_PASSWORD", "changeme")
-
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
-
-class User(UserMixin):
-    def __init__(self, id):
-        self.id = id
-        self.name = id
-        self.password = BASIC_AUTH_PASSWORD
-
-    def get_id(self):
-        return self.id
-
-@login_manager.user_loader
-def load_user(user_id):
-    if user_id == BASIC_AUTH_USERNAME:
-        return User(user_id)
-    return None
-
-# Thread pool for async file processing
-thread_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="FileProcessor")
-
-# Ensure directories exist
-for directory in [SAVE_DIR, EXPORT_DIR, UPLOAD_DIR]:
-    directory.mkdir(mode=0o755, parents=True, exist_ok=True)
-
-# Processing status tracking
-PROCESSING_STATUS = status_tracker._statuses
+# --- Constants and Globals ---
+ALLOWED_EXTENSIONS = {"pdf", "docx", "csv", "xlsx", "md", "txt", "png", "jpg", "jpeg"}
+PROCESSING_STATUS = {}
 PROCESSING_ERRORS = {}
+EXPORT_DIR = Path("exports")
+SAVE_DIR = Path("saved_chats")
+thread_pool = ThreadPoolExecutor(max_workers=4)
+from config.settings import config
+from blueprints.chat import chat_bp
+from blueprints.file import file_bp
+from blueprints.auth import auth_bp
+from blueprints.tts import tts_bp
+
+def create_app():
+    app = Flask(__name__)
+    app.config['SECRET_KEY'] = config._app_config.secret_key
+    app.config['MAX_CONTENT_LENGTH'] = config._app_config.max_content_length
+    app.config['UPLOAD_FOLDER'] = config._app_config.upload_folder
+    app.config['MAX_FILES'] = config._app_config.max_files
+    app.config['JSON_SORT_KEYS'] = config._app_config.json_sort_keys
+    app.config['CORS_ORIGINS'] = config._app_config.cors_origins
+    app.register_blueprint(chat_bp)
+    app.register_blueprint(file_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(tts_bp)
+
+    # --- Flask-Login Setup ---
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'  # You may want to change this to your login route
+
+    # Dummy user class and loader for development/testing
+    class User(UserMixin):
+        def __init__(self, user_id):
+            self.id = user_id
+            self.name = f"user{user_id}"
+            self.is_authenticated = True
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User(user_id)
+
+    return app
+
+app = create_app()
 
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        if username == BASIC_AUTH_USERNAME and password == BASIC_AUTH_PASSWORD:
-            user = User(username)
-            login_user(user)
-            return redirect(url_for("index"))
-        else:
-            error = "Invalid credentials."
-    return render_template("login.html", error=error)
-
-
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for("login"))
-
-
-@app.route("/")
-@login_required
-def index():
-    """Main chat interface"""
-    return render_template("index.html")
-
-
-# --- Persona Routes ---
-@app.route("/get_personas")
-def get_personas():
-    """Get available personas"""
-    personas_list = []
-    for persona_id, persona_content in PERSONAS.items():
-        display_name = persona_id.replace("_", " ").title()
-        if isinstance(persona_content, dict):
-            personas_list.append({
-                "id": persona_id,
-                "name": persona_content.get("name", display_name),
-                "content": persona_content.get("system_prompt", "")
-            })
-        else:
-            personas_list.append({
-                "id": persona_id,
-                "name": display_name,
-                "content": persona_content
-            })
-    return jsonify({"personas": personas_list})
-
-
-@app.route("/get_persona_content/<persona_key>")
-def get_persona_content(persona_key):
-    """Get persona content"""
-    content = PERSONAS.get(persona_key, "")
-    return jsonify({"content": content})
-
-
-# --- Model Management Routes ---
-@app.route("/get_models/<provider>")
-def get_models(provider):
-    """Get available models for a provider"""
-    try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({"error": f"Provider {provider} not available"}), 404
-
-        models = model_manager.get_models(provider)
-
-        # Get the default model for this provider
-        provider_instance = provider_manager.get_provider(provider)
-        default_model = provider_instance.config.default_model if provider_instance else None
-
-        return jsonify({"models": models, "default": default_model})
-    except Exception as e:
-        app.logger.error(f"Error getting models for {provider}: {str(e)}")
-        return jsonify({"error": "Failed to get models"}), 500
-
-
-@app.route("/update_models/<provider>", methods=["POST"])
-def update_models(provider):
-    """Update models for a provider by fetching from their API"""
-    try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({"error": f"Provider {provider} not available"}), 404
-
-        # Import the update script functionality
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).parent / "scripts"))
-
-        from update_models_from_providers import fetch_provider_models
-
-        # Fetch latest models from provider
-        new_models = fetch_provider_models(provider)
-
-        if not new_models:
-            return jsonify({"error": f"Failed to fetch models for {provider}"}), 500
-
-        # Update the model manager
-        model_manager.update_models(provider, new_models)
-
-        # Get the default model for this provider
-        provider_instance = provider_manager.get_provider(provider)
-        default_model = provider_instance.config.default_model if provider_instance else None
-
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Successfully updated {len(new_models)} models for {provider}",
-                "models": new_models,
-                "default": default_model,
-                "count": len(new_models),
-            }
-        )
-
-    except Exception as e:
-        app.logger.error(f"Error updating models for {provider}: {str(e)}")
-        return jsonify({"error": f"Failed to update models: {str(e)}"}), 500
-
-
-@app.route("/set_default_model/<provider>", methods=["POST"])
-def set_default_model(provider):
-    """Set default model for a provider"""
-    try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({"error": f"Provider {provider} not available"}), 404
-
-        data = request.get_json()
-        if not data or "model" not in data:
-            return jsonify({"error": "Model is required"}), 400
-
-        model = data["model"]
-
-        # Verify model exists for provider
-        if not model_manager.is_model_available(provider, model):
-            return jsonify({"error": f"Model {model} not available for {provider}"}), 400
-
-        # Set as default
-        model_manager.set_default_model(provider, model)
-
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Set {model} as default for {provider}",
-                "provider": provider,
-                "model": model,
-            }
-        )
-
-    except Exception as e:
-        app.logger.error(f"Error setting default model for {provider}: {str(e)}")
-        return jsonify({"error": f"Failed to set default model: {str(e)}"}), 500
-
-
-# --- Chat Routes ---
-@app.route("/chat", methods=["POST"])
-@login_required
-def chat():
-    """Main chat endpoint"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        provider = data.get("provider")
-        if not provider:
-            return jsonify({"error": "Provider is required"}), 400
-
-        if not provider_manager.is_provider_available(provider):
-            return (
-                jsonify({"error": f"Provider {provider} not available or not configured"}),
-                401,
-            )
-
-        response = chat_handler.process_chat_request(data)
-        return jsonify(response)
-
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        app.logger.error(f"Chat error: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=int(os.getenv("PORT", 5000)))
 
 
 @app.route("/search_context", methods=["POST"])
@@ -795,8 +589,4 @@ def health_check():
 
 
 if __name__ == "__main__":
-    try:
-        app.run(debug=True, host="0.0.0.0", port=5005)
-    finally:
-        # Clean up thread pool on shutdown
-        thread_pool.shutdown(wait=True)
+    app.run(host="127.0.0.1", port=int(os.getenv("PORT", 5000)))

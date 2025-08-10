@@ -535,7 +535,7 @@ class BaseConfig:
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
     MAX_FILES = int(os.getenv("MAX_FILES", "10"))
 
-    # Database configuration
+    # Add other config options as needed
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///documents.db")
 
     # Logging configuration
