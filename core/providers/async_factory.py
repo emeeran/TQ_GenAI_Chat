@@ -4,6 +4,7 @@ from core.cache import CacheManager
 
 from .async_base import AsyncAIProviderInterface
 from .async_openai_provider import AsyncOpenAIProvider
+from .async_moonshot_provider import AsyncMoonshotProvider
 
 
 class AsyncProviderFactory:
@@ -19,6 +20,7 @@ class AsyncProviderFactory:
         """Initialize all available providers"""
         available_providers = [
             AsyncOpenAIProvider(),
+            AsyncMoonshotProvider(),
         ]
 
         for provider in available_providers:
