@@ -655,7 +655,7 @@ class ProviderManager:
                 provider_type=ProviderType.HUGGINGFACE,
             ),
             "moonshot": ProviderConfig(
-                endpoint="https://api.moonshot.cn/v1/chat/completions",
+                    endpoint="https://api.moonshot.ai/v1/chat/completions",
                 key=os.getenv("MOONSHOT_API_KEY", ""),
                 default_model="moonshot-v1-128k",
                 fallback_model="moonshot-v1-32k",
