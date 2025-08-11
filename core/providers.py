@@ -682,6 +682,8 @@ class ProviderManager:
             case ProviderType.HUGGINGFACE:
                 return HuggingFaceProvider(config)
             case ProviderType.OPENAI_COMPATIBLE:
+                if name == "alibaba":
+                    return AlibabaProvider(config)
                 return OpenAICompatibleProvider(config, name)
             case _:  # Default fallback
                 return OpenAICompatibleProvider(config, name)
