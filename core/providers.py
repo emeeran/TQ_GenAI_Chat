@@ -311,7 +311,27 @@ class OpenAICompatibleProvider(BaseProvider):
     ) -> APIResponse:
         """Extract response with enhanced error checking"""
         try:
-            # Validate response structure
+            # Alibaba (Qwen) response format fix
+            if self.provider_name == "alibaba":
+                # Qwen sometimes returns 'output' or 'result' keys
+                if "output" in result and isinstance(result["output"], dict):
+                    text = result["output"].get("text", "")
+                    usage = result["output"].get("usage", {})
+                    return APIResponse(
+                        text=text,
+                        metadata=self._create_metadata(model, response_time, fallback_used),
+                        usage=usage,
+                    )
+                elif "result" in result and isinstance(result["result"], dict):
+                    text = result["result"].get("text", "")
+                    usage = result["result"].get("usage", {})
+                    return APIResponse(
+                        text=text,
+                        metadata=self._create_metadata(model, response_time, fallback_used),
+                        usage=usage,
+                    )
+
+            # Standard OpenAI-compatible response
             if not isinstance(result, dict):
                 raise TypeError("Response is not a dictionary")
 
@@ -634,8 +654,8 @@ class ProviderManager:
                 provider_type=ProviderType.OPENAI_COMPATIBLE,
             ),
             "alibaba": ProviderConfig(
-                endpoint="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-                key=os.getenv("ALIBABA_API_KEY", ""),
+                    endpoint="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+                    key=os.getenv("DASHSCOPE_API_KEY", ""),
                 default_model="qwen-2.5-72b-instruct",
                 fallback_model="qwen-2.5-32b-instruct",
                 provider_type=ProviderType.OPENAI_COMPATIBLE,
