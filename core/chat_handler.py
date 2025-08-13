@@ -1,17 +1,18 @@
 """
 Chat Handler Module
 
-Centralized chat processing and response management.
+Centralized async chat processing and response management.
 Handles context injection, verification, and response formatting.
 """
 
+import logging
 import re
 
-from flask import current_app
-
-from core.providers import provider_manager
+from core.providers import generate_llm_response_async
 from persona import PERSONAS
 from services.file_manager import FileManager
+
+logger = logging.getLogger(__name__)
 
 
 class ChatHandler:
@@ -92,7 +93,7 @@ Please synthesize a clear, well-organized answer using this context where releva
             return enhanced_message
 
         except Exception as e:
-            current_app.logger.warning(f"Error injecting context: {str(e)}")
+            logger.warning(f"Error injecting context: {str(e)}")
             return message
 
     def _prepare_persona(self, persona_key: str) -> str:
@@ -100,29 +101,33 @@ Please synthesize a clear, well-organized answer using this context where releva
         persona_content = PERSONAS.get(persona_key, "")
         return f"{persona_content}\n{self.markdown_instruction}"
 
-    def _generate_initial_response(self, params: dict) -> dict:
+    async def _generate_initial_response(self, params: dict) -> dict:
         """Generate the initial AI response"""
-        provider = provider_manager.get_provider(params["provider"])
-        if not provider:
-            raise ValueError(f"Provider '{params['provider']}' not available or not configured")
-
         persona = self._prepare_persona(params["persona"])
         enhanced_message = self._inject_context(params["message"])
-
-        response = provider.generate_response(
-            model=params["model"],
-            message=enhanced_message,
-            persona=persona,
+        messages = []
+        if persona:
+            messages.append({"role": "system", "content": persona})
+        messages.append({"role": "user", "content": enhanced_message})
+        model_str = f"{params['provider']}/{params['model']}"
+        response = await generate_llm_response_async(
+            model=model_str,
+            messages=messages,
             temperature=params["temperature"],
             max_tokens=params["max_tokens"],
         )
+        if not response.get("success"):
+            return {"error": response.get("error", "Unknown error")}
+        usage = response.get("usage", {})
+        # If usage is not a dict, try to convert to dict
+        if usage and not isinstance(usage, dict):
+            try:
+                usage = dict(usage)
+            except Exception:
+                usage = str(usage)
+        return {"response": {"text": response["content"], "metadata": usage}}
 
-        if not response.success:
-            raise ValueError(response.error or "Failed to generate response")
-
-        return {"response": {"text": response.text, "metadata": response.metadata}}
-
-    def _verify_response(self, response_text: str, original_params: dict) -> dict | None:
+    async def _verify_response(self, response_text: str, original_params: dict) -> dict | None:
         """Verify response authenticity using a different model"""
         if original_params["persona"] == "authenticity_verifier":
             return None  # Avoid infinite recursion
@@ -135,50 +140,41 @@ Please synthesize a clear, well-organized answer using this context where releva
         ]
 
         # Find a different verifier than the original
+        verifier_found = False
         verifier_provider = None
+        verifier_model = None
         for provider_name, model_name in preferred_verifiers:
             if (
                 provider_name != original_params["provider"]
                 or model_name != original_params["model"]
             ):
-                if provider_manager.is_provider_available(provider_name):
-                    verifier_provider = provider_manager.get_provider(provider_name)
-                    if verifier_provider:
-                        break
-
-        if not verifier_provider:
+                verifier_found = True
+                verifier_provider = provider_name
+                verifier_model = model_name
+                break
+        if not verifier_found:
             return None
 
         try:
-            verification_prompt = f"""Please review the following AI response for accuracy, completeness, and authenticity.
-If you find any errors or improvements needed, provide a corrected version after "Corrected Response:".
-If you have additional verification notes, add them after "Verification Notes:".
-If the response is accurate as-is, just add verification notes.
-
-Original Response:
-{response_text}"""
-
-            verification_response = verifier_provider.generate_response(
-                model=(
-                    model_name
-                    if "model_name" in locals()
-                    else verifier_provider.config.default_model
-                ),
-                message=verification_prompt,
-                persona="You are a thorough fact-checker and response verifier.",
+            verification_prompt = f"""Please review the following AI response for accuracy, completeness, and authenticity.\nIf you find any errors or improvements needed, provide a corrected version after 'Corrected Response:'.\nIf you have additional verification notes, add them after 'Verification Notes:'.\nIf the response is accurate as-is, just add verification notes.\n\nOriginal Response:\n{response_text}"""
+            verification_persona = self._prepare_persona("authenticity_verifier")
+            verification_messages = []
+            if verification_persona:
+                verification_messages.append({"role": "system", "content": verification_persona})
+            verification_messages.append({"role": "user", "content": verification_prompt})
+            model_str = f"{verifier_provider}/{verifier_model}"
+            verification_response = await generate_llm_response_async(
+                model=model_str,
+                messages=verification_messages,
+                temperature=0.3,
+                max_tokens=1024
             )
-
-            if verification_response.success:
-                return {
-                    "response": {
-                        "text": verification_response.text,
-                        "metadata": verification_response.metadata,
-                    }
-                }
+            if verification_response.get("success"):
+                return {"verification": verification_response["content"]}
+            else:
+                return {"error": verification_response.get("error", "Unknown error")}
         except Exception as e:
-            current_app.logger.warning(f"Verification failed: {str(e)}")
-
-        return None
+            return {"error": str(e)}
 
     def _integrate_verification(
         self, initial_response: dict, verification_response: dict | None
@@ -187,7 +183,21 @@ Original Response:
         if not verification_response:
             return initial_response
 
-        verification_text = verification_response["response"]["text"]
+        # Defensive: handle error case in verification_response
+        if "error" in verification_response:
+            return {
+                "response": initial_response.get("response", {}),
+                "verification": {
+                    "text": verification_response["error"],
+                    "metadata": {},
+                },
+            }
+        verification_text = None
+        if "response" in verification_response and "text" in verification_response["response"]:
+            verification_text = verification_response["response"]["text"]
+        else:
+            # fallback to error or raw content
+            verification_text = verification_response.get("error", str(verification_response))
 
         # Try to extract corrected response and notes
         match = re.search(
@@ -198,45 +208,58 @@ Original Response:
         if match:
             corrected_text = match.group(1).strip()
             verification_notes = match.group(2).strip()
-
-            # Use corrected response if available
-            response_to_display = dict(initial_response["response"])
+            response_to_display = dict(initial_response.get("response", {}))
             response_to_display["text"] = corrected_text
         else:
-            response_to_display = initial_response["response"]
+            response_to_display = initial_response.get("response", {})
             verification_notes = verification_text
 
+        metadata = {}
+        if "response" in verification_response and isinstance(verification_response["response"], dict):
+            raw_metadata = verification_response["response"].get("metadata", {})
+            if raw_metadata and not isinstance(raw_metadata, dict):
+                try:
+                    metadata = dict(raw_metadata)
+                except Exception:
+                    metadata = str(raw_metadata)
+            else:
+                metadata = raw_metadata
         return {
             "response": response_to_display,
             "verification": {
                 "text": verification_notes,
-                "metadata": verification_response["response"].get("metadata", {}),
+                "metadata": metadata,
             },
         }
 
-    def process_chat_request(self, data: dict) -> dict:
+    async def process_chat_request(self, data: dict) -> dict:
         """Process a complete chat request with validation, context, and verification"""
         try:
             # Validate and normalize parameters
             params = self._validate_parameters(data)
 
             # Generate initial response
-            initial_response = self._generate_initial_response(params)
+            initial_response = await self._generate_initial_response(params)
+            # If error in initial response, return immediately
+            if "error" in initial_response:
+                return initial_response
 
             # Verify response (optional)
-            verification_response = self._verify_response(
-                initial_response["response"]["text"], params
-            )
+            verification_text = initial_response.get("response", {}).get("text")
+            verification_response = None
+            if verification_text:
+                verification_response = await self._verify_response(
+                    verification_text, params
+                )
 
             # Integrate verification results
             final_response = self._integrate_verification(initial_response, verification_response)
-
             return final_response
 
         except ValueError as e:
             raise e
         except Exception as e:
-            current_app.logger.error(f"Chat processing error: {str(e)}")
+            logger.error(f"Chat processing error: {str(e)}")
             raise ValueError(f"Internal processing error: {str(e)}") from e
 
 

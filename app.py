@@ -33,7 +33,7 @@ from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
 from core.chat_handler import create_chat_handler
 from core.file_processor import FileProcessor, status_tracker
 from core.models import model_manager
-from core.providers import provider_manager
+
 from core.tts import tts_engine
 from persona import PERSONAS
 from services.file_manager import FileManager
@@ -164,14 +164,10 @@ def get_persona_content(persona_key):
 def get_models(provider):
     """Get available models for a provider"""
     try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({"error": f"Provider {provider} not available"}), 404
-
         models = model_manager.get_models(provider)
 
-        # Get the default model for this provider
-        provider_instance = provider_manager.get_provider(provider)
-        default_model = provider_instance.config.default_model if provider_instance else None
+    # No provider_instance needed; use provider/model directly with generate_llm_response
+        default_model = models[0] if models else None
 
         return jsonify({"models": models, "default": default_model})
     except Exception as e:
@@ -183,9 +179,6 @@ def get_models(provider):
 def update_models(provider):
     """Update models for a provider by fetching from their API"""
     try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({"error": f"Provider {provider} not available"}), 404
-
         # Import the update script functionality
         import sys
         from pathlib import Path
@@ -204,8 +197,10 @@ def update_models(provider):
         model_manager.update_models(provider, new_models)
 
         # Get the default model for this provider
-        provider_instance = provider_manager.get_provider(provider)
-        default_model = provider_instance.config.default_model if provider_instance else None
+        # provider_instance = provider_manager.get_provider(provider)
+        # default_model = provider_instance.config.default_model if provider_instance else None
+    # No provider_instance needed; use provider/model directly with generate_llm_response
+        default_model = new_models[0] if new_models else None
 
         return jsonify(
             {
@@ -226,9 +221,6 @@ def update_models(provider):
 def set_default_model(provider):
     """Set default model for a provider"""
     try:
-        if not provider_manager.is_provider_available(provider):
-            return jsonify({"error": f"Provider {provider} not available"}), 404
-
         data = request.get_json()
         if not data or "model" not in data:
             return jsonify({"error": "Model is required"}), 400
@@ -270,12 +262,7 @@ def chat():
         if not provider:
             return jsonify({"error": "Provider is required"}), 400
 
-        if not provider_manager.is_provider_available(provider):
-            return (
-                jsonify({"error": f"Provider {provider} not available or not configured"}),
-                401,
-            )
-
+    # Assume provider is available; handle errors from LiteLLM at response time
         response = chat_handler.process_chat_request(data)
         return jsonify(response)
 
@@ -785,7 +772,7 @@ def health_check():
     return jsonify(
         {
             "status": "healthy",
-            "providers": provider_manager.list_providers(),
+            "providers": ["openai", "groq", "anthropic", "mistral", "gemini", "cohere", "xai", "deepseek", "alibaba", "openrouter", "huggingface", "moonshot", "perplexity"],  # Static provider list
             "models_loaded": len(model_manager.get_all_models()),
             "documents": (
                 file_manager.total_documents if hasattr(file_manager, "total_documents") else 0

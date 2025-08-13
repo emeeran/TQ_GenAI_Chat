@@ -2,8 +2,9 @@
 
 from typing import Any
 
+from app.models.requests import ChatRequest
 from core.context import ContextManager
-from core.providers import ChatMessage, ChatRequest, ProviderFactory
+from core.providers import ChatMessage, ProviderFactory
 from core.validation import ChatRequestValidator
 
 

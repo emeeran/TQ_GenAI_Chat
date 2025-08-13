@@ -15,9 +15,8 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
-
 from core.models import model_manager
-from core.providers import provider_manager
+
 
 
 def fetch_openai_models():
@@ -144,7 +143,7 @@ def update_all_models():
     """Update models for all configured providers"""
     updated_providers = []
 
-    for provider_name in provider_manager.list_providers():
+    for provider_name in ["openai", "groq", "anthropic", "mistral", "gemini", "cohere", "xai", "deepseek", "alibaba", "openrouter", "huggingface", "moonshot", "perplexity"]:
         try:
             new_models = fetch_provider_models(provider_name)
             if new_models:
@@ -187,7 +186,7 @@ def set_default_models():
     }
 
     for provider_name, default_model in defaults.items():
-        if provider_manager.is_provider_available(provider_name):
+        if model_manager.is_provider_available(provider_name):
             try:
                 model_manager.set_default_model(provider_name, default_model)
                 print(f"✅ Set default for {provider_name}: {default_model}")

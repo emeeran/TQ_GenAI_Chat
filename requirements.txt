@@ -1,17 +1,17 @@
-# TQ GenAI Chat - Cleaned Requirements
-# Core dependencies actually used in the codebase
+# TQ GenAI Chat - FastAPI Requirements
+# Core dependencies for FastAPI migration
 
-# Core Web Framework
-Flask==3.0.0
-Flask-CORS==4.0.0
-Werkzeug==3.0.1
+# Core Web Framework (FastAPI instead of Flask)
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
 
 # Database & Caching
 redis==5.0.1
 
-# AI & ML Libraries
+# AI & ML Libraries  
+litellm==1.51.0
 anthropic==0.7.8
-openai==1.3.8
+openai>=1.52.0
 groq==0.4.1
 
 # Document Processing
@@ -28,18 +28,22 @@ SpeechRecognition==3.10.0
 pydub==0.25.1
 gTTS==2.4.0
 
-# Async & Performance
+# Async & Performance  
 aiohttp==3.9.1
+aiofiles==23.2.1
 
 # Environment & Configuration
 python-dotenv==1.0.0
 
 # API & Network
+httpx==0.25.2
 requests==2.31.0
-urllib3==2.1.0
 
-# Utility Libraries
+# Data Validation
 pydantic==2.5.0
+
+# File Upload Support
+python-multipart==0.0.6
 
 # Cross-Platform Support
 psutil==5.9.6
@@ -55,19 +59,17 @@ pdf2image==1.16.3
 # Enhanced TTS (optional)
 pyttsx3==2.90
 
-# Development Dependencies (optional)
-pytest==7.4.3
-pytest-asyncio==0.21.1
-brotli
-terser
-cssmin
-jsmin
+# Code quality
 black==23.11.0
 isort==5.12.0
 mypy==1.7.1
 
-# Production Server
+# Production Server (can use uvicorn instead)
 gunicorn==21.2.0
+
+# Authentication and Security
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
 
 # WebDriver for testing
 selenium==4.15.2
