@@ -507,7 +507,7 @@ async function saveChat() {
             timestamp: new Date().toISOString()
         };
 
-        const response = await fetch('/save_chat', {
+        const response = await fetch('/documents/save_chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -529,7 +529,7 @@ async function saveChat() {
 async function loadSaved() {
     try {
         // Get list of saved chats
-        const response = await fetch('/list_saved_chats');
+        const response = await fetch('/documents/list_saved_chats');
         const data = await response.json();
         const chats = data.chats || [];
 
@@ -571,7 +571,7 @@ async function loadSaved() {
 
 async function loadChatFile(filename) {
     try {
-        const response = await fetch(`/load_chat/${filename}`);
+        const response = await fetch(`/documents/load_chat/${filename}`);
         const data = await response.json();
 
         chatHistory = data.history;
@@ -597,7 +597,7 @@ async function exportToMd() {
             timestamp: new Date().toISOString()
         };
 
-        const response = await fetch('/export_chat', {
+        const response = await fetch('/documents/export_chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -1055,7 +1055,7 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
 
             // Add AI response to chat history
             chatHistory.push({
-                content: aiMessage,
+                content: aiMessage.text || aiMessage, // Store only the text content
                 isUser: false,
                 timestamp: new Date().toISOString()
             });

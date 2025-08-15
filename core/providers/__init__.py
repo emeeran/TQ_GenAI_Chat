@@ -51,6 +51,10 @@ def generate_llm_response(model: list, messages: list, temperature: float = 0.7,
 
 async def generate_llm_response_async(model: str, messages: list, temperature: float = 0.7, max_tokens: int = 4000):
     """Unified async LLM response using LiteLLM"""
+    import time
+    
+    start_time = time.time()
+    
     try:
         response = await litellm.acompletion(
             model=model,
@@ -58,6 +62,16 @@ async def generate_llm_response_async(model: str, messages: list, temperature: f
             temperature=temperature,
             max_tokens=max_tokens
         )
+        
+        end_time = time.time()
+        response_time = round(end_time - start_time, 2)
+
+        # Extract provider and model from the model string
+        if "/" in model:
+            provider, model_name = model.split("/", 1)
+        else:
+            provider = "unknown"
+            model_name = model
 
         # Convert usage to serializable dict
         usage = response.get("usage", {})
@@ -78,18 +92,39 @@ async def generate_llm_response_async(model: str, messages: list, temperature: f
         else:
             usage_dict = {}
 
+        # Add metadata for the frontend
+        metadata = {
+            "provider": provider,
+            "model": model_name,
+            "response_time": f"{response_time}s",
+            "usage": usage_dict
+        }
+
         return {
             "success": True,
             "content": response["choices"][0]["message"]["content"],
             "model": model,
-            "provider": "litellm",
+            "provider": provider,
+            "metadata": metadata,
             "usage": usage_dict,
         }
     except Exception as e:
+        end_time = time.time()
+        response_time = round(end_time - start_time, 2)
+        
+        # Extract provider for error case
+        if "/" in model:
+            provider, model_name = model.split("/", 1)
+        else:
+            provider = "unknown"
+            model_name = model
+            
         return {
             "success": False,
             "error": str(e),
-            "provider": "litellm",
+            "provider": provider,
+            "model": model_name,
+            "response_time": f"{response_time}s",
         }
 
 
