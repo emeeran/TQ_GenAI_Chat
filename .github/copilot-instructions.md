@@ -1,3 +1,20 @@
+## TODO: Comprehensive Codebase Refactor, Optimization, and Modernization Plan
+
+```markdown
+- [ ] Audit and document all core modules, services, and API routes for clarity and maintainability.
+- [ ] Refactor provider integration logic to ensure strict separation of concerns and DRY principles.
+- [ ] Optimize async file processing and vector search for scalability (batching, concurrency, error handling).
+- [ ] Modernize frontend: migrate to latest JS standards, improve state management, and enhance UX for file uploads and provider switching.
+- [ ] Implement robust error handling and retry logic across all provider and file operations.
+- [ ] Improve test coverage: add async tests, mock external APIs, and validate Redis/database integration.
+- [ ] Review and update Docker, Redis, and Nginx configs for security, performance, and portability.
+- [ ] Enhance caching and rate limiting strategies for high-traffic scenarios.
+- [ ] Document environment variables, deployment steps, and troubleshooting in README and .env.example.
+- [ ] Remove dead code, unused dependencies, and legacy patterns.
+- [ ] Validate and optimize SQLite/TF-IDF vector search for large document sets.
+- [ ] Ensure all code follows PEP8, type hints, and modern Python idioms.
+- [ ] Add health checks, monitoring, and alerting for production reliability.
+```
 # TQ GenAI Chat - AI Agent Instructions
 
 ## Architecture Overview
