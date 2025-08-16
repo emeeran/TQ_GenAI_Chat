@@ -118,10 +118,10 @@ Please synthesize a clear, well-organized answer using this context where releva
         )
         if not response.get("success"):
             return {"error": response.get("error", "Unknown error")}
-        
+
         # Get metadata from the response
         metadata = response.get("metadata", {})
-        
+
         # If metadata is not available, create basic metadata from response
         if not metadata:
             # Extract provider and model from the model string
@@ -130,15 +130,26 @@ Please synthesize a clear, well-organized answer using this context where releva
             else:
                 provider = "unknown"
                 model_name = model_str
-                
+
             metadata = {
                 "provider": provider,
                 "model": model_name,
                 "response_time": "0.0s",
                 "usage": response.get("usage", {})
             }
-        
-        return {"response": {"text": response["content"], "metadata": metadata}}
+
+        # Translate response if output_language is not English
+        output_lang = params.get("output_language", "en")
+        response_text = response["content"]
+        if output_lang and output_lang != "en":
+            try:
+                from deep_translator import GoogleTranslator
+                response_text = GoogleTranslator(source='auto', target=output_lang).translate(response_text)
+            except Exception as e:
+                # If translation fails, fallback to original
+                metadata["translation_error"] = str(e)
+
+        return {"response": {"text": response_text, "metadata": metadata}}
 
     async def _verify_response(self, response_text: str, original_params: dict) -> dict | None:
         """Verify response authenticity using a different model"""

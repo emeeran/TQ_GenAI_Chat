@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     persona: str | None = Field("", description="Persona key")
     temperature: float = Field(0.7, ge=0.0, le=1.0, description="Temperature for generation")
     max_tokens: int = Field(4000, ge=100, le=12000, description="Maximum tokens to generate")
+    output_language: str = Field("en", description="Output response language code")
 
 
 class SearchContextRequest(BaseModel):

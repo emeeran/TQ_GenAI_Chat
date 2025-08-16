@@ -41,6 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update provider/model display initially
     updateProviderModelDisplay();
+
+    // Real-time polling for provider/model updates every 3 seconds
+    let providerModelPoller = setInterval(() => {
+        updateModels().then(() => {
+            updateProviderModelDisplay();
+        });
+    }, 3000);
+
+    // Stop polling on page unload
+    window.addEventListener('beforeunload', () => {
+        clearInterval(providerModelPoller);
+    });
 });
 // Debounce function to limit rapid calls
 const debounce = (func, wait) => {
@@ -942,6 +954,7 @@ async function setDefaultModel() {
 const sendMessage = debounce(async (message = null, isRetry = false) => {
     try {
         const userInput = document.getElementById('user-input');
+
         const provider = document.getElementById('provider').value;
         const model = document.getElementById('model').value;
         let persona = document.getElementById('persona').value;
@@ -952,6 +965,10 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
         // Get slider values
         const maxTokens = document.getElementById('max-tokens')?.value || 4000;
         const temperature = document.getElementById('temperature')?.value || 0.7;
+
+        // Get selected output language
+        const languageSelect = document.getElementById('voice-language');
+        const selectedLanguage = languageSelect ? languageSelect.value : 'en';
 
         const messageToSend = message || userInput.value.trim();
 
@@ -1006,7 +1023,8 @@ const sendMessage = debounce(async (message = null, isRetry = false) => {
                 model: model,
                 persona: persona,
                 max_tokens: parseInt(maxTokens),
-                temperature: parseFloat(temperature)
+                temperature: parseFloat(temperature),
+                output_language: selectedLanguage
             }),
             signal: controller.signal
         });
@@ -1312,16 +1330,33 @@ function updateVoiceList() {
     console.log('Available voices from browser:', voices); // Log all available voices
     const selectedGender = genderSelect.value;
 
+    // Get selected output language
+    const languageSelect = document.getElementById('voice-language');
+    const selectedLanguage = languageSelect ? languageSelect.value : 'en';
+
     // Filter voices by language and gender
     const filteredVoices = voices.filter(voice => {
+        // US English voices
+        const isUSEnglish = voice.lang === 'en-US';
+        // All English voices
         const isEnglish = voice.lang.startsWith('en-') || voice.lang === 'en';
-        if (selectedGender === 'all') return isEnglish;
+        // Tamil/Hindi voices
+        const isTamil = voice.lang.startsWith('ta') || voice.lang === 'ta';
+        const isHindi = voice.lang.startsWith('hi') || voice.lang === 'hi';
+
+        let langMatch = false;
+        if (selectedLanguage === 'en') langMatch = isEnglish;
+        else if (selectedLanguage === 'ta') langMatch = isTamil;
+        else if (selectedLanguage === 'hi') langMatch = isHindi;
+        else langMatch = voice.lang.startsWith(selectedLanguage);
+
+        if (selectedGender === 'all') return langMatch || isUSEnglish;
         // Simple gender detection based on voice name
         const isFemale = voice.name.toLowerCase().includes('female') ||
             voice.name.toLowerCase().includes('woman');
         const isMale = voice.name.toLowerCase().includes('male') ||
             voice.name.toLowerCase().includes('man');
-        return isEnglish && (
+        return (langMatch || isUSEnglish) && (
             (selectedGender === 'female' && isFemale) ||
             (selectedGender === 'male' && isMale)
         );
@@ -1475,6 +1510,10 @@ function speakText(text) {
         return;
     }
 
+    // Get selected output language
+    const languageSelect = document.getElementById('voice-language');
+    const selectedLanguage = languageSelect ? languageSelect.value : 'en';
+
     // Split text into sentences for better handling
     const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
     let currentSentence = 0;
@@ -1493,6 +1532,7 @@ function speakText(text) {
         utterance.rate = voiceRate;
         utterance.pitch = voicePitch;
         utterance.volume = 1.0;
+        utterance.lang = selectedLanguage;
 
         utterance.onend = () => {
             currentSentence++;
