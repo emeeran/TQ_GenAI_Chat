@@ -161,10 +161,15 @@
                             </div>
                         </div>
                         <div class="row g-2 mt-2">
-                            <div class="col-12">
-                                <a href="/logout" class="btn btn-outline-danger w-100">
+                            <div class="col-6">
+                                <button class="btn btn-outline-danger w-100" onclick="window.location.href='/logout'">
                                     <i class="fas fa-sign-out-alt"></i> Logout
-                                </a>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-success w-100" onclick="resetChatUI()">
+                                    <i class="fas fa-plus"></i> New
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -293,6 +298,71 @@
     <!-- Removed file list modal as requested -->
 
     <script src="/static/script.js"></script>
+    <script>
+        function resetChatUI() {
+            // Clear chat box
+            const chatBox = document.getElementById('chat-box');
+            if (chatBox) chatBox.innerHTML = '';
+
+            // Clear user input
+            const userInput = document.getElementById('user-input');
+            if (userInput) userInput.value = '';
+
+            // Reset provider/model/persona dropdowns
+            const provider = document.getElementById('provider');
+            if (provider) provider.selectedIndex = 0;
+            const model = document.getElementById('model');
+            if (model) {
+                model.innerHTML = '<option value="">Select Model</option>';
+                model.disabled = true;
+            }
+            const persona = document.getElementById('persona');
+            if (persona) persona.selectedIndex = 0;
+            const customPersona = document.getElementById('custom-persona-textarea');
+            if (customPersona) {
+                customPersona.value = '';
+                customPersona.classList.add('d-none');
+            }
+
+            // Reset sliders
+            const maxTokens = document.getElementById('max-tokens');
+            if (maxTokens) {
+                maxTokens.value = 4000;
+                document.getElementById('max-tokens-value').textContent = '4000';
+            }
+            const temperature = document.getElementById('temperature');
+            if (temperature) {
+                temperature.value = 0.7;
+                document.getElementById('temperature-value').textContent = '0.7';
+            }
+
+            // Reset voice settings
+            const voiceLang = document.getElementById('voice-language');
+            if (voiceLang) voiceLang.selectedIndex = 0;
+            const voiceGender = document.getElementById('voice-gender');
+            if (voiceGender) voiceGender.selectedIndex = 0;
+            const voiceSelect = document.getElementById('voice-select');
+            if (voiceSelect) voiceSelect.selectedIndex = 0;
+            const voiceRate = document.getElementById('voice-rate');
+            if (voiceRate) {
+                voiceRate.value = 1;
+                document.getElementById('voice-rate-value').textContent = '1.0x';
+            }
+            const voicePitch = document.getElementById('voice-pitch');
+            if (voicePitch) {
+                voicePitch.value = 1;
+                document.getElementById('voice-pitch-value').textContent = '1.0x';
+            }
+
+            // Hide feedback and copy buttons
+            const feedback = document.getElementById('feedback');
+            if (feedback) feedback.classList.add('d-none');
+            const copyBtn = document.getElementById('copy-response-btn');
+            if (copyBtn) copyBtn.classList.add('d-none');
+
+            // Reset any other UI state as needed
+        }
+    </script>
     <script>
         function setDefaultModel() {
             const modelSelect = document.getElementById('model');
