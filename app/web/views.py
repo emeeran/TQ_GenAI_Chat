@@ -36,7 +36,6 @@ def get_models_legacy(provider):
             "xai",
             "groq",
             "alibaba",
-            "moonshot",
         ]
 
         if provider.lower() not in supported_providers:

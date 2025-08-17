@@ -31,8 +31,8 @@ def chat():
                     "model": result["model"],
                     "provider": result["provider"],
                     "usage": result.get("usage", {}),
+                    """
                 }
-            )
         else:
             return (
                 jsonify(

@@ -7,7 +7,6 @@ import hashlib
 import json
 import sqlite3
 import time
-from datetime import datetime
 from typing import Any
 
 from flask import current_app
@@ -148,7 +147,6 @@ class DocumentStore:
                     metadata_json,
                     file_path,
                     timestamp,
-                    doc_type,
                     user_id,
                 ),
             )
@@ -245,98 +243,50 @@ class DocumentStore:
             conn.close()
 
     def get_document(self, doc_id: str) -> dict[str, Any] | None:
-        """
-        Retrieve a document by ID
-
-        Args:
-            doc_id: Document ID
-
-        Returns:
-            Document data or None if not found
-        """
         conn = self._get_connection()
         cursor = conn.cursor()
-
         try:
             cursor.execute("SELECT * FROM documents WHERE id = ?", (doc_id,))
             row = cursor.fetchone()
-
             if not row:
                 return None
-
-            # Convert row to dictionary
             doc = dict(row)
-
-            # Parse metadata JSON
             if doc.get("metadata"):
                 doc["metadata"] = json.loads(doc["metadata"])
             else:
                 doc["metadata"] = {}
-
             return doc
-
         except sqlite3.Error as e:
             current_app.logger.error(f"Database error retrieving document: {str(e)}")
             return None
         finally:
             conn.close()
 
-    def search_documents(
-        self, query: str, doc_type: str | None = None, limit: int = 10
-    ) -> list[dict[str, Any]]:
-        """
-        Search documents by simple keyword matching
-
-        Args:
-            query: Search query
-            doc_type: Filter by document type
-            limit: Maximum number of results
-
-        Returns:
-            List of matching documents
-        """
+    def search_documents(self, query: str, doc_type: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
         conn = self._get_connection()
         cursor = conn.cursor()
-
+        results = []
         try:
             # Prepare search parameters
             search_term = f"%{query}%"
-
             if doc_type:
                 cursor.execute(
-                    """
-                    SELECT * FROM documents
-                    WHERE (title LIKE ? OR content LIKE ?) AND type = ?
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                    """,
+                    "SELECT * FROM documents WHERE (title LIKE ? OR content LIKE ?) AND type = ? ORDER BY timestamp DESC LIMIT ?",
                     (search_term, search_term, doc_type, limit),
                 )
             else:
                 cursor.execute(
-                    """
-                    SELECT * FROM documents
-                    WHERE title LIKE ? OR content LIKE ?
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                    """,
+                    "SELECT * FROM documents WHERE title LIKE ? OR content LIKE ? ORDER BY timestamp DESC LIMIT ?",
                     (search_term, search_term, limit),
                 )
-
-            results = []
             for row in cursor.fetchall():
                 doc = dict(row)
-
-                # Parse metadata JSON
                 if doc.get("metadata"):
                     doc["metadata"] = json.loads(doc["metadata"])
                 else:
                     doc["metadata"] = {}
-
                 results.append(doc)
-
             return results
-
         except sqlite3.Error as e:
             current_app.logger.error(f"Database error searching documents: {str(e)}")
             return []
@@ -344,31 +294,17 @@ class DocumentStore:
             conn.close()
 
     def delete_document(self, doc_id: str) -> bool:
-        """
-        Delete a document and its associated chunks
-
-        Args:
-            doc_id: Document ID
-
-        Returns:
-            True if successful, False otherwise
-        """
         conn = self._get_connection()
         cursor = conn.cursor()
-
         try:
             # First delete associated chunks
             cursor.execute("DELETE FROM chunks WHERE document_id = ?", (doc_id,))
-
             # Then delete embeddings if any
             cursor.execute("DELETE FROM embeddings WHERE document_id = ?", (doc_id,))
-
             # Finally delete the document itself
             cursor.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
-
             conn.commit()
             return cursor.rowcount > 0
-
         except sqlite3.Error as e:
             conn.rollback()
             current_app.logger.error(f"Database error deleting document: {str(e)}")
@@ -376,110 +312,37 @@ class DocumentStore:
         finally:
             conn.close()
 
-    def get_recent_documents(
-        self, limit: int = 10, doc_type: str | None = None
-    ) -> list[dict[str, Any]]:
-        """
-        Get most recent documents
-
-        Args:
-            limit: Maximum number of documents to retrieve
-            doc_type: Optional document type filter
-
-        Returns:
-            List of documents
-        """
+    def get_recent_documents(self, limit: int = 10, doc_type: str = None) -> list[dict]:
         conn = self._get_connection()
         cursor = conn.cursor()
-
         try:
             if doc_type:
                 cursor.execute(
-                    """
-                    SELECT * FROM documents
-                    WHERE type = ?
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                    """,
-                    (doc_type, limit),
+                    "SELECT * FROM documents WHERE type = ? ORDER BY timestamp DESC LIMIT ?",
+                    (doc_type, limit)
                 )
             else:
                 cursor.execute(
-                    """
-                    SELECT * FROM documents
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                    """,
-                    (limit,),
+                    "SELECT * FROM documents ORDER BY timestamp DESC LIMIT ?",
+                    (limit,)
                 )
-
             results = []
             for row in cursor.fetchall():
                 doc = dict(row)
-
-                # Parse metadata JSON
                 if doc.get("metadata"):
                     doc["metadata"] = json.loads(doc["metadata"])
                 else:
                     doc["metadata"] = {}
-
                 results.append(doc)
-
             return results
-
-        except sqlite3.Error as e:
+        except Exception as e:
             current_app.logger.error(f"Database error retrieving recent documents: {str(e)}")
             return []
         finally:
             conn.close()
 
-    def get_all_documents(self, limit: int = None, offset: int = 0) -> list[dict[str, Any]]:
-        """Get all documents with optional pagination"""
-        conn = self._get_connection()
-        try:
-            cursor = conn.cursor()
-
-            if limit:
-                cursor.execute(
-                    "SELECT * FROM documents ORDER BY timestamp DESC LIMIT ? OFFSET ?",
-                    (limit, offset),
-                )
-            else:
-                cursor.execute("SELECT * FROM documents ORDER BY timestamp DESC")
-
-            results = []
-            for row in cursor.fetchall():
-                doc = dict(row)
-
-                # Parse metadata JSON
-                if doc.get("metadata"):
-                    doc["metadata"] = json.loads(doc["metadata"])
-                else:
-                    doc["metadata"] = {}
-
-                # Add formatted timestamp
-                doc["formatted_timestamp"] = datetime.fromtimestamp(doc["timestamp"]).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-
-                # Add file size from metadata if available
-                if "file_size" in doc["metadata"]:
-                    doc["file_size"] = doc["metadata"]["file_size"]
-                else:
-                    doc["file_size"] = len(doc["content"]) if doc["content"] else 0
-
-                results.append(doc)
-
-            return results
-
-        except sqlite3.Error as e:
-            current_app.logger.error(f"Database error retrieving documents: {str(e)}")
-            return []
-        finally:
-            conn.close()
-
     def get_statistics(self) -> dict[str, Any]:
-        """Get database statistics"""
+    # Get database statistics
         conn = self._get_connection()
         try:
             cursor = conn.cursor()

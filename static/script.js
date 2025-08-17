@@ -43,11 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
     updateProviderModelDisplay();
 
     // Real-time polling for provider/model updates every 3 seconds
+    // Real-time polling for provider/model updates every 20 minutes
     let providerModelPoller = setInterval(() => {
         updateModels().then(() => {
             updateProviderModelDisplay();
         });
-    }, 3000);
+    }, 1200000);
 
     // Stop polling on page unload
     window.addEventListener('beforeunload', () => {

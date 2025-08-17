@@ -3,6 +3,7 @@
 from .anthropic_provider import AnthropicProvider
 from .base import AIProviderInterface
 from .openai_provider import OpenAIProvider
+from .perplexity_provider import PerplexityProvider
 
 
 class ProviderFactory:
@@ -17,6 +18,7 @@ class ProviderFactory:
         providers = [
             OpenAIProvider(),
             AnthropicProvider(),
+            PerplexityProvider(),
         ]
 
         for provider in providers:

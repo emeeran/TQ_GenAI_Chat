@@ -12,7 +12,6 @@ from core.models import model_manager
 
 router = APIRouter()
 
-
 @router.get("/get_models/{provider}", response_model=ModelsResponse)
 async def get_models(
     provider: str,
