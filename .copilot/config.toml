@@ -1,0 +1,26 @@
+# Copilot per-project configuration for TQ_GenAI_Chat
+
+[settings]
+# Enable Copilot for this project
+copilot_enabled = true
+
+# Restrict Copilot suggestions to Python and JavaScript only
+languages = ["python", "javascript"]
+
+# Limit Copilot to files in these folders
+include_paths = ["core/", "app/", "services/"]
+
+# Exclude Copilot from these folders
+exclude_paths = ["__pycache__", "uploads/", "documents.db"]
+
+# Custom prompt for Copilot suggestions
+prompt = "Use concise, production-ready code. Prefer async patterns and caching."
+
+# Enable Copilot for tests
+copilot_tests = true
+
+# Set Copilot suggestion verbosity
+verbosity = "normal"
+
+# Enable Copilot for Docker and deployment scripts
+copilot_deployment = true

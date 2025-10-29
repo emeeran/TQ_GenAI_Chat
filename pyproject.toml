@@ -1,0 +1,168 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tq-genai-chat"
+version = "0.1.0"
+description = "A multi-provider GenAI chat application with file processing capabilities"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "TQ GenAI Chat", email = "admin@tqgenaichat.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.12"
+dependencies = [
+    # Core Web Framework
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "werkzeug>=3.0.1",
+
+    # Database & Caching
+    "redis>=5.0.1",
+
+    # AI & ML Libraries
+    "anthropic>=0.7.8",
+    "openai>=1.3.8",
+    "groq>=0.4.1",
+
+    # Document Processing
+    "PyPDF2>=3.0.1",
+    "python-docx>=1.1.0",
+    "openpyxl>=3.1.2",
+    "pandas>=2.1.4",
+
+    # Image Processing
+    "Pillow>=10.1.0",
+
+    # Audio Processing
+    "SpeechRecognition>=3.10.0",
+    "pydub>=0.25.1",
+    "gTTS>=2.4.0",
+
+    # Async & Performance
+    "aiohttp>=3.9.1",
+    "aiofiles>=23.2.1",
+    "aiosqlite>=0.19.0",
+    "redis>=5.0.1",
+
+    # Environment & Configuration
+    "python-dotenv>=1.0.0",
+
+    # API & Network
+    "requests>=2.31.0",
+    "urllib3>=2.1.0",
+
+    # Validation & Serialization
+    "pydantic>=2.5.0",
+
+    # Utility Libraries
+    "psutil>=5.9.6",
+    "python-magic>=0.4.27",
+    "chardet>=5.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "S", "B", "A", "C4", "T20"]
+ignore = ["E501", "S101", "S603", "S607"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S603", "S607"]
+"scripts/*" = ["T201"]  # Allow print statements in scripts
+"test_*.py" = ["T201", "F841"]  # Allow print statements and unused variables in tests
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "speech_recognition.*",
+    "pydub.*",
+    "PIL.*",
+    "PyPDF2.*",
+    "docx.*",
+    "openpyxl.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["app", "core", "services", "config"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+fail_under = 80
+show_missing = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "trash2review", ".venv", "refactor_backup", "scripts"]
+skips = ["B101", "B601", "B104", "B201", "B105", "B106", "B108", "B110", "B301", "B324", "B311", "B403", "B404", "B603"]  # Skip common development warnings
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+exclude = ["*.pyc", "__pycache__", ".git", ".venv", "node_modules", "*.log"]

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40">
+  <!-- Simple sketch-style portrait outline -->
+  <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Face outline -->
+    <path d="M30 25 Q30 15 40 15 Q60 15 70 25 Q70 35 70 50 Q70 70 60 80 Q50 85 40 80 Q30 70 30 50 Q30 35 30 25 Z"/>
+
+    <!-- Hair -->
+    <path d="M32 20 Q40 10 50 12 Q60 10 68 20"/>
+
+    <!-- Eyes -->
+    <circle cx="42" cy="35" r="2"/>
+    <circle cx="58" cy="35" r="2"/>
+
+    <!-- Nose -->
+    <path d="M50 42 L48 48 L52 48"/>
+
+    <!-- Mouth -->
+    <path d="M45 55 Q50 60 55 55"/>
+
+    <!-- Light sketch lines for dimension -->
+    <path d="M35 40 Q40 38 45 40" opacity="0.3"/>
+    <path d="M55 40 Q60 38 65 40" opacity="0.3"/>
+  </g>
+</svg>
