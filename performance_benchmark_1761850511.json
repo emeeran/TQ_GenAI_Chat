@@ -1,0 +1,211 @@
+{
+  "timestamp": 1761850511.582673,
+  "benchmark_summary": {
+    "total_endpoints_tested": 3,
+    "total_requests_made": 260,
+    "overall_success_rate": 100.0
+  },
+  "basic_benchmarks": [
+    {
+      "endpoint": "/health",
+      "total_requests": 20,
+      "successful_requests": 20,
+      "errors": 0,
+      "avg_response_time_ms": 2.289855480194092,
+      "min_response_time_ms": 1.6491413116455078,
+      "max_response_time_ms": 3.829479217529297,
+      "median_response_time_ms": 2.124190330505371,
+      "p95_response_time_ms": 3.829479217529297,
+      "p99_response_time_ms": 3.829479217529297,
+      "error_rate_percent": 0.0
+    },
+    {
+      "endpoint": "/metrics",
+      "total_requests": 20,
+      "successful_requests": 20,
+      "errors": 0,
+      "avg_response_time_ms": 1.7796039581298828,
+      "min_response_time_ms": 1.485586166381836,
+      "max_response_time_ms": 3.3643245697021484,
+      "median_response_time_ms": 1.710653305053711,
+      "p95_response_time_ms": 3.3643245697021484,
+      "p99_response_time_ms": 3.3643245697021484,
+      "error_rate_percent": 0.0
+    },
+    {
+      "endpoint": "/",
+      "total_requests": 20,
+      "successful_requests": 20,
+      "errors": 0,
+      "avg_response_time_ms": 1.5916943550109863,
+      "min_response_time_ms": 1.3911724090576172,
+      "max_response_time_ms": 1.9943714141845703,
+      "median_response_time_ms": 1.5999078750610352,
+      "p95_response_time_ms": 1.9943714141845703,
+      "p99_response_time_ms": 1.9943714141845703,
+      "error_rate_percent": 0.0
+    }
+  ],
+  "concurrent_benchmarks": [
+    {
+      "endpoint": "/health",
+      "concurrent_requests": 10,
+      "total_requests": 100,
+      "total_time_seconds": 0.19606971740722656,
+      "requests_per_second": 510.02266603110985,
+      "successful_requests": 100,
+      "errors": 0,
+      "avg_response_time_ms": 18.721988201141357,
+      "p95_response_time_ms": 33.77127647399902,
+      "error_rate_percent": 0.0
+    },
+    {
+      "endpoint": "/metrics",
+      "concurrent_requests": 10,
+      "total_requests": 100,
+      "total_time_seconds": 0.16496634483337402,
+      "requests_per_second": 606.1842498905219,
+      "successful_requests": 100,
+      "errors": 0,
+      "avg_response_time_ms": 16.09971046447754,
+      "p95_response_time_ms": 19.480466842651367,
+      "error_rate_percent": 0.0
+    }
+  ],
+  "caching_tests": [
+    {
+      "endpoint": "/health",
+      "first_request_ms": 4.517078399658203,
+      "second_request_ms": 2.0606517791748047,
+      "improvement_percent": 54.380871951863185,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "etag": "",
+      "expires": "0"
+    },
+    {
+      "endpoint": "/metrics",
+      "first_request_ms": 2.3632049560546875,
+      "second_request_ms": 1.5418529510498047,
+      "improvement_percent": 34.75585149313963,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "etag": "",
+      "expires": "0"
+    }
+  ],
+  "application_metrics": {
+    "monitoring_info": {
+      "uptime_seconds": 15.993518,
+      "monitoring_active": true,
+      "metrics_collected": 1,
+      "api_calls_tracked": 21
+    },
+    "system_metrics": {
+      "timestamp": "2025-10-31T00:24:56.663110",
+      "cpu_percent": 12.9,
+      "memory_percent": 89.1,
+      "memory_mb": 250,
+      "disk_usage_percent": 76.5,
+      "active_connections": 0,
+      "response_time_ms": 0.0,
+      "request_count": 0,
+      "error_count": 0
+    },
+    "performance_stats": {
+      "total_requests": 21,
+      "total_errors": 20,
+      "error_rate_percent": 95.23809523809523,
+      "requests_per_second": 1.3130319420655292,
+      "response_time_stats": {
+        "avg_ms": 0.8585339500790551,
+        "min_ms": 0.5636215209960938,
+        "max_ms": 4.850864410400391,
+        "p50_ms": 0.6234645843505859,
+        "p95_ms": 0.9360313415527344,
+        "p99_ms": 4.850864410400391
+      }
+    },
+    "top_endpoints": {
+      "GET /": 20,
+      "GET /static/styles.css": 1
+    },
+    "recent_errors": [
+      {
+        "timestamp": "2025-10-31T00:25:11.204648",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.7879734039306641
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.203028",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6215572357177734
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.201530",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6208419799804688
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.199832",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6251335144042969
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.198323",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6144046783447266
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.196454",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6246566772460938
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.194983",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6053447723388672
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.193288",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.5636215209960938
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.191888",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6232261657714844
+      },
+      {
+        "timestamp": "2025-10-31T00:25:11.190393",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.736236572265625
+      }
+    ],
+    "database_performance": {
+      "connection_pool_info": "Monitoring active",
+      "query_performance_tracking": true,
+      "slow_query_threshold_ms": 1000,
+      "last_optimization_check": "2025-10-31T00:25:11.581616"
+    }
+  },
+  "performance_grade": "A+ (Excellent)"
+}
