@@ -1,0 +1,212 @@
+{
+  "timestamp": 1761849822.0706444,
+  "benchmark_summary": {
+    "total_endpoints_tested": 3,
+    "total_requests_made": 260,
+    "overall_success_rate": 100.0
+  },
+  "basic_benchmarks": [
+    {
+      "endpoint": "/health",
+      "total_requests": 20,
+      "successful_requests": 20,
+      "errors": 0,
+      "avg_response_time_ms": 2.935612201690674,
+      "min_response_time_ms": 1.6903877258300781,
+      "max_response_time_ms": 4.066944122314453,
+      "median_response_time_ms": 3.34012508392334,
+      "p95_response_time_ms": 4.066944122314453,
+      "p99_response_time_ms": 4.066944122314453,
+      "error_rate_percent": 0.0
+    },
+    {
+      "endpoint": "/metrics",
+      "total_requests": 20,
+      "successful_requests": 20,
+      "errors": 0,
+      "avg_response_time_ms": 1.7662763595581055,
+      "min_response_time_ms": 1.5187263488769531,
+      "max_response_time_ms": 2.115964889526367,
+      "median_response_time_ms": 1.733541488647461,
+      "p95_response_time_ms": 2.115964889526367,
+      "p99_response_time_ms": 2.115964889526367,
+      "error_rate_percent": 0.0
+    },
+    {
+      "endpoint": "/",
+      "total_requests": 20,
+      "successful_requests": 20,
+      "errors": 0,
+      "avg_response_time_ms": 1.6808271408081055,
+      "min_response_time_ms": 1.390695571899414,
+      "max_response_time_ms": 2.411365509033203,
+      "median_response_time_ms": 1.6553401947021484,
+      "p95_response_time_ms": 2.411365509033203,
+      "p99_response_time_ms": 2.411365509033203,
+      "error_rate_percent": 0.0
+    }
+  ],
+  "concurrent_benchmarks": [
+    {
+      "endpoint": "/health",
+      "concurrent_requests": 10,
+      "total_requests": 100,
+      "total_time_seconds": 0.19202399253845215,
+      "requests_per_second": 520.7682575393559,
+      "successful_requests": 100,
+      "errors": 0,
+      "avg_response_time_ms": 18.310036659240723,
+      "p95_response_time_ms": 44.62718963623047,
+      "error_rate_percent": 0.0
+    },
+    {
+      "endpoint": "/metrics",
+      "concurrent_requests": 10,
+      "total_requests": 100,
+      "total_time_seconds": 0.16374826431274414,
+      "requests_per_second": 610.6934960178215,
+      "successful_requests": 100,
+      "errors": 0,
+      "avg_response_time_ms": 15.951826572418213,
+      "p95_response_time_ms": 18.849611282348633,
+      "error_rate_percent": 0.0
+    }
+  ],
+  "caching_tests": [
+    {
+      "endpoint": "/health",
+      "first_request_ms": 5.355119705200195,
+      "second_request_ms": 2.4373531341552734,
+      "improvement_percent": 54.48555273585326,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "etag": "",
+      "expires": "0"
+    },
+    {
+      "endpoint": "/metrics",
+      "first_request_ms": 2.3202896118164062,
+      "second_request_ms": 2.029895782470703,
+      "improvement_percent": 12.515413070283602,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "etag": "",
+      "expires": "0"
+    }
+  ],
+  "application_metrics": {
+    "monitoring_info": {
+      "uptime_seconds": 315.161993,
+      "monitoring_active": true,
+      "metrics_collected": 11,
+      "api_calls_tracked": 22
+    },
+    "system_metrics": {
+      "timestamp": "2025-10-31T00:13:38.171545",
+      "cpu_percent": 8.8,
+      "memory_percent": 87.4,
+      "memory_mb": 252,
+      "disk_usage_percent": 76.5,
+      "active_connections": 1,
+      "response_time_ms": 0.0,
+      "request_count": 2,
+      "error_count": 0
+    },
+    "performance_stats": {
+      "total_requests": 22,
+      "total_errors": 20,
+      "error_rate_percent": 90.9090909090909,
+      "requests_per_second": 0.06980537148716406,
+      "response_time_stats": {
+        "avg_ms": 1.1429786682128906,
+        "min_ms": 0.5519390106201172,
+        "max_ms": 7.460594177246094,
+        "p50_ms": 0.7214546203613281,
+        "p95_ms": 3.3774375915527344,
+        "p99_ms": 7.460594177246094
+      }
+    },
+    "top_endpoints": {
+      "GET /": 20,
+      "GET /login": 1,
+      "HEAD /static/styles.css": 1
+    },
+    "recent_errors": [
+      {
+        "timestamp": "2025-10-31T00:13:41.694348",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.5519390106201172
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.692948",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.7481575012207031
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.691305",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.5986690521240234
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.689761",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.58746337890625
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.688316",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.7214546203613281
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.686749",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.5929470062255859
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.685281",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.5829334259033203
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.683477",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.5803108215332031
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.681908",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 0.6361007690429688
+      },
+      {
+        "timestamp": "2025-10-31T00:13:41.680204",
+        "endpoint": "/",
+        "method": "GET",
+        "status_code": 401,
+        "response_time_ms": 1.2707710266113281
+      }
+    ],
+    "database_performance": {
+      "connection_pool_info": "Monitoring active",
+      "query_performance_tracking": true,
+      "slow_query_threshold_ms": 1000,
+      "last_optimization_check": "2025-10-31T00:13:42.068847"
+    }
+  },
+  "performance_grade": "A+ (Excellent)"
+}
