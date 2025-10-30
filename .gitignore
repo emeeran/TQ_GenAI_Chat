@@ -1,5 +1,20 @@
 # TQ GenAI Chat - Git Ignore Rules
 
+
+local/
+trash2review/ 
+scripts/
+test/
+data/
+saves/
+exports/
+uploads/
+monitoring/
+
+saved_chats/
+
+
+
 # ============================================
 # Python
 # ============================================
