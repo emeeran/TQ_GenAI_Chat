@@ -1,0 +1,127 @@
+{
+  "timestamp": "2025-10-31T00:37:09.665884",
+  "total_providers": 13,
+  "successful_providers": 1,
+  "failed_providers": 12,
+  "no_key_providers": 0,
+  "results": {
+    "openai": {
+      "provider": "openai",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 1.2807137966156006,
+      "sample_response": null,
+      "error": "litellm.NotFoundError: OpenAIException - Project `proj_MuCjS15hmYUbapNZea3ybUo6` does not have access to model `gpt-3.5-turbo`",
+      "setup_url": "https://platform.openai.com/api-keys"
+    },
+    "anthropic": {
+      "provider": "anthropic",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.7023518085479736,
+      "sample_response": null,
+      "error": "litellm.AuthenticationError: AnthropicException - {\"error\":{\"message\":\"token expired or incorrect\",\"type\":\"401\"}}",
+      "setup_url": "https://console.anthropic.com/"
+    },
+    "groq": {
+      "provider": "groq",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.6052439212799072,
+      "sample_response": null,
+      "error": "litellm.BadRequestError: GroqException - {\"error\":{\"message\":\"Invalid API Key\",\"type\":\"invalid_request_error\",\"code\":\"invalid_api_key\"}}\n",
+      "setup_url": "https://console.groq.com/keys"
+    },
+    "mistral": {
+      "provider": "mistral",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.7754948139190674,
+      "sample_response": null,
+      "error": "litellm.AuthenticationError: AuthenticationError: MistralException - {\"detail\":\"Unauthorized\"}",
+      "setup_url": "https://console.mistral.ai/api-keys/"
+    },
+    "gemini": {
+      "provider": "gemini",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.763336181640625,
+      "sample_response": null,
+      "error": "litellm.BadRequestError: VertexAIException BadRequestError - {\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"API Key not found. Please pass a valid API key.\",\n    \"status\": \"INVALID_ARGUMENT\",\n    \"details\": [\n      {\n        \"@type\": \"type.googleapis.com/google.rpc.ErrorInfo\",\n        \"reason\": \"API_KEY_INVALID\",\n        \"domain\": \"googleapis.com\",\n        \"metadata\": {\n          \"service\": \"generativelanguage.googleapis.com\"\n        }\n      },\n      {\n        \"@type\": \"type.googleapis.com/google.rpc.LocalizedMessage\",\n        \"locale\": \"en-US\",\n        \"message\": \"API Key not found. Please pass a valid API key.\"\n      }\n    ]\n  }\n}\n",
+      "setup_url": "https://makersuite.google.com/app/apikey"
+    },
+    "cohere": {
+      "provider": "cohere",
+      "status": "success",
+      "api_key_valid": true,
+      "response_time": 1.4569916725158691,
+      "sample_response": "Hello! I'm Command, a large language model built by Cohere. I'm designed to assist with a wide range of language-based tasks and provide thorough, helpful responses. How can I assist you today?",
+      "model": "command-r",
+      "tokens_used": 60,
+      "error": null
+    },
+    "xai": {
+      "provider": "xai",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.784135103225708,
+      "sample_response": null,
+      "error": "litellm.RateLimitError: RateLimitError: XaiException - {\"code\":\"Some resource has been exhausted\",\"error\":\"Your team 5ead8dce-7ad7-4143-985b-5acf4cae53b8 has either used all available credits or reached its monthly spending limit. To continue making API requests, please purchase more credits or raise your spending limit.\"}",
+      "setup_url": "https://console.x.ai/"
+    },
+    "deepseek": {
+      "provider": "deepseek",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 1.1555378437042236,
+      "sample_response": null,
+      "error": "litellm.BadRequestError: DeepseekException - {\"error\":{\"message\":\"Insufficient Balance\",\"type\":\"unknown_error\",\"param\":null,\"code\":\"invalid_request_error\"}}",
+      "setup_url": "https://platform.deepseek.com/"
+    },
+    "alibaba": {
+      "provider": "alibaba",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.5095078945159912,
+      "sample_response": null,
+      "error": "litellm.APIConnectionError: OllamaException - {\"error\":\"model 'qwen-turbo' not found\"}",
+      "setup_url": "https://dashscope.aliyun.com/api"
+    },
+    "openrouter": {
+      "provider": "openrouter",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 2.3563766479492188,
+      "sample_response": null,
+      "error": "litellm.NotFoundError: NotFoundError: OpenrouterException - {\"error\":{\"message\":\"No endpoints found for meta-llama/llama-3.1-8b-instruct:free.\",\"code\":404},\"user_id\":\"user_2s0wJO1oMBDVRWnmNNfReMUwV21\"}",
+      "setup_url": "https://openrouter.ai/keys"
+    },
+    "huggingface": {
+      "provider": "huggingface",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.7952947616577148,
+      "sample_response": null,
+      "error": "litellm.BadRequestError: HuggingfaceException - {\"error\":{\"message\":\"The requested model 'microsoft/DialoGPT-medium' is not supported by any provider you have enabled.\",\"type\":\"invalid_request_error\",\"param\":\"model\",\"code\":\"model_not_supported\"}}",
+      "setup_url": "https://huggingface.co/settings/tokens"
+    },
+    "moonshot": {
+      "provider": "moonshot",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 1.8341689109802246,
+      "sample_response": null,
+      "error": "litellm.AuthenticationError: AuthenticationError: OpenAIException - Incorrect API key provided: sk-jinlG***************************************sl9Y. You can find your API key at https://platform.openai.com/account/api-keys.",
+      "setup_url": "https://platform.moonshot.cn/console/api-keys"
+    },
+    "perplexity": {
+      "provider": "perplexity",
+      "status": "error",
+      "api_key_valid": false,
+      "response_time": 0.8063640594482422,
+      "sample_response": null,
+      "error": "litellm.BadRequestError: PerplexityException - Invalid model 'llama-3.1-sonar-small-128k-online'. Permitted models can be found in the documentation at https://docs.perplexity.ai/getting-started/models.",
+      "setup_url": "https://www.perplexity.ai/settings/api"
+    }
+  }
+}

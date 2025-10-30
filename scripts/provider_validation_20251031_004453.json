@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-10-31T00:44:53.865582",
+  "total_providers": 1,
+  "successful_providers": 1,
+  "failed_providers": 0,
+  "no_key_providers": 0,
+  "results": {
+    "perplexity": {
+      "provider": "perplexity",
+      "status": "success",
+      "api_key_valid": true,
+      "response_time": 6.963012933731079,
+      "sample_response": "Hello! I\u2019m Perplexity, a helpful AI search assistant designed to provide concise, accurate answers to your questions. I\u2019m based on a large language model trained by Perplexity AI, optimized for research and information retrieval. How can I assist you today?",
+      "model": "perplexity/sonar-pro",
+      "tokens_used": 70,
+      "error": null
+    }
+  }
+}
