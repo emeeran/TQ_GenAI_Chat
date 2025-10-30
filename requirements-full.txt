@@ -1,0 +1,6 @@
+# TQ GenAI Chat - Complete Requirements
+# Install production requirements and development requirements
+# Usage: pip install -r requirements-full.txt
+
+-r requirements-prod.txt
+-r requirements-dev.txt

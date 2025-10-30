@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing optimized components...")
 
     # Initialize optimized document store
-    document_store = get_optimized_document_store(enable_async=True, pool_size=10)
+    document_store = get_optimized_document_store(pool_size=10)
 
     # Initialize load balancer
     load_balancer = get_load_balancer("response_time")

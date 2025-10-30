@@ -1,0 +1,65 @@
+# TQ GenAI Chat - Production Requirements (Optimized)
+# Minimal dependencies for production deployment
+
+# Core Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database & Caching
+redis==5.0.1
+
+# AI & ML Libraries (multi-provider support)
+litellm==1.51.0          # Unified interface for multiple AI providers
+anthropic==0.7.8         # Claude models
+openai>=1.52.0           # GPT models
+groq==0.4.1              # Fast inference
+
+# Document Processing (essential only)
+PyPDF2==3.0.1            # PDF reading
+python-docx==1.1.0       # Word documents
+openpyxl==3.1.2          # Excel files
+pandas==2.1.4            # Data processing
+
+# Image Processing
+Pillow==10.1.0           # Image handling
+
+# Async & Performance
+aiohttp==3.9.1           # Async HTTP client
+aiofiles==23.2.1         # Async file operations
+
+# Environment & Configuration
+python-dotenv==1.0.0     # Environment variables
+
+# API & Network
+httpx==0.25.2            # Modern HTTP client
+requests==2.31.0         # Legacy HTTP client (some providers need it)
+
+# Data Validation
+pydantic==2.5.0          # Data validation (required by FastAPI)
+
+# File Upload Support
+python-multipart==0.0.6  # Multipart form data
+
+# System Monitoring
+psutil==5.9.6            # System and process utilities
+
+# Authentication and Security
+passlib[bcrypt]==1.7.4           # Password hashing
+python-jose[cryptography]==3.3.0 # JWT tokens
+
+# Optional: Uncomment if you actively use these features
+# Audio Processing (TTS)
+# SpeechRecognition==3.10.0
+# pydub==0.25.1
+# gTTS==2.4.0
+
+# Optional: Uncomment if you use OCR
+# pytesseract==0.3.10
+# pdf2image==1.16.3
+
+# Optional: Uncomment if you use offline TTS
+# pyttsx3==2.90
+
+# File format detection
+python-magic==0.4.27
+chardet==5.2.0

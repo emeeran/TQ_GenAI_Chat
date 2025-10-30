@@ -1,0 +1,42 @@
+# TQ GenAI Chat - Development Requirements
+# Additional dependencies for development, testing, and code quality
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+
+# Code Quality & Formatting
+black==23.11.0           # Code formatter
+isort==5.12.0            # Import sorting
+mypy==1.7.1              # Type checking
+flake8==6.1.0            # Linting
+pylint==3.0.3            # Advanced linting
+
+# Browser Testing (only for development)
+selenium==4.15.2
+webdriver-manager==4.0.1
+
+# Documentation
+sphinx==7.2.6            # Documentation generator
+sphinx-rtd-theme==2.0.0  # ReadTheDocs theme
+
+# Debugging
+ipython==8.18.1          # Enhanced Python shell
+ipdb==0.13.13            # IPython debugger
+
+# Performance Profiling
+py-spy==0.3.14           # Sampling profiler
+memory-profiler==0.61.0  # Memory profiling
+
+# Optional: Advanced features for development
+# OCR (for testing file processing)
+# pytesseract==0.3.10
+# pdf2image==1.16.3
+
+# Offline TTS (for testing)
+# pyttsx3==2.90
+
+# Load testing
+# locust==2.17.0

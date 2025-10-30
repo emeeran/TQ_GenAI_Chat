@@ -23,7 +23,7 @@ async def get_models(
         default_model = models[0] if models else None
         return {"models": models, "default": default_model}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to get models")
+        raise HTTPException(status_code=500, detail="Failed to get models") from e
 
 
 @router.post("/update_models/{provider}")
@@ -45,7 +45,7 @@ async def update_models(
         new_models = fetch_provider_models(provider)
 
         if not new_models:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch models for {provider}")
+            raise ValueError(f"No models returned from {provider} API. Check API key or provider availability.")
 
         # Update the model manager
         model_manager.update_models(provider, new_models)
@@ -60,8 +60,17 @@ async def update_models(
             "count": len(new_models),
         }
 
+    except HTTPException:
+        # Re-raise HTTPException as-is
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        ) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update models: {str(e)}")
+        error_msg = str(e) if str(e) else f"Unknown error updating models for {provider}"
+        raise HTTPException(status_code=500, detail=f"Failed to update models: {error_msg}") from e
 
 
 @router.post("/set_default_model/{provider}")
@@ -77,7 +86,7 @@ async def set_default_model(
         # Verify model exists for provider
         if not model_manager.is_model_available(provider, model):
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Model {model} not available for {provider}"
             )
 
@@ -91,5 +100,8 @@ async def set_default_model(
             "model": model,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to set default model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to set default model: {str(e)}") from e
+
