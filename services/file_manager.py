@@ -8,6 +8,8 @@ import logging
 import os
 import re
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+from pathlib import Path
 
 from config.settings import ALLOWED_EXTENSIONS, EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
 
@@ -16,7 +18,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     handler.setFormatter(formatter)
 
 
@@ -34,29 +38,41 @@ def secure_filename(filename: str) -> str:
         A sanitized filename safe for use in filesystem operations
     """
     # Remove any non-ASCII characters
-    filename = filename.encode('ascii', 'ignore').decode('ascii')
+    filename = filename.encode("ascii", "ignore").decode("ascii")
 
     # Replace spaces and other separators with underscores
-    filename = re.sub(r'[^\w\s.-]', '', filename)
-    filename = re.sub(r'[-\s]+', '_', filename)
+    filename = re.sub(r"[^\w\s.-]", "", filename)
+    filename = re.sub(r"[-\s]+", "_", filename)
 
     # Remove leading/trailing dots and underscores
-    filename = filename.strip('._')
+    filename = filename.strip("._")
 
     # Ensure filename is not empty
     if not filename:
-        filename = 'unnamed_file'
+        filename = "unnamed_file"
 
     return filename
 
 
-
 class FileManager:
-    def get_document(self, filename: str):
+    """Service for managing file operations in the application"""
+
+    def __init__(self) -> None:
+        """Initialize the file manager with proper directory structure"""
+        self.upload_dir: Path = UPLOAD_DIR
+        self.save_dir: Path = SAVE_DIR
+        self.export_dir: Path = EXPORT_DIR
+        self._document_store: Optional[Any] = None
+
+        # Ensure all directories exist
+        for directory in [self.upload_dir, self.save_dir, self.export_dir]:
+            directory.mkdir(mode=0o755, parents=True, exist_ok=True)
+
+    def get_document(self, filename: str) -> Optional[Dict[str, Any]]:
         """Retrieve a document by filename (title)."""
         from core.document_store import DocumentStore
 
-        if not hasattr(self, "_document_store"):
+        if self._document_store is None:
             self._document_store = DocumentStore()
         # Search for document by title (filename)
         docs = self._document_store.search_documents(filename, limit=1)
@@ -69,13 +85,13 @@ class FileManager:
         filename: str,
         content: str,
         doc_type: str = "text",
-        metadata: dict = None,
-        user_id: str = None,
-    ):
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+    ) -> Optional[str]:
         """Add a document to the document store (proxy)."""
         from core.document_store import DocumentStore
 
-        if not hasattr(self, "_document_store"):
+        if self._document_store is None:
             self._document_store = DocumentStore()
         return self._document_store.add_document(
             content=content,
@@ -86,11 +102,11 @@ class FileManager:
             user_id=user_id,
         )
 
-    def search_documents(self, query, top_n=3):
+    def search_documents(self, query: str, top_n: int = 3) -> List[Dict[str, Any]]:
         """Proxy to DocumentStore.search_documents for context search."""
         from core.document_store import DocumentStore
 
-        if not hasattr(self, "_document_store"):
+        if self._document_store is None:
             self._document_store = DocumentStore()
         results = self._document_store.search_documents(query, limit=top_n)
         # Optionally add similarity score if not present
@@ -101,39 +117,33 @@ class FileManager:
                 r["filename"] = r["title"]
         return results
 
-    def get_all_documents(self, limit: int = None, offset: int = 0):
+    def get_all_documents(
+        self, limit: Optional[int] = None, offset: int = 0
+    ) -> List[Dict[str, Any]]:
         """Get all documents from document store"""
         from core.document_store import DocumentStore
 
-        if not hasattr(self, "_document_store"):
+        if self._document_store is None:
             self._document_store = DocumentStore()
         return self._document_store.get_all_documents(limit=limit, offset=offset)
 
-    def get_document_statistics(self):
+    def get_document_statistics(self) -> Dict[str, Any]:
         """Get document statistics"""
         from core.document_store import DocumentStore
 
-        if not hasattr(self, "_document_store"):
+        if self._document_store is None:
             self._document_store = DocumentStore()
         return self._document_store.get_statistics()
 
-    """Service for managing file operations in the application"""
-
-    def __init__(self):
-        """Initialize the file manager with proper directory structure"""
-        self.upload_dir = UPLOAD_DIR
-        self.save_dir = SAVE_DIR
-        self.export_dir = EXPORT_DIR
-
-        # Ensure all directories exist
-        for directory in [self.upload_dir, self.save_dir, self.export_dir]:
-            directory.mkdir(mode=0o755, parents=True, exist_ok=True)
-
     def allowed_file(self, filename: str) -> bool:
         """Check if a file has an allowed extension"""
-        return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+        return (
+            "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+        )
 
-    def save_uploaded_file(self, file, custom_filename: str | None = None) -> str:
+    def save_uploaded_file(
+        self, file: Any, custom_filename: Optional[str] = None
+    ) -> str:
         """Save an uploaded file to the upload directory with secure naming"""
         if not file:
             raise ValueError("No file provided")
@@ -149,7 +159,9 @@ class FileManager:
 
         # Use custom filename if provided, otherwise use timestamp + original
         if custom_filename:
-            filename = f"{secure_filename(custom_filename)}_{int(datetime.now().timestamp())}"
+            filename = (
+                f"{secure_filename(custom_filename)}_{int(datetime.now().timestamp())}"
+            )
             # Preserve original extension
             if "." in original_filename:
                 filename += f".{original_filename.rsplit('.', 1)[1].lower()}"
@@ -163,7 +175,7 @@ class FileManager:
 
         return filepath
 
-    def save_chat_history(self, chat_data: dict) -> str:
+    def save_chat_history(self, chat_data: Dict[str, Any]) -> str:
         """Save chat history to a JSON file"""
         if not chat_data:
             raise ValueError("No chat data provided")
@@ -180,7 +192,7 @@ class FileManager:
         logger.info(f"Saved chat history: {filepath}")
         return filepath
 
-    def export_chat(self, chat_data: dict, export_format: str = "md") -> str:
+    def export_chat(self, chat_data: Dict[str, Any], export_format: str = "md") -> str:
         """Export chat to a specific format (markdown, text, etc.)"""
         if not chat_data:
             raise ValueError("No chat data provided")
@@ -209,12 +221,14 @@ class FileManager:
         logger.info(f"Exported chat: {filepath}")
         return filepath
 
-    def _export_to_markdown(self, chat_data: dict, filepath: str) -> None:
+    def _export_to_markdown(self, chat_data: Dict[str, Any], filepath: str) -> None:
         """Export chat data to markdown format with clean formatting"""
         with open(filepath, "w", encoding="utf-8") as f:
             # Write header with proper metadata
             title = chat_data.get("title", "Chat Export")
-            timestamp = chat_data.get("timestamp", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            timestamp = chat_data.get(
+                "timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
 
             f.write(f"# {title}\n\n")
             f.write(f"**Exported:** {timestamp}\n")
@@ -237,6 +251,7 @@ class FileManager:
                     # Handle string representation of dict
                     try:
                         import ast
+
                         content_dict = ast.literal_eval(content)
                         if isinstance(content_dict, dict) and "text" in content_dict:
                             content = content_dict["text"]
@@ -249,7 +264,11 @@ class FileManager:
                             if end_idx > start_idx:
                                 content = content[start_idx:end_idx]
                                 # Unescape common escape sequences
-                                content = content.replace('\\n', '\n').replace('\\"', '"').replace("\\u202f", " ")
+                                content = (
+                                    content.replace("\\n", "\n")
+                                    .replace('\\"', '"')
+                                    .replace("\\u202f", " ")
+                                )
 
                 # Format based on role
                 if role == "user":
@@ -270,13 +289,15 @@ class FileManager:
             f.write("---\n\n")
             f.write("*This conversation was exported from TQ GenAI Chat*\n")
 
-    def _export_to_text(self, chat_data: dict, filepath: str) -> None:
+    def _export_to_text(self, chat_data: Dict[str, Any], filepath: str) -> None:
         """Export chat data to plain text format with clean formatting"""
         with open(filepath, "w", encoding="utf-8") as f:
             # Write header
             title = chat_data.get("title", "Chat Export")
-            timestamp = chat_data.get("timestamp", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            
+            timestamp = chat_data.get(
+                "timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+
             f.write(f"{title}\n")
             f.write("=" * len(title) + "\n\n")
             f.write(f"Exported: {timestamp}\n")
@@ -287,7 +308,7 @@ class FileManager:
             for msg in chat_data.get("messages", []):
                 role = msg.get("role", "unknown")
                 content = msg.get("content", "")
-                
+
                 # Clean up content if it's a response object (same logic as markdown)
                 if isinstance(content, dict):
                     if "text" in content:
@@ -297,6 +318,7 @@ class FileManager:
                 elif isinstance(content, str) and content.startswith("{'text':"):
                     try:
                         import ast
+
                         content_dict = ast.literal_eval(content)
                         if isinstance(content_dict, dict) and "text" in content_dict:
                             content = content_dict["text"]
@@ -306,7 +328,11 @@ class FileManager:
                             end_idx = content.find("\", 'metadata':")
                             if end_idx > start_idx:
                                 content = content[start_idx:end_idx]
-                                content = content.replace('\\n', '\n').replace('\\"', '"').replace("\\u202f", " ")
+                                content = (
+                                    content.replace("\\n", "\n")
+                                    .replace('\\"', '"')
+                                    .replace("\\u202f", " ")
+                                )
 
                 if role == "user":
                     f.write(f"👤 USER:\n{content}\n\n{'-' * 50}\n\n")
@@ -316,13 +342,13 @@ class FileManager:
                     f.write(f"⚙️ SYSTEM:\n{content}\n\n{'-' * 50}\n\n")
                 else:
                     f.write(f"{role.upper()}:\n{content}\n\n{'-' * 50}\n\n")
-            
+
             # Add footer
             f.write("\nThis conversation was exported from TQ GenAI Chat\n")
 
-    def get_saved_chats(self) -> list[dict]:
+    def get_saved_chats(self) -> List[Dict[str, Any]]:
         """Get list of saved chat files with metadata"""
-        chats = []
+        chats: List[Dict[str, Any]] = []
 
         for item in self.save_dir.glob("chat_*.json"):
             if item.is_file():
@@ -337,7 +363,9 @@ class FileManager:
                         {
                             "filename": item.name,
                             "path": str(item),
-                            "created": datetime.fromtimestamp(item.stat().st_ctime).isoformat(),
+                            "created": datetime.fromtimestamp(
+                                item.stat().st_ctime
+                            ).isoformat(),
                             "title": chat_data.get("title", item.name),
                             "message_count": len(chat_data.get("messages", [])),
                         }
@@ -349,7 +377,7 @@ class FileManager:
         chats.sort(key=lambda x: x["created"], reverse=True)
         return chats
 
-    def load_chat_history(self, filename: str) -> dict:
+    def load_chat_history(self, filename: str) -> Dict[str, Any]:
         """Load a specific chat file"""
         # Sanitize filename for security
         filename = secure_filename(filename)

@@ -18,9 +18,12 @@ from fastapi.templating import Jinja2Templates
 from app.dependencies import get_file_manager
 from app.routers import auth, chat, documents, files, models, tts
 from config.settings import EXPORT_DIR, SAVE_DIR, UPLOAD_DIR
-from core.pipeline import get_pipeline_orchestrator
-from core.optimized.optimized_document_store import get_optimized_document_store
 from core.load_balancing.load_balancer import get_load_balancer
+from core.optimized.optimized_document_store import get_optimized_document_store
+from core.pipeline import get_pipeline_orchestrator
+from middleware.performance_middleware import PerformanceTrackingMiddleware
+from middleware.caching_middleware import CachingMiddleware, ResourceHintsMiddleware
+from monitoring.performance_monitor import start_performance_monitoring
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +56,11 @@ async def lifespan(app: FastAPI):
         "context_gathering": {"max_context_documents": 5, "context_ttl": 3600},
         "provider_selection": {"fallback_enabled": True, "max_providers": 3},
         "response_generation": {"timeout": 30.0, "parallel_execution": True},
-        "response_processing": {"response_validation_enabled": True, "caching_enabled": True},
-        "document_store": document_store
+        "response_processing": {
+            "response_validation_enabled": True,
+            "caching_enabled": True,
+        },
+        "document_store": document_store,
     }
     pipeline_orchestrator = get_pipeline_orchestrator(pipeline_config)
 
@@ -63,7 +69,14 @@ async def lifespan(app: FastAPI):
     app.state.load_balancer = load_balancer
     app.state.pipeline_orchestrator = pipeline_orchestrator
 
-    logger.info("FastAPI GenAI Chat application with five-stage pipeline starting up...")
+    # Start zero-risk performance monitoring
+    logger.info("Starting zero-risk performance monitoring...")
+    start_performance_monitoring()
+
+    logger.info(
+        "FastAPI GenAI Chat application with five-stage pipeline and performance monitoring "
+        "starting up..."
+    )
 
     yield
 
@@ -71,10 +84,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down optimized components...")
 
     # Cleanup components
-    if hasattr(app.state, 'load_balancer'):
+    if hasattr(app.state, "load_balancer"):
         await app.state.load_balancer.stop()
 
-    if hasattr(app.state, 'document_store'):
+    if hasattr(app.state, "document_store"):
         app.state.document_store.close()
 
     logger.info("FastAPI GenAI Chat application shutting down...")
@@ -85,7 +98,7 @@ app = FastAPI(
     title="TQ GenAI Chat",
     description="Multi-provider GenAI chat application with advanced file processing",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -96,6 +109,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add zero-risk caching middleware (before performance tracking to cache all responses)
+app.add_middleware(CachingMiddleware)
+app.add_middleware(ResourceHintsMiddleware)
+
+# Add zero-risk performance tracking middleware
+app.add_middleware(PerformanceTrackingMiddleware)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -121,7 +141,6 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Enhanced health check endpoint with pipeline metrics"""
-    from fastapi import Request
 
     # Get file manager
     file_manager = await get_file_manager()
@@ -131,37 +150,47 @@ async def health_check():
         "status": "healthy",
         "framework": "FastAPI",
         "providers": [
-            "openai", "groq", "anthropic", "mistral", "gemini",
-            "cohere", "xai", "deepseek", "alibaba", "openrouter",
-            "huggingface", "moonshot", "perplexity"
+            "openai",
+            "groq",
+            "anthropic",
+            "mistral",
+            "gemini",
+            "cohere",
+            "xai",
+            "deepseek",
+            "alibaba",
+            "openrouter",
+            "huggingface",
+            "moonshot",
+            "perplexity",
         ],
         "documents": getattr(file_manager, "total_documents", 0),
     }
 
     # Add pipeline metrics if available
-    if hasattr(app.state, 'pipeline_orchestrator'):
+    if hasattr(app.state, "pipeline_orchestrator"):
         pipeline_metrics = app.state.pipeline_orchestrator.get_pipeline_metrics()
         health_info["pipeline"] = pipeline_metrics
 
     # Add load balancer metrics if available
-    if hasattr(app.state, 'load_balancer'):
+    if hasattr(app.state, "load_balancer"):
         lb_stats = app.state.load_balancer.get_statistics()
         health_info["load_balancer"] = {
             "strategy": lb_stats["strategy"],
             "healthy_instances": lb_stats["healthy_instances"],
             "total_requests": lb_stats["total_requests"],
             "error_rate": lb_stats["error_rate"],
-            "average_response_time": lb_stats["average_response_time"]
+            "average_response_time": lb_stats["average_response_time"],
         }
 
     # Add document store metrics if available
-    if hasattr(app.state, 'document_store'):
+    if hasattr(app.state, "document_store"):
         try:
             doc_stats = await app.state.document_store.get_document_statistics_async()
             health_info["document_store"] = {
                 "total_documents": doc_stats.get("total_documents", 0),
                 "recent_documents": doc_stats.get("recent_documents", 0),
-                "total_size_bytes": doc_stats.get("total_size_bytes", 0)
+                "total_size_bytes": doc_stats.get("total_size_bytes", 0),
             }
         except Exception as e:
             logger.warning(f"Failed to get document store stats: {e}")
@@ -169,12 +198,25 @@ async def health_check():
     return health_info
 
 
+@app.get("/metrics")
+async def performance_metrics():
+    """
+    Zero-risk performance metrics endpoint.
+    Provides comprehensive performance data without affecting application functionality.
+    """
+    from monitoring.performance_monitor import get_performance_monitor
+
+    monitor = get_performance_monitor()
+    performance_summary = monitor.get_performance_summary()
+
+    # Add database performance info
+    db_performance = monitor.get_database_performance_info()
+    performance_summary["database_performance"] = db_performance
+
+    return performance_summary
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=5005,
-        reload=True,
-        log_level="info"
-    )
+
+    uvicorn.run("main:app", host="127.0.0.1", port=5005, reload=True, log_level="info")
