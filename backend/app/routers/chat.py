@@ -4,7 +4,6 @@ Chat routes for FastAPI application.
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasicCredentials
-from fastapi.templating import Jinja2Templates
 
 from app.dependencies import get_file_manager
 from app.models.requests import ChatRequest, SearchContextRequest
@@ -14,13 +13,8 @@ from core.chat_handler import create_chat_handler
 from persona import PERSONAS
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
 
 
-@router.get("/")
-async def index(request: Request, _: HTTPBasicCredentials = Depends(require_auth)):
-    """Main chat interface"""
-    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @router.post("/chat", response_model=ChatResponse)

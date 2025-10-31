@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TQ GenAI Chat</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="header-left">
+                <h1><i class="fas fa-robot"></i> TQ GenAI Chat</h1>
+                <span class="status" id="connectionStatus">
+                    <i class="fas fa-circle"></i> Connecting...
+                </span>
+            </div>
+            <div class="header-right">
+                <button class="clear-btn" id="clearChat">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Provider Selection -->
+        <div class="provider-section">
+            <div class="provider-controls">
+                <select id="providerSelect" class="provider-select">
+                    <option value="">Select AI Provider...</option>
+                    <option value="cohere" data-model="command-r">Cohere (Command-R)</option>
+                    <option value="openrouter" data-model="meta-llama/llama-3.2-3b-instruct:free">OpenRouter (Llama 3.2 3B)</option>
+                    <option value="perplexity" data-model="sonar-pro">Perplexity (Sonar Pro)</option>
+                    <option value="alibaba" data-model="gemma3">Alibaba Ollama (Gemma 3)</option>
+                </select>
+
+                <div class="model-info" id="modelInfo" style="display: none;">
+                    <i class="fas fa-info-circle"></i>
+                    <span id="modelDetails"></span>
+                </div>
+            </div>
+
+            <!-- Advanced Settings -->
+            <div class="advanced-settings" id="advancedSettings" style="display: none;">
+                <div class="setting-row">
+                    <label for="temperature">Temperature:</label>
+                    <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.7" class="slider">
+                    <span id="tempValue">0.7</span>
+                </div>
+                <div class="setting-row">
+                    <label for="maxTokens">Max Tokens:</label>
+                    <input type="number" id="maxTokens" min="100" max="4000" value="1000" class="number-input">
+                </div>
+            </div>
+
+            <button class="settings-toggle" id="settingsToggle">
+                <i class="fas fa-cog"></i> Settings
+            </button>
+        </div>
+
+        <!-- Chat Messages -->
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-message">
+                <i class="fas fa-hand-wave"></i>
+                <h2>Welcome to TQ GenAI Chat</h2>
+                <p>Select an AI provider above and start chatting! Choose from:</p>
+                <ul>
+                    <li><strong>Cohere</strong> - Fast and reliable (1.05s avg)</li>
+                    <li><strong>OpenRouter</strong> - Free Llama 3.2 access (8.66s avg)</li>
+                    <li><strong>Perplexity</strong> - Search-enhanced AI (3.32s avg)</li>
+                    <li><strong>Alibaba Ollama</strong> - Local private AI (3.14s avg)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Message Input -->
+        <div class="chat-input-container">
+            <div class="input-wrapper">
+                <textarea
+                    id="messageInput"
+                    class="message-input"
+                    placeholder="Type your message here... (Shift+Enter for new line)"
+                    rows="1"
+                    disabled
+                ></textarea>
+                <button id="sendButton" class="send-button" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="input-info">
+                <span id="charCount">0</span> characters • Press Enter to send
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Thinking...</span>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div class="modal" id="errorModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="modalOK">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

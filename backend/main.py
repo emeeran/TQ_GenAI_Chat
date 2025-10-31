@@ -16,7 +16,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -123,12 +123,11 @@ app.add_middleware(ResourceHintsMiddleware)
 # Add zero-risk performance tracking middleware
 app.add_middleware(PerformanceTrackingMiddleware)
 
-# Mount static files and templates from frontend directory
-frontend_path = backend_path.parent / "frontend"
-app.mount("/static", StaticFiles(directory=str(frontend_path / "static")), name="static")
+# Mount static files and templates from backend directory
+app.mount("/static", StaticFiles(directory=str(backend_path / "static")), name="static")
 
 # Setup templates
-templates = Jinja2Templates(directory=str(frontend_path / "templates"))
+templates = Jinja2Templates(directory=str(backend_path / "templates"))
 
 # Include routers
 app.include_router(auth.router, prefix="", tags=["Authentication"])
@@ -140,9 +139,47 @@ app.include_router(tts.router, prefix="/tts", tags=["Text-to-Speech"])
 
 
 @app.get("/")
-async def index():
-    """Main chat interface - redirect to login or chat"""
-    return {"message": "TQ GenAI Chat - FastAPI Version (Reorganized)"}
+async def index(request: Request):
+    """Main chat interface - serve the original UI with basic auth"""
+    from fastapi import HTTPException, status
+    from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+    # Check for basic auth
+    try:
+        from app.routers.auth import BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD, verify_credentials
+
+        auth_header = request.headers.get("authorization")
+        if not auth_header or not auth_header.startswith("Basic "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Basic authentication required",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+
+        import base64
+        try:
+            decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+            username, password = decoded.split(":", 1)
+            credentials = HTTPBasicCredentials(username=username, password=password)
+
+            if not verify_credentials(credentials):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication credentials",
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication format",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+
+    except ImportError:
+        # If auth module not available, serve without auth
+        pass
+
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/health")
